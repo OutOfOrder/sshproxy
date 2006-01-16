@@ -1,0 +1,28 @@
+SFTP:
+-----
+
+The problem with proxying sftp is that the openssh client doesn't allow an sftp back-connection. For example:
+
+The client (C) wants to connect to serveur (S) passing through the proxy (P):
+
+    user@Client ~ $ ssh -p 2242 user@Proxy Server
+
+Then C wants to open an sftp channel to copy some files from C to S. It hits a special key-combination to open an sftp console, which instructs the proxy to create an sftp channel.
+The proxy can open a channel on the P->S connection without any problem.
+But the proxy cannot open the channel on the P->C side of the connection, because the ssh client on C will forbid it (for security reasons).
+
+
+Solution 1:
+
+The client opens itself an sftp or NFS or FTP connection to the proxy to push files inside a directory owned and controlled by the sshproxy.
+
+Solution 2:
+
+The proxy could open another connection from P to C, to open an sftp channel.
+That solution would not pass most firewalls.
+
+Solution 3:
+
+We can develop an ssh client based on libssh that would be able to accept back-connections for sftp channel comming from sshproxy (beware of security implications here!)
+
+
