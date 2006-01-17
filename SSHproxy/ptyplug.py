@@ -1,5 +1,5 @@
 
-import sys, os, select, pty
+import sys, os, select, pty, traceback
 
 
 def pty_run(chan, code, *args, **kwargs):
@@ -27,10 +27,9 @@ def pty_run(chan, code, *args, **kwargs):
         os.close(cin)
         try:
             code(*args, **kwargs)
-        except e:
-            # TODO: handle traceback
-            chan.send('*** accept failed: %s\n' % str(e))
-            chan.send(traceback.format_exc())
+        except Exception, e:
+            print '*** function %s: %s\n' % (code.__name__, str(e))
+            print traceback.format_exc()
             pass
         os.write(cout, ' ') # stop
         os.close(cout)

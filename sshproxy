@@ -184,10 +184,10 @@ def service_client(client, addr, host_key_file):
         return
 
     from SSHproxy.console import Console as Console
-    def _code(*args, **kwargs):
+    def PtyConsole(*args, **kwargs):
         Console(*args, **kwargs).cmdloop()
     from SSHproxy.ptyplug import pty_run
-    pty_run(chan, _code, sitedata=sitedata)
+    pty_run(chan, PtyConsole, sitedata=sitedata)
 
 #    chan.send("plop\n")
 
