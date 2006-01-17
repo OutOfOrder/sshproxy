@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 16, 18:29:45 by david
+# Last modified: 2006 jan 17, 18:34:50 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -22,11 +22,24 @@
 
 # Imports from Python
 from cmd import Cmd
+import cmd
+
+def rwinput(prompt):
+    while 1:
+        try:
+            return raw_input(prompt)
+        except KeyboardInterrupt:
+            print
+            continue
+        break
+
+cmd.raw_input = rwinput
 
 class Console(Cmd):
     def __init__(self, sitedata, stdin=None, stdout=None):
         self.sitedata = sitedata
         Cmd.__init__(self, stdin=stdin, stdout=stdout)
+        self.prompt = '[admin] '
 
     def do_foo(self, arg):
         self.stdout.write("foo(%s)\n" % arg)
@@ -37,3 +50,33 @@ class Console(Cmd):
         
     def do_EOF(self, arg):
         return True
+
+    def emptyline(self):
+        return
+
+    def do_echo(self, arg):
+        import socket, sys
+        self.stdout.write('%s\n' % arg)
+        self.chan = self.stdout
+    #    self.chan = socket.fromfd(sys.stdout.fileno(), socket.AF_UNIX, socket.SOCK_STREAM)
+        self.chan.write('%s\n' % arg)
+
+    def do_connect(self, arg):
+        import proxy
+        from pwdb import MySQLPwDB
+        import copy
+        pwdb = MySQLPwDB()
+        sitedata = copy.copy(self.sitedata)
+        
+        sitedata.sitename = arg
+        sitedata.hostkey  = None
+        user, site = pwdb.get_site(sitedata.sitename)
+        sitedata.hostname = site.ip_address
+        sitedata.port = site.port
+        sitedata.username = user
+        sitedata.password = site.users[user].password
+
+        proxy.ProxyClient(self.sitedata.chan, sitedata).proxyloop()
+        
+
+

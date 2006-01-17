@@ -53,6 +53,7 @@ class DBConsole(cmd.Cmd):
     def __init__(self):
         self.current_site = None
         cmd.Cmd.__init__(self)
+        self.prompt = '[pwdb manager] '
 
     def do_select_site(self, arg):
         """select_site [sitename]"""

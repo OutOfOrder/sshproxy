@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 17, 15:20:16 by david
+# Last modified: 2006 jan 17, 17:36:46 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -21,9 +21,18 @@
 
 
 # Imports from Python
-from hooks import *
-import pwdb
+from pwdb import MySQLPwDB
+from util import SSHError
 
-pwdb = pwdb.MySQLPwDB()
+class UserData(object):
+    def __init__(self, username, password):
+        self.username = username
+        self.pwdb = MySQLPwDB()
+        if not self.pwdb.is_allowed(username=username, password=password):
+            raise 
 
-from util import FreeStructure
+class SiteData(object):
+    def __init__(self, userdata, sitename):
+        self.sitename = sitename
+        
+

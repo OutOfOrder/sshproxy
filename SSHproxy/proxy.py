@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 16, 15:13:27 by david
+# Last modified: 2006 jan 17, 15:12:01 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -26,6 +26,7 @@ import sys, os, traceback, select, socket, fcntl
 import paramiko
 
 import SSHproxy
+from SSHproxy import keys as key
 
 
 class Logger(object):
@@ -93,6 +94,7 @@ class Logger(object):
 oldtty = None
 def set_term(term):
     global oldtty
+    return 
     if oldtty:
         return
     try:
@@ -106,25 +108,41 @@ def set_term(term):
 
 def reset_term(term):
     global oldtty
+    return 
     if oldtty:
         termios.tcsetattr(term, termios.TCSADRAIN, oldtty)
     mode = fcntl.fcntl(term, fcntl.F_GETFL)
     fcntl.fcntl(term, fcntl.F_SETFL, mode & ~os.O_NDELAY)
     oldtty = None
 
+class ProxyClient(object):
+    def __init__(self, client, sitedata):
+        self.client = client
+        self.sitedata = sitedata
+        self.logger = Logger(logfile=open("sshproxy-session.log", "a"))
+        self.logger.write("Connect to %s@%s by %s\n" % (sitedata.username, sitedata.hostname, sitedata.login))
 
-def connect_to_remote(client, sitedata):
-    logger = Logger(logfile=open("sshproxy-session.log", "a"))
-    logger.write("Connect to %s@%s by %s\n" % (sitedata.username, sitedata.hostname, sitedata.login))
-    try:
-        t = paramiko.Transport((sitedata.hostname, sitedata.port))
-        t.set_log_channel("sshproxy.client")
-        t.set_hexdump(1)
-        t.connect(username=sitedata.username, password=sitedata.password, hostkey=sitedata.hostkey)
-        chan = t.open_session()
-        chan.get_pty(sitedata.term, sitedata.width, sitedata.height)
-        chan.invoke_shell()
-    
+        try:
+            self.transport = paramiko.Transport((sitedata.hostname, sitedata.port))
+            self.transport.set_log_channel("sshproxy.client")
+            self.transport.set_hexdump(1)
+            self.transport.connect(username=sitedata.username, password=sitedata.password, hostkey=sitedata.hostkey)
+            self.chan = self.transport.open_session()
+            self.chan.get_pty(sitedata.term, sitedata.width, sitedata.height)
+            self.chan.invoke_shell()
+        except Exception, e:
+            print '*** Caught exception: %s: %s' % (e.__class__, e)
+            traceback.print_exc()
+            try:
+                self.transport.close()
+            except:
+                pass
+
+    def proxyloop(self):
+        t = self.transport
+        chan = self.chan
+        client = self.client
+        sitedata = self.sitedata
         try:
             set_term(client)
             chan.settimeout(0.0)
@@ -133,7 +151,13 @@ def connect_to_remote(client, sitedata):
 #            fd = logger.set_passthru(fd)
     
             while t.is_active() and client.active:
-                r, w, e = select.select([chan, fd], [], [], 0.2)
+                try:
+                    r, w, e = select.select([chan, fd], [], [], 0.2)
+                except select.error, e:
+                    # this happens sometimes when returning from console
+                    print '*** Caught exception: %s: %s' % (e.__class__, e)
+                    traceback.print_exc()
+                    continue
                 if chan in r:
                     try:
                         x = chan.recv(1024)
@@ -152,22 +176,18 @@ def connect_to_remote(client, sitedata):
                         fd.send("\n")
                         break
                     #SSHproxy.call_hooks('filter-console', fd, chan, sitedata, x)
-                    if ord(x[0]) == 0x19: # CTRL-Y
-                        fd.send('CTRL-Y hit\r\n')
+                    #if ord(x[0]) < 0x20:
+                    #    fd.send('ctrl char: %s\r\n' % ' '.join([
+                    #                    '%02x' % ord(c) for c in x ]))
+                    if x == key.SHFTAB:
                         #import sftp
                         #sftp.open_channel(client.transport)
                         from console import Console as Console
-                        #reset_term(client)
-                        client.settimeout(None)
                         def _code(*args, **kwargs):
                             Console(*args, **kwargs).cmdloop()
-                        from ptyplug import pty_run
+                        from util import pty_run
                         pty_run(client, _code, sitedata=sitedata)
-                        #chan.send('\n')
-                        fd.send('plopplop\n')
-                        #pty_run(client, _code, sitedata=sitedata)
-                        client.settimeout(0.0)
-                        fd.send("plop")
+                        chan.send('\n')
                         continue
                         #set_term(client)
                     if ord(x[0]) == 0x0b: # CTRL-K
@@ -177,29 +197,18 @@ def connect_to_remote(client, sitedata):
                         name = fd.makefile('rU').readline().strip()
                         client.settimeout(0.0)
                         set_term(client)
-                        print "before call_hooks", len(SSHproxy.hooks['console'])
                         SSHproxy.call_hooks('console', fd, chan, name, sitedata)
-                        print "after call_hooks"
                         continue
                     chan.send(x)
-    #            if not chan.active:
-    #                break
     
         finally:
             reset_term(client)
             
     
-        chan.close()
-        t.close()
-    
-    except Exception, e:
-        print '*** Caught exception: %s: %s' % (e.__class__, e)
-        traceback.print_exc()
-        try:
-            t.close()
-        except:
-            pass
-        sys.exit(1)
+    def __del__(self):
+        self.chan.close()
+
+
     
     
 

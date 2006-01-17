@@ -456,10 +456,10 @@ class MySQLPwDB(simple.SimplePwDB):
                 return None, None
             user = user[0]
             users.close()
-        if not self.can_connect(user, sid):
-            print 'User \'%s\' is not allowed to connect to \'%s\'' % (user,
-                                                                       sid)
-            return None, None
+#        if not self.can_connect(user, sid):
+#            print 'User \'%s\' is not allowed to connect to \'%s\'' % (user,
+#                                                                       sid)
+#            return None, None
         return self.sites[sid].default_user(), self.sites[sid]
 
     def can_connect(self, user, site):
