@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 17, 15:12:01 by david
+# Last modified: 2006 Jan 18, 00:46:47 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -26,7 +26,8 @@ import sys, os, traceback, select, socket, fcntl
 import paramiko
 
 import SSHproxy
-from SSHproxy import keys as key
+import keys as key
+import util
 
 
 class Logger(object):
@@ -175,6 +176,8 @@ class ProxyClient(object):
                         print '*** Bye.\r\n',
                         fd.send("\n")
                         break
+                    if x == key.CTRL_X:
+                        return util.SUSPEND
                     #SSHproxy.call_hooks('filter-console', fd, chan, sitedata, x)
                     #if ord(x[0]) < 0x20:
                     #    fd.send('ctrl char: %s\r\n' % ' '.join([
@@ -185,8 +188,10 @@ class ProxyClient(object):
                         from console import Console as Console
                         def _code(*args, **kwargs):
                             Console(*args, **kwargs).cmdloop()
-                        from util import pty_run
-                        pty_run(client, _code, sitedata=sitedata)
+                        from util import PTYWrapper
+                        from message import Message
+                        msg = Message()
+                        PTYWrapper(client, _code, msg, sitedata=sitedata).loop()
                         chan.send('\n')
                         continue
                         #set_term(client)
@@ -203,6 +208,8 @@ class ProxyClient(object):
     
         finally:
             reset_term(client)
+
+        return util.CLOSE
             
     
     def __del__(self):

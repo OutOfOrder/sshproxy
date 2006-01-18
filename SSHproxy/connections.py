@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 17, 17:36:46 by david
+# Last modified: 2006 Jan 18, 00:33:33 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -22,14 +22,14 @@
 
 # Imports from Python
 from pwdb import MySQLPwDB
-from util import SSHError
+from util import SSHProxyError
 
 class UserData(object):
     def __init__(self, username, password):
         self.username = username
         self.pwdb = MySQLPwDB()
         if not self.pwdb.is_allowed(username=username, password=password):
-            raise 
+            raise SSHProxyError("Invalid authentication")
 
 class SiteData(object):
     def __init__(self, userdata, sitename):
