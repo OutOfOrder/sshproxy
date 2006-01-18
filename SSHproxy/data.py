@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 18, 00:33:33 by david
+# Last modified: 2006 Jan 18, 01:18:02 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -25,14 +25,38 @@ from pwdb import MySQLPwDB
 from util import SSHProxyError
 
 class UserData(object):
-    def __init__(self, username, password):
-        self.username = username
+    def __init__(self):
         self.pwdb = MySQLPwDB()
-        if not self.pwdb.is_allowed(username=username, password=password):
-            raise SSHProxyError("Invalid authentication")
+
+    def valid_auth(self, username, password=None, key=None):
+        if not self.pwdb.is_allowed(username=username,
+                                    password=password,
+                                    key=key):
+            return False
+        else:
+            self.username = username
+            return True
+
+    def is_authenticated(self):
+        return hasattr(self, 'username')
+        
 
 class SiteData(object):
     def __init__(self, userdata, sitename):
-        self.sitename = sitename
+        self.userdata = userdata
+
+        user, site = userdata.pwdb.get_site(sitename)
+
+        if not site:
+            raise SSHProxyError("Site %s does not exist in the database" % sitename)
+        self.sitename = site.sid
+        self.username = user
+
+        self.hostname = site.ip_address
+        self.port = site.port
+
+        self.sitedata = site
+        self.password = site.users[user].password
+    
         
 
