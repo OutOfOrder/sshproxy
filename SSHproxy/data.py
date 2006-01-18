@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 18, 01:18:02 by david
+# Last modified: 2006 Jan 18, 02:04:15 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -27,6 +27,8 @@ from util import SSHProxyError
 class UserData(object):
     def __init__(self):
         self.pwdb = MySQLPwDB()
+        self.sitelist = []
+        self.sitedict = {}
 
     def valid_auth(self, username, password=None, key=None):
         if not self.pwdb.is_allowed(username=username,
@@ -40,6 +42,27 @@ class UserData(object):
     def is_authenticated(self):
         return hasattr(self, 'username')
         
+    def set_channel(self, channel):
+        self.channel = channel
+
+    def add_site(self, sitename):
+        sitedata = SiteData(self, sitename)
+        self.sitedict[sitedata.sitename] = sitedata
+        self.sitelist.append(sitedata.sitename)
+
+    def get_site(self, sitename=None):
+        if not sitename:
+            if len(self.sitelist):
+                return self.sitedict[self.sitelist[0]]
+            else:
+                return None
+        elif sitename in self.sitelist:
+            return self.sitedict[sitename]
+        else:
+            return None
+
+    def list_sites(self):
+        return self.sitelist
 
 class SiteData(object):
     def __init__(self, userdata, sitename):
@@ -54,9 +77,15 @@ class SiteData(object):
 
         self.hostname = site.ip_address
         self.port = site.port
+        # TODO: check the hostkey (add a column in mysql.sshproxy.site)
+        self.hostkey = None
 
         self.sitedata = site
         self.password = site.users[user].password
+
+        self.cmdline = None
     
-        
+    def set_cmdline(self, cmdline):
+        self.cmdline = cmdline
+
 

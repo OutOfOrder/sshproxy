@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 17, 23:40:50 by david
+# Last modified: 2006 Jan 18, 02:09:10 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -36,9 +36,8 @@ def rwinput(prompt):
 cmd.raw_input = rwinput
 
 class Console(Cmd):
-    def __init__(self, ctrlfd, sitedata, stdin=None, stdout=None):
+    def __init__(self, ctrlfd, stdin=None, stdout=None):
         self.ctrlfd = ctrlfd
-        self.sitedata = sitedata
         Cmd.__init__(self, stdin=stdin, stdout=stdout)
         self.prompt = '[admin] '
 
@@ -67,23 +66,3 @@ class Console(Cmd):
         self.ctrlfd.setblocking()
         self.ctrlfd.read()
         return
-        import os
-        os.write(self.ctrlfd, 'connect '+arg)
-        import proxy
-        from pwdb import MySQLPwDB
-        import copy
-        pwdb = MySQLPwDB()
-        sitedata = copy.copy(self.sitedata)
-        
-        sitedata.sitename = arg
-        sitedata.hostkey  = None
-        user, site = pwdb.get_site(sitedata.sitename)
-        sitedata.hostname = site.ip_address
-        sitedata.port = site.port
-        sitedata.username = user
-        sitedata.password = site.users[user].password
-
-        proxy.ProxyClient(self.sitedata.chan, sitedata).proxyloop()
-        
-
-

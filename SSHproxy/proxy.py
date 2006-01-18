@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 18, 00:46:47 by david
+# Last modified: 2006 Jan 18, 02:07:03 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -117,11 +117,11 @@ def reset_term(term):
     oldtty = None
 
 class ProxyClient(object):
-    def __init__(self, client, sitedata):
-        self.client = client
-        self.sitedata = sitedata
+    def __init__(self, userdata, sitename=None):
+        self.client = userdata.channel
+        self.sitedata = sitedata = userdata.get_site(sitename)
         self.logger = Logger(logfile=open("sshproxy-session.log", "a"))
-        self.logger.write("Connect to %s@%s by %s\n" % (sitedata.username, sitedata.hostname, sitedata.login))
+        self.logger.write("Connect to %s@%s by %s\n" % (sitedata.username, sitedata.hostname, userdata.username))
 
         try:
             self.transport = paramiko.Transport((sitedata.hostname, sitedata.port))
@@ -129,7 +129,7 @@ class ProxyClient(object):
             self.transport.set_hexdump(1)
             self.transport.connect(username=sitedata.username, password=sitedata.password, hostkey=sitedata.hostkey)
             self.chan = self.transport.open_session()
-            self.chan.get_pty(sitedata.term, sitedata.width, sitedata.height)
+            self.chan.get_pty(userdata.term, userdata.width, userdata.height)
             self.chan.invoke_shell()
         except Exception, e:
             print '*** Caught exception: %s: %s' % (e.__class__, e)

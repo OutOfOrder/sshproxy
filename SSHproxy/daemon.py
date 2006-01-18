@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 12, 16:17:13 by david
+# Last modified: 2006 Jan 18, 02:08:53 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -31,12 +31,13 @@ def unhexify(s):
 
 
 
-from SSHproxy import pwdb, proxy
-from SSHproxy.util import FreeStructure, PTYWrapper
-from SSHproxy.plugins import init_plugins, pluginInfo
-from SSHproxy import console
-from SSHproxy.console import Console
-from SSHproxy.proxy import set_term, reset_term
+import pwdb, proxy
+from util import PTYWrapper
+from plugins import init_plugins, pluginInfo
+from console import Console
+from proxy import set_term, reset_term
+from message import Message
+from data import UserData, SiteData
 
 paramiko.util.log_to_file('sshproxy.log')
 
@@ -49,12 +50,9 @@ class ProxyServer(paramiko.ServerInterface):
     data = "AAAAB3NzaC1yc2EAAAABIwAAAIEAt6qlQ6BjqFmgbbcgYWN+1rOeZCOY/RkIGhBn78Z+cQlQGt+ur+wYa9zot38SUl5z59WRMKofdMWNqF/fhmRmQdvqAgl4Ge8dh/tokho7eHwpFIhLNb3P3RXDP+mg/rb9Gc2Sofa3Fwxnv270aZGGzHhALhb6+jNFafr/D/Katds="
     good_pub_key = paramiko.RSAKey(data=base64.decodestring(data))
     
-    def __init__(self, pwdb):
-        self.pwdb = pwdb
+    def __init__(self, userdata):
+        self.userdata = userdata
         self.event = threading.Event()
-        sitedata = FreeStructure()
-        self.sitedata = sitedata
-        self.sitedata.sitename = None
 
     def check_channel_request(self, kind, chanid):
         if kind in [ 'session' ]:
@@ -63,15 +61,13 @@ class ProxyServer(paramiko.ServerInterface):
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
     def check_auth_password(self, username, password):
-        if self.pwdb.is_allowed(username=username, password=password):
-            self.sitedata.login = username
+        if self.userdata.valid_auth(username=username, password=password):
             return paramiko.AUTH_SUCCESSFUL
         return paramiko.AUTH_FAILED
 
     def check_auth_publickey(self, username, key):
         sys.stdout.flush()
-        if self.pwdb.is_allowed(username=username, key=key.get_base64()):
-            self.sitedata.login = username
+        if self.userdata.valid_auth(username=username, key=key.get_base64()):
             return paramiko.AUTH_SUCCESSFUL
         return paramiko.AUTH_FAILED
 
@@ -88,19 +84,18 @@ class ProxyServer(paramiko.ServerInterface):
 
     def check_channel_exec_request(self, channel, command):
         name_cmd = command.split(' ', 1)
-        self.sitedata.sitename = name_cmd[0]
+        self.userdata.add_site(name_cmd[0])
+        sitedata = self.userdata.get_site(name_cmd[0])
         if len(name_cmd) > 1:
-            self.sitedata.cmdline = name_cmd[1]
-        else:
-            self.sitedata.cmdline = ''
+            sitedata.set_cmdline(name_cmd[1])
         self.event.set()
         return True
 
     def check_channel_pty_request(self, channel, term, width, height,
                                   pixelwidth, pixelheight, modes):
-        self.sitedata.term = term
-        self.sitedata.width = width
-        self.sitedata.height = height
+        self.userdata.term = term
+        self.userdata.width = width
+        self.userdata.height = height
         return True
 
 
@@ -121,8 +116,8 @@ def service_client(client, addr, host_key_file):
     transport.add_server_key(host_key)
     
     # start the server interface
-    from SSHproxy import pwdb
-    server = ProxyServer(pwdb)
+    userdata = UserData()
+    server = ProxyServer(userdata)
     negotiation_ev = threading.Event()
     transport.set_subsystem_handler('sftp', paramiko.SFTPServer, ProxySFTPServer)
     transport.start_server(negotiation_ev, server)
@@ -146,26 +141,14 @@ def service_client(client, addr, host_key_file):
         sys.exit(1)
 
 
-    sitedata = server.sitedata
-    sitedata.hostkey  = None
-    sitedata.chan = chan
-    if sitedata.sitename:
-        user, site = pwdb.get_site(sitedata.sitename)
-
-        sitedata.hostname = site.ip_address
-        sitedata.port = site.port
-        sitedata.username = user
-        sitedata.password = site.users[user].password
-
-        proxy.ProxyClient(chan, sitedata).proxyloop()
-
+    userdata.set_channel(chan)
+    if len(userdata.list_sites()):
+        proxy.ProxyClient(userdata).proxyloop()
     else:
-        from SSHproxy.console import Console as Console
-        from SSHproxy.message import Message
         def PtyConsole(*args, **kwargs):
             Console(*args, **kwargs).cmdloop()
         msg = Message()
-        ptywrapped = PTYWrapper(chan, PtyConsole, msg, sitedata=sitedata)
+        ptywrapped = PTYWrapper(chan, PtyConsole, msg)
         data = ''
         confirm = msg.get_parent_fd()
         while 1:
@@ -174,19 +157,10 @@ def service_client(client, addr, host_key_file):
                 break
             action, data = data.split(' ')
             if action == 'connect':
-                sitedata.sitename = data.strip()
-                if sitedata.sitename:
-                    print sitedata.sitename
-                    user, site = pwdb.get_site(sitedata.sitename)
-
-                    sitedata.hostname = site.ip_address
-                    sitedata.port = site.port
-                    sitedata.username = user
-                    print site.users.keys()
-                    sitedata.password = site.users[user].password
-
-                    proxy.ProxyClient(chan, sitedata).proxyloop()
-                    confirm.write('ok')
+                sitename = data.strip()
+                userdata.add_site(sitename)
+                proxy.ProxyClient(userdata, sitename).proxyloop()
+                confirm.write('ok')
 
     chan.close()
     transport.close()
