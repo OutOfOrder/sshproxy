@@ -26,3 +26,9 @@ Solution 3:
 We can develop an ssh client based on libssh that would be able to accept back-connections for sftp channel comming from sshproxy (beware of security implications here!)
 
 
+MySQLPwDB:
+----------
+
+rewrite part of the API, so that the get_site() method is dynamic and the __init__() method dos not fetch all sites !
+
+

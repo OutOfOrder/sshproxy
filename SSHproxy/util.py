@@ -1,15 +1,35 @@
 
-import sys, os, select, pty, traceback
+import os, select, pty, traceback
+
+class SSHProxyError(Exception):
+    pass
 
 class FreeStructure(object):
     pass
 
+SUSPEND, CLOSE = range(1, 3)
 
-def pty_run(chan, code, *args, **kwargs):
-    cin, cout = os.pipe()
-    pid, master_fd = pty.fork()
-    if pid: # main process
-        os.close(cout)
+class PTYWrapper(object):
+    def __init__(self, chan, code, msg, *args, **kwargs):
+        self.chan = chan
+        self.cin = msg.get_parent_fd()
+        pid, self.master_fd = pty.fork()
+        if not pid: # child process
+            cout = msg.get_child_fd()
+            try:
+                code(cout, *args, **kwargs)
+            except Exception, e:
+                print '*** function %s: %s\n' % (code.__name__, str(e))
+                print traceback.format_exc()
+                pass
+            cout.write('EOF')
+            cout.close()
+            os.abort() # squash me! (don't let me close paramiko channels)
+
+    def loop(self):
+        chan = self.chan
+        master_fd = self.master_fd
+        cin = self.cin
         while master_fd and chan.active:
             rfds, wfds, xfds = select.select(
                     [master_fd, chan, cin], [], [],5)
@@ -24,30 +44,13 @@ def pty_run(chan, code, *args, **kwargs):
                     break
                 pty._writen(master_fd, data)
             if cin in rfds:
-#                try:
-#                    data = os.read(cin, 1024)
-#                except OSError:
-#                    pass
-                os.close(cin) # stop the loop
-#                os.waitpid(pid, 0)
-#                chan.send('closed')
-                break
-#                if data == 'END':
-#                    os.close(cin) # stop the loop
-#                    break
-#                if data[:8] == 'connect ':
-#                    site = data[8:].strip()
-    else: # child process
-        os.close(cin)
-        try:
-            code(*args, **kwargs)
-        except Exception, e:
-            print '*** function %s: %s\n' % (code.__name__, str(e))
-            print traceback.format_exc()
-            pass
-#        sys.stdout.flush()
-        os.write(cout, ' ') # stop
-        os.close(cout)
-        os.abort() # squash me! (don't let me close paramiko channels)
+                data = cin.read(1024)
+                # since this is a pipe, it seems to always return EOF ('')
+                if not len(data):
+                    continue
+                if data == 'EOF':
+                    cin.close() # stop the loop
+                    return None
+                return data
 
 

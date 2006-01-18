@@ -186,7 +186,11 @@ class DBConsole(cmd.Cmd):
         for user in pwdb.list_users(site_id=site_id):
             users.append((user['uid'], user['password']))
         users.sort(lambda x,y: x[0]<y[0])
-        uid_width = max([ len(e[0]) for e in users ])
+        if len(users):
+            uid_width = max([ len(e[0]) for e in users ])
+        else:
+            print 'No users for site %s' % site
+            return
         for uid, passwd in users:
             print uid + ' '*(uid_width - len(uid)), passwd
 

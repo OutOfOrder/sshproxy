@@ -237,16 +237,16 @@ class MySQLPwDB(simple.SimplePwDB):
         site.close()
         return p
 
-    def get_users(self, uid):
+    def get_users(self, uid, site_id):
         q_getuser = """
             select site_id,
                    uid,
                    password,
                    `primary`
-                from user where uid = '%s'
+                from user where uid = '%s' and site_id = %d
         """
         user = db.cursor()
-        user.execute(q_getuser % Q(uid))
+        user.execute(q_getuser % (Q(uid), site_id))
         p = user.fetchone()
         if not p or not len(p):
             return None
@@ -270,7 +270,7 @@ class MySQLPwDB(simple.SimplePwDB):
                     `primary`)
                 values ('%s',%d,'%s',%d)
         """
-        if self.get_users(uid):
+        if self.get_users(uid, site_id):
             return None
         user = db.cursor()
         user.execute(q_adduser % (Q(uid), site_id, Q(password), primary))
@@ -456,10 +456,10 @@ class MySQLPwDB(simple.SimplePwDB):
                 return None, None
             user = user[0]
             users.close()
-#        if not self.can_connect(user, sid):
-#            print 'User \'%s\' is not allowed to connect to \'%s\'' % (user,
-#                                                                       sid)
-#            return None, None
+        if not self.can_connect(user, sid):
+            print 'User \'%s\' is not allowed to connect to \'%s\'' % (user,
+                                                                       sid)
+            return None, None
         return self.sites[sid].default_user(), self.sites[sid]
 
     def can_connect(self, user, site):
