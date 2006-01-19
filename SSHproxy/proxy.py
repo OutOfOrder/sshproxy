@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 18, 17:51:35 by david
+# Last modified: 2006 Jan 19, 02:18:36 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -169,9 +169,11 @@ class ProxyScp(object):
 
 class ProxyClient(object):
     def __init__(self, userdata, sitename=None):
+        print sitename
         self.client = userdata.channel
         self.sitedata = sitedata = userdata.get_site(sitename)
-        self.name = '%s@%s' % (self.sitedata.username, self.sitedata.sitename)
+        self.name = '%s@%s' % (self.sitedata.username, self.sitedata.sid)
+
         self.logger = Logger(logfile=open("sshproxy-session.log", "a"))
         self.logger.write("Connect to %s@%s by %s\n" % (sitedata.username, sitedata.hostname, userdata.username))
 

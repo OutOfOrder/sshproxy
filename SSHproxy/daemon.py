@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 19, 00:43:15 by david
+# Last modified: 2006 Jan 19, 02:41:59 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -24,7 +24,7 @@
 import sys, os.path, socket, threading, traceback
 import paramiko
 
-from util import PTYWrapper
+from ptywrap import PTYWrapper
 from plugins import init_plugins, pluginInfo
 from console import Console
 from message import Message
@@ -86,14 +86,22 @@ class ProxyServer(paramiko.ServerInterface):
                     continue
                 break
             site, path = argv[0].split(':', 1)
-            self.userdata.add_site(site)
+            try:
+                self.userdata.add_site(site)
+            except util.SSHProxyError, msg:
+                self.event.set()
+                return False
             sitedata = self.userdata.get_site(site)
             sitedata.set_sftp_path(path)
             sitedata.set_type('scp')
             self.event.set()
             return True
         else:
-            self.userdata.add_site(argv[0])
+            try:
+                self.userdata.add_site(argv[0])
+            except util.SSHProxyError, msg:
+                self.event.set()
+                return False
             sitedata = self.userdata.get_site(argv[0])
             if len(argv) > 1:
                 sitedata.set_cmdline(argv[1])
@@ -174,15 +182,16 @@ def service_client(client, addr, host_key_file):
             chan.close()
             transport.close()
             print 'Exiting'
+            return
         # else go to the console
 
     msg = Message()
     def PtyConsole(*args, **kwargs):
         Console(*args, **kwargs).cmdloop()
     main_console = PTYWrapper(chan, PtyConsole, msg)
-    data = ''
-    confirm = msg.get_parent_fd()
-    while 1:
+
+    status = msg.get_parent_fd()
+    while True:
         data = main_console.loop()
         if data is None:
             break
@@ -195,15 +204,15 @@ def service_client(client, addr, host_key_file):
         if action == 'connect':
             sitename = data.strip()
             try:
-                userdata.add_site(sitename)
+                sitename = userdata.add_site(sitename)
             except util.SSHProxyError, msg:
-                confirm.write('ERR %s' % msg)
+                status.write('ERR %s' % msg)
                 continue
             conn = proxy.ProxyClient(userdata, sitename)
             cid = cpool.add_connection(conn)
             while True:
                 if not conn:
-                    ret = 'Innexistant connection id: %d' % cid
+                    ret = 'Inexistant connection id: %d' % cid
                     break
                 ret = conn.loop()
                 if ret == util.CLOSE:
@@ -214,20 +223,20 @@ def service_client(client, addr, host_key_file):
                     continue
                 ret = 'OK'
                 break
-            confirm.write(ret)
+            status.write(ret)
 
         elif action == 'switch' or action == 'back':
             try:
                 cid 
             except UnboundLocalError:
-                confirm.write('No previous connection open')
+                status.write('No previous connection open')
                 continue
             if action == 'switch':
                 cid = int(data.strip())
             while True:
                 conn = cpool.get_connection(cid)
                 if not conn:
-                    ret = 'Innexistant connection id: %d' % cid
+                    ret = 'Inexistant connection id: %d' % cid
                     break
                 ret = conn.loop()
                 if ret == util.CLOSE:
@@ -237,7 +246,7 @@ def service_client(client, addr, host_key_file):
                     continue
                 ret = 'OK'
                 break
-            confirm.write(ret)
+            status.write(ret)
 
         elif action == 'list':
             l = []
@@ -246,9 +255,9 @@ def service_client(client, addr, host_key_file):
                 l.append('%d %s\n' % (i, c.name))
                 i = i + 1
             if not len(l):
-                confirm.write('No currently open connections')
+                status.write('No currently open connections')
             else:
-                confirm.write(''.join(l))
+                status.write(''.join(l))
 
 
     chan.close()

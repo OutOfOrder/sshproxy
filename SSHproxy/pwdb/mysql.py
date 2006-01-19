@@ -33,10 +33,11 @@ db = MySQLdb.connect(
 
 
 def Q(str):
+    """Safe quote mysql values"""
     return str.replace("'", "\\'")
 
-
 class MySQLPwDB(simple.SimplePwDB):
+    """MySQL Password DataBase connector class"""
     def __init__(self):
         self.db = db
         q_sites = """
@@ -442,25 +443,60 @@ class MySQLPwDB(simple.SimplePwDB):
         user = None
         if sid.find('@') >= 0:
             user, sid = sid.split('@')
+        users = db.cursor()
         if not user:
             q_user = """
             select uid
                 from site, user
                 where site.id = user.site_id and site.name = '%s'
-                order by `primary` desc limit 1            
+                order by `primary` desc            
 """
-            users = db.cursor()
             users.execute(q_user % Q(sid))
-            user = users.fetchone()
-            if not user or not len(user):
-                return None, None
-            user = user[0]
-            users.close()
-        if not self.can_connect(user, sid):
-            print 'User \'%s\' is not allowed to connect to \'%s\'' % (user,
-                                                                       sid)
+        else:
+            q_user = """
+            select uid
+                from site, user
+                where site.id = user.site_id and site.name = '%s'
+                  and user.uid = '%s'
+                order by `primary` desc            
+"""
+
+            users.execute(q_user % (Q(sid), user))
+        user = users.fetchone()
+        if not user or not len(user):
+            raise AttributeError("No such user")
             return None, None
-        return self.sites[sid].default_user(), self.sites[sid]
+        user = user[0]
+        users.close()
+        if not self.can_connect(user, sid):
+            raise AttributeError(
+                "You can't connect to %s@%s" % (user, sid))
+            return None, None
+        q_sites = """
+            select id, name, ip_address, port, location
+                from site
+                where site.name = '%s'
+                order by name limit 1
+            """
+        q_users = """
+            select id, site_id, uid, password, `primary`
+                from user where site_id = %d
+            """
+        sites = db.cursor()
+        sites.execute(q_sites % Q(sid))
+        id, name, ip_address, port, location = sites.fetchone()
+        user_list = []
+        users = db.cursor()
+        users.execute(q_users % id)
+        for id, site_id, uid, password, primary in users.fetchall():
+            user_list.append(simple.UserEntry(uid, password, primary))
+        site = simple.SiteEntry(sid=name,
+                                ip_address=ip_address,
+                                port=port,
+                                location=location,
+                                user_list=user_list)
+
+        return user, site
 
     def can_connect(self, user, site):
         q_group = """
