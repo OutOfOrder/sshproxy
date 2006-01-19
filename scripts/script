@@ -1,0 +1,5 @@
+wait:#.* $
+ssh $USER$@$IPADDRESS$
+wait:.*word: 
+$PASSWORD$
+wait:#.* $

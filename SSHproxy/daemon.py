@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 19, 17:08:26 by david
+# Last modified: 2006 jan 19, 19:57:17 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -31,6 +31,7 @@ from message import Message
 from data import UserData, SiteData
 from sftp import ProxySFTPServer
 import proxy, util, pool
+import logserver
 
 paramiko.util.log_to_file('sshproxy.log')
 
@@ -120,7 +121,7 @@ def service_client(client, addr, host_key_file):
     # start transport for the client
     transport = paramiko.Transport(client)
 #    transport.set_log_channel("sshproxy.server")
-    transport.set_hexdump(1)
+#    transport.set_hexdump(1)
 
     try:
         transport.load_server_moduli()
@@ -286,6 +287,8 @@ def run_server(ip='', port=2242):
 
     signal.signal(signal.SIGCHLD, kill_zombies)
 
+    # logserver.startlogger()
+
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -297,33 +300,39 @@ def run_server(ip='', port=2242):
         traceback.print_exc()
         raise
 
-    while True:
-        try:
-            client, addr = sock.accept()
-        except KeyboardInterrupt:
-            for pid in servers:
-                try:
-                    os.kill(pid, signal.SIGTERM)
-                except OSError:
-                    print 'child pid %s already dead' % pid
-            raise
-            sys.exit(1)
-        except socket.error:
-            continue
-        except Exception, e:
-            print '*** accept failed: ' + str(e)
-            traceback.print_exc()
-            raise
-        
-        print 'Got a connection!'
-        pid = os.fork()
-        if pid == 0:
-            # just serve in the child
-            service_client(client, addr, host_key_file)
-            os._exit(0)
-        # probable race condition here !
-        # TODO: set an event with kill_zombies or service_client
-        servers.append(pid)
+    try:
+        while True:
+            try:
+                client, addr = sock.accept()
+            except KeyboardInterrupt:
+                for pid in servers:
+                    try:
+                        os.kill(pid, signal.SIGTERM)
+                    except OSError:
+                        print 'child pid %s already dead' % pid
+                raise
+                sys.exit(1)
+            except socket.error:
+                continue
+            except Exception, e:
+                print '*** accept failed: ' + str(e)
+                traceback.print_exc()
+                raise
+            
+            print 'Got a connection!'
+            pid = os.fork()
+            if pid == 0:
+                # just serve in the child
+                import log
+                log.info("Serving %s", addr)
+                service_client(client, addr, host_key_file)
+                os._exit(0)
+            # probable race condition here !
+            # TODO: set an event with kill_zombies or service_client
+            servers.append(pid)
+    finally:
+        # logserver.stoplogger()
+        print "Exiting"
 
 
 

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 19, 19:23:02 by david
+# Last modified: 2006 jan 19, 19:55:46 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -84,7 +84,7 @@ class LogRecordSocketReceiver(SocketServer.ThreadingTCPServer):
         self.timeout = 1
         self.logname = None
 
-    def serve_until_stopped(self):
+    def run(self):
         import select
         abort = 0
         while not abort:
@@ -95,11 +95,23 @@ class LogRecordSocketReceiver(SocketServer.ThreadingTCPServer):
                 self.handle_request()
             abort = self.abort
 
+_logger = None
+
 def startlogger():
+    global _logger
+    if _logger:
+        return
     logging.basicConfig(
         format="%(relativeCreated)5d %(name)-15s %(levelname)-8s %(message)s")
-    tcpserver = LogRecordSocketReceiver()
+    _logger = LogRecordSocketReceiver()
+    _logger.logname = 'test.log'
     print "About to start TCP server..."
-    tcpserver.serve_until_stopped()
+    _logger.start()
 
+def stoplogger():
+    global _logger
+    if not _logger:
+        return
+    _logger.abort = 1
+    _logger.join()
 
