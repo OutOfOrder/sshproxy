@@ -29,6 +29,12 @@ We can develop an ssh client based on libssh that would be able to accept back-c
 MySQLPwDB:
 ----------
 
-rewrite part of the API, so that the get_site() method is dynamic and the __init__() method dos not fetch all sites !
+rewrite part of the API, so that the get_site() method is dynamic and the __init__() method does not fetch all sites !
 
 
+Direct command execution
+------------------------
+
+ssh -tp 2242 me@proxy user@site command options
+
+This does not work yet...

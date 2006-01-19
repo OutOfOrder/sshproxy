@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 17, 12:52:24 by david
+# Last modified: 2006 jan 18, 14:38:11 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -70,6 +70,7 @@ F12    = '\x1b\x5b\x32\x34\x7e'
 
 TAB    = CTRL_I
 SHFTAB = '\x1b\x5b\x5a'
+
 ALT_0  = '\x1b\x30'
 ALT_1  = '\x1b\x31'
 ALT_2  = '\x1b\x32'
@@ -80,5 +81,12 @@ ALT_6  = '\x1b\x36'
 ALT_7  = '\x1b\x37'
 ALT_8  = '\x1b\x38'
 ALT_9  = '\x1b\x39'
+
+ALT_NUMBERS = (ALT_0, ALT_1, ALT_2, ALT_3, ALT_4, ALT_5, ALT_6, ALT_7, ALT_8, ALT_9)
+
+def get_alt_number(key):
+    if key not in ALT_NUMBERS:
+        return None
+    return list(ALT_NUMBERS).index(key)
 
 ARW_UP = '\x1b\x5b\x41'

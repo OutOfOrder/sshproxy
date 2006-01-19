@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 18, 02:08:53 by david
+# Last modified: 2006 jan 19, 00:43:15 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -23,27 +23,18 @@
 # Imports from Python
 import sys, os.path, socket, threading, traceback
 import paramiko
-#from paramiko.util import unhexify
 
-def unhexify(s):
-    "turn a hex sequence back into a string"
-    return ''.join([chr(int(s[i:i+2], 16)) for i in range(0, len(s), 2)])
-
-
-
-import pwdb, proxy
 from util import PTYWrapper
 from plugins import init_plugins, pluginInfo
 from console import Console
-from proxy import set_term, reset_term
 from message import Message
 from data import UserData, SiteData
+from sftp import ProxySFTPServer
+import proxy, util, pool
 
 paramiko.util.log_to_file('sshproxy.log')
 
 
-class ProxySFTPServer(paramiko.SFTPServerInterface):
-    pass
 
 class ProxyServer(paramiko.ServerInterface):
     import base64
@@ -55,6 +46,7 @@ class ProxyServer(paramiko.ServerInterface):
         self.event = threading.Event()
 
     def check_channel_request(self, kind, chanid):
+        print "check_channel_request", kind, chanid
         if kind in [ 'session' ]:
             return paramiko.OPEN_SUCCEEDED
         print 'Ohoh! What is this "%s" channel type ?' % kind
@@ -75,21 +67,38 @@ class ProxyServer(paramiko.ServerInterface):
         return 'password,publickey'
 
     def check_channel_shell_request(self, channel):
+        print "check_channel_shell_request"
         self.event.set()
         return True
 
     def check_channel_subsystem_request(self, channel, name):
+        print "check_channel_subsystem_request", channel, name
         return paramiko.ServerInterface.check_channel_subsystem_request(self,
                                             channel, name)
 
     def check_channel_exec_request(self, channel, command):
-        name_cmd = command.split(' ', 1)
-        self.userdata.add_site(name_cmd[0])
-        sitedata = self.userdata.get_site(name_cmd[0])
-        if len(name_cmd) > 1:
-            sitedata.set_cmdline(name_cmd[1])
-        self.event.set()
-        return True
+        print 'check_channel_exec_request', channel, command
+        argv = command.split(' ', 1)
+        if argv[0] == 'scp':
+            while True:
+                argv = argv[1].split(' ', 1)
+                if argv[0][0] == '-':
+                    continue
+                break
+            site, path = argv[0].split(':', 1)
+            self.userdata.add_site(site)
+            sitedata = self.userdata.get_site(site)
+            sitedata.set_sftp_path(path)
+            sitedata.set_type('scp')
+            self.event.set()
+            return True
+        else:
+            self.userdata.add_site(argv[0])
+            sitedata = self.userdata.get_site(argv[0])
+            if len(argv) > 1:
+                sitedata.set_cmdline(argv[1])
+            self.event.set()
+            return True
 
     def check_channel_pty_request(self, channel, term, width, height,
                                   pixelwidth, pixelheight, modes):
@@ -105,8 +114,8 @@ def service_client(client, addr, host_key_file):
 
     # start transport for the client
     transport = paramiko.Transport(client)
-    transport.set_log_channel("sshproxy.server")
-#    transport.set_hexdump(1)
+#    transport.set_log_channel("sshproxy.server")
+    transport.set_hexdump(1)
 
     try:
         transport.load_server_moduli()
@@ -140,27 +149,107 @@ def service_client(client, addr, host_key_file):
         print '*** Client never asked for a shell.'
         sys.exit(1)
 
-
     userdata.set_channel(chan)
+
+            
+
+    cpool = pool.get_connection_pool()
+    # is this a direct connection ?
     if len(userdata.list_sites()):
-        proxy.ProxyClient(userdata).proxyloop()
-    else:
-        def PtyConsole(*args, **kwargs):
-            Console(*args, **kwargs).cmdloop()
-        msg = Message()
-        ptywrapped = PTYWrapper(chan, PtyConsole, msg)
-        data = ''
-        confirm = msg.get_parent_fd()
-        while 1:
-            data = ptywrapped.loop()
-            if data is None:
-                break
+        try:
+            if userdata.get_site().type == 'scp':
+                proxy.ProxyScp(userdata).loop()
+                chan.close()
+                transport.close()
+                return
+        except AttributeError:
+            pass
+        conn = proxy.ProxyClient(userdata)
+        cid = cpool.add_connection(conn)
+        ret = conn.loop()
+        
+        if ret == util.CLOSE:
+            # if the direct connection closed, then exit cleanly
+            cpool.del_connection(cid)
+            chan.close()
+            transport.close()
+            print 'Exiting'
+        # else go to the console
+
+    msg = Message()
+    def PtyConsole(*args, **kwargs):
+        Console(*args, **kwargs).cmdloop()
+    main_console = PTYWrapper(chan, PtyConsole, msg)
+    data = ''
+    confirm = msg.get_parent_fd()
+    while 1:
+        data = main_console.loop()
+        if data is None:
+            break
+        try:
             action, data = data.split(' ')
-            if action == 'connect':
-                sitename = data.strip()
+        except ValueError:
+            action = data.strip()
+            data = ''
+
+        if action == 'connect':
+            sitename = data.strip()
+            try:
                 userdata.add_site(sitename)
-                proxy.ProxyClient(userdata, sitename).proxyloop()
-                confirm.write('ok')
+            except util.SSHProxyError, msg:
+                confirm.write('ERR %s' % msg)
+                continue
+            conn = proxy.ProxyClient(userdata, sitename)
+            cid = cpool.add_connection(conn)
+            while True:
+                if not conn:
+                    ret = 'Innexistant connection id: %d' % cid
+                    break
+                ret = conn.loop()
+                if ret == util.CLOSE:
+                    cpool.del_connection(cid)
+                elif ret >= 0:
+                    cid = ret
+                    conn = cpool.get_connection(cid)
+                    continue
+                ret = 'OK'
+                break
+            confirm.write(ret)
+
+        elif action == 'switch' or action == 'back':
+            try:
+                cid 
+            except UnboundLocalError:
+                confirm.write('No previous connection open')
+                continue
+            if action == 'switch':
+                cid = int(data.strip())
+            while True:
+                conn = cpool.get_connection(cid)
+                if not conn:
+                    ret = 'Innexistant connection id: %d' % cid
+                    break
+                ret = conn.loop()
+                if ret == util.CLOSE:
+                    cpool.del_connection(cid)
+                elif ret >= 0:
+                    cid = ret
+                    continue
+                ret = 'OK'
+                break
+            confirm.write(ret)
+
+        elif action == 'list':
+            l = []
+            i = 0
+            for c in cpool.list_connections():
+                l.append('%d %s\n' % (i, c.name))
+                i = i + 1
+            if not len(l):
+                confirm.write('No currently open connections')
+            else:
+                confirm.write(''.join(l))
+
 
     chan.close()
     transport.close()
@@ -169,9 +258,12 @@ def service_client(client, addr, host_key_file):
 
 servers = []
 def kill_zombies(signum, frame):
-    pid, status = os.wait()
-    if pid in servers:
-        del servers[servers.index(pid)]
+    try:
+        pid, status = os.wait()
+        if pid in servers:
+            del servers[servers.index(pid)]
+    except OSError:
+        pass
 
 def run_server(ip='', port=2242):
     import signal
