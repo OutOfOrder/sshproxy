@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 19, 02:27:32 by david
+# Last modified: 2006 jan 18, 16:55:23 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -24,7 +24,6 @@
 from pwdb import MySQLPwDB
 from util import SSHProxyError
 
-# XXX: this class should be a singleton
 class UserData(object):
     def __init__(self):
         self.pwdb = MySQLPwDB()
@@ -50,8 +49,6 @@ class UserData(object):
         sitedata = SiteData(self, sitename)
         self.sitedict[sitedata.sitename] = sitedata
         self.sitelist.append(sitedata.sitename)
-        # return real sitename (user@sid)
-        return sitedata.sitename
 
     def get_site(self, sitename=None, index=0):
         if not sitename:
@@ -71,16 +68,12 @@ class SiteData(object):
     def __init__(self, userdata, sitename):
         self.userdata = userdata
 
-        try:
-            user, site = userdata.pwdb.get_site(sitename)
-        except AttributeError, msg:
-            raise SSHProxyError(msg)
+        user, site = userdata.pwdb.get_site(sitename)
 
         if not site:
             raise SSHProxyError("Site %s does not exist in the database" % sitename)
-        self.sid = site.sid
+        self.sitename = site.sid
         self.username = user
-        self.sitename = '%s@%s' % (user, site.sid)
 
         self.hostname = site.ip_address
         self.port = site.port

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 19, 01:19:15 by david
+# Last modified: 2006 jan 18, 15:59:15 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -21,7 +21,7 @@
 
 
 # Imports from Python
-import cmd, os, socket
+import cmd, os
 
 def rwinput(prompt):
     while 1:
@@ -38,7 +38,7 @@ class Console(cmd.Cmd):
     def __init__(self, ctrlfd, stdin=None, stdout=None):
         self.ctrlfd = ctrlfd
         cmd.Cmd.__init__(self, stdin=stdin, stdout=stdout)
-        self.prompt = '[%s::ssh proxy] ' % socket.gethostname()
+        self.prompt = '[ssh proxy] '
 
     def do_manage_pwdb(self, arg):
         from pwdb.manage import DBConsole

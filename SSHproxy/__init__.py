@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 19, 01:25:38 by david
+# Last modified: 2006 jan 17, 15:20:16 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -26,3 +26,4 @@ import pwdb
 
 pwdb = pwdb.MySQLPwDB()
 
+from util import FreeStructure
