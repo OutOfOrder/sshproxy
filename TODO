@@ -31,6 +31,8 @@ MySQLPwDB:
 
 rewrite part of the API, so that the get_site() method is dynamic and the __init__() method does not fetch all sites !
 
+* Done for get_site(), but has to be checked for side-effects. (__init__() still fetches all sites)
+
 
 Direct command execution
 ------------------------
