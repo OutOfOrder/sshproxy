@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 19, 02:27:32 by david
+# Last modified: 2006 jan 19, 17:02:36 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -35,11 +35,18 @@ class UserData(object):
         if not self.pwdb.is_allowed(username=username,
                                     password=password,
                                     key=key):
+            if key is not None:
+                self.unauth_key = key
             return False
         else:
+            if key is None and hasattr(self, 'unauth_key'):
+                self.pwdb.set_user_key(self.unauth_key)
             self.username = username
             return True
 
+    def is_admin(self):
+        return self.is_authenticated() and self.pwdb.is_admin()
+            
     def is_authenticated(self):
         return hasattr(self, 'username')
         

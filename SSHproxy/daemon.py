@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 19, 02:41:59 by david
+# Last modified: 2006 jan 19, 17:08:26 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -37,9 +37,6 @@ paramiko.util.log_to_file('sshproxy.log')
 
 
 class ProxyServer(paramiko.ServerInterface):
-    import base64
-    data = "AAAAB3NzaC1yc2EAAAABIwAAAIEAt6qlQ6BjqFmgbbcgYWN+1rOeZCOY/RkIGhBn78Z+cQlQGt+ur+wYa9zot38SUl5z59WRMKofdMWNqF/fhmRmQdvqAgl4Ge8dh/tokho7eHwpFIhLNb3P3RXDP+mg/rb9Gc2Sofa3Fwxnv270aZGGzHhALhb6+jNFafr/D/Katds="
-    good_pub_key = paramiko.RSAKey(data=base64.decodestring(data))
     
     def __init__(self, userdata):
         self.userdata = userdata
@@ -188,7 +185,7 @@ def service_client(client, addr, host_key_file):
     msg = Message()
     def PtyConsole(*args, **kwargs):
         Console(*args, **kwargs).cmdloop()
-    main_console = PTYWrapper(chan, PtyConsole, msg)
+    main_console = PTYWrapper(chan, PtyConsole, msg, userdata.is_admin())
 
     status = msg.get_parent_fd()
     while True:

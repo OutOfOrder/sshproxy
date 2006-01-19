@@ -206,12 +206,16 @@ class DBConsole(cmd.Cmd):
     def do_add_login(self, arg):
         """add_login [uid] [key]"""
         arg = CommandLine (arg)
-        if len (arg) != 2:
+        if not (1 <= len (arg) <= 2):
             self.onecmd('help add_login')
             return
         else:
             pass1 = self.set_password(arg[0])
-            pwdb.add_login (arg[0], arg[1], pass1)
+            if len(arg) > 1:
+                key = arg[1]
+            else:
+                key = None
+            pwdb.add_login (login=arg[0], password=pass1, key=key)
 
     def do_list_logins(self,arg):
         """list_logins"""

@@ -34,12 +34,15 @@ db = MySQLdb.connect(
 
 def Q(str):
     """Safe quote mysql values"""
+    if str is None:
+        return ''
     return str.replace("'", "\\'")
 
 class MySQLPwDB(simple.SimplePwDB):
     """MySQL Password DataBase connector class"""
     def __init__(self):
         self.db = db
+        self.login = None
         q_sites = """
             select id, name, ip_address, port, location
                 from site order by name
@@ -66,6 +69,44 @@ class MySQLPwDB(simple.SimplePwDB):
 
     #def __del__(self):
     #   db.close()
+
+################## miscellaneous functions ##############################
+
+    def set_user_key(self, key, user=None, force=0):
+        if not user:
+            user = self.login
+        if not user:
+            raise ValueError("Missing user and not authenticated")
+        if not force and len(self.get_login(user)['key']):
+            # Don't overwrite an existing key
+            return True
+        q_setkey = """
+            update login set `key` = '%s' where uid = '%s'
+        """
+        setkey = db.cursor()
+        ret = setkey.execute(q_setkey % (Q(key), Q(user)))
+        setkey.close()
+        return ret
+
+    def is_admin(self, user=None):
+        if user is None:
+            user = self.login
+
+        q_admin = """
+            select 1 from login, login_profile, profile
+            where login.uid = '%s'
+              and login.id = login_profile.login_id 
+              and login_profile.profile_id = profile.id
+              and profile.admin = 1
+        """
+
+        admin = db.cursor()
+        admin.execute(q_admin % Q(user))
+        admin = admin.fetchone()
+        if not admin or not len(admin):
+            return False
+        return True
+
 
 ################## functions for script/add_profile #####################
 
@@ -292,7 +333,7 @@ class MySQLPwDB(simple.SimplePwDB):
         site.close()
         return p
 
-    def get_logins(self, uid):
+    def get_login(self, uid):
         q_getlogin = """
             select uid, password, `key` from login where uid = '%s'
         """
@@ -304,16 +345,16 @@ class MySQLPwDB(simple.SimplePwDB):
         login.close()
         return { 'login': p[0], 'password': p[1], 'key': p[2] }
 
-    def add_login(self, login, password, key):
+    def add_login(self, login, password, key=None):
         q_addlogin = """
-            insert into login (uid, password, `key`) values ('%s','%s','%s')
+            insert into login (uid, `password`, `key`) values ('%s','%s','%s')
         """
-        if self.get_logins(uid):
+        if self.get_login(login):
             return None
-        login = db.cursor()
-        login.execute(q_addlogin % (Q(login), Q(password), Q(key)))
-        login.close()
-        return 1
+        addlogin = db.cursor()
+        addlogin.execute(q_addlogin % (Q(login), Q(password), Q(key)))
+        addlogin.close()
+        return True
 
 ######### functions for link scripts/add_login_profile ###############
 
@@ -407,11 +448,16 @@ class MySQLPwDB(simple.SimplePwDB):
 
     def get_id(self, table, name):
         id = None
-        query = """
-        select id from `%s` where name = '%s' 
-        """
+        if table == 'login':
+            query = """
+            select id from `%s` where uid = '%s' 
+            """
+        else:
+            query = """
+            select id from `%s` where name = '%s' 
+            """
         c = db.cursor()
-        c.execute(query % (Q(table), name))
+        c.execute(query % (Q(table), Q(name)))
         id = c.fetchone()
         c.close()
         return id[0]
