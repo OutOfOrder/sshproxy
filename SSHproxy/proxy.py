@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 18, 02:07:03 by david
+# Last modified: 2006 jan 18, 17:51:35 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -116,10 +116,62 @@ def reset_term(term):
     fcntl.fcntl(term, fcntl.F_SETFL, mode & ~os.O_NDELAY)
     oldtty = None
 
+class ProxyScp(object):
+    def __init__(self, userdata):
+        self.client = userdata.channel
+        self.sitedata = sitedata = userdata.get_site(0)
+        try:
+            self.transport = paramiko.Transport((sitedata.hostname, sitedata.port))
+            self.transport.set_log_channel("sshproxy.client")
+            self.transport.set_hexdump(1)
+            self.transport.connect(username=sitedata.username, password=sitedata.password, hostkey=sitedata.hostkey)
+            self.chan = self.transport.open_session()
+        except Exception, e:
+            print '*** Caught exception: %s: %s' % (e.__class__, e)
+            traceback.print_exc()
+            try:
+                self.transport.close()
+            except:
+                pass
+
+    def loop(self):
+        t = self.transport
+        chan = self.chan
+        client = self.client
+        sitedata = self.sitedata
+        chan.exec_command('scp -t -v %s' % sitedata.path)
+        try:
+            chan.settimeout(0.0)
+            client.settimeout(0.0)
+            fd = client
+#            fd = logger.set_passthru(fd)
+    
+            while t.is_active() and client.active:
+                r, w, e = select.select([chan, fd], [], [], 0.2)
+                if chan in r:
+                    x = chan.recv(1024)
+                    if len(x) == 0 or chan.closed or chan.eof_received:
+                        print 'EOF'
+                        break
+                    fd.send(x)
+                if fd in r:
+                    x = fd.recv(1024)
+                    if len(x) == 0 or fd.closed or fd.eof_received:
+                        print 'EOF'
+                        break
+                    chan.send(x)
+    
+        finally:
+            pass
+
+        return util.CLOSE
+
+
 class ProxyClient(object):
     def __init__(self, userdata, sitename=None):
         self.client = userdata.channel
         self.sitedata = sitedata = userdata.get_site(sitename)
+        self.name = '%s@%s' % (self.sitedata.username, self.sitedata.sitename)
         self.logger = Logger(logfile=open("sshproxy-session.log", "a"))
         self.logger.write("Connect to %s@%s by %s\n" % (sitedata.username, sitedata.hostname, userdata.username))
 
@@ -139,7 +191,7 @@ class ProxyClient(object):
             except:
                 pass
 
-    def proxyloop(self):
+    def loop(self):
         t = self.transport
         chan = self.chan
         client = self.client
@@ -182,6 +234,8 @@ class ProxyClient(object):
                     #if ord(x[0]) < 0x20:
                     #    fd.send('ctrl char: %s\r\n' % ' '.join([
                     #                    '%02x' % ord(c) for c in x ]))
+                    if x in key.ALT_NUMBERS:
+                        return key.get_alt_number(x)
                     if x == key.SHFTAB:
                         #import sftp
                         #sftp.open_channel(client.transport)

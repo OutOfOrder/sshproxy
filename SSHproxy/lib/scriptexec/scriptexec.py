@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 16, 18:16:27 by david
+# Last modified: 2006 jan 19, 00:49:08 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -21,7 +21,7 @@
 
 
 # Imports from Python
-import re, StringIO, time, select, socket
+import os.path, re, StringIO, time, select, socket
 
 class PluginScriptExecError(Exception):
     def __init__(self, msg):
@@ -43,7 +43,7 @@ class PluginScriptExec(object):
         chan = self.chan
         console = self.console
     
-        script = open(self.scriptname, 'r')
+        script = open(os.path.join('scripts', self.scriptname), 'r')
     
         chan.send('\n')
         for line in script.readlines():

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 18, 02:09:10 by david
+# Last modified: 2006 jan 18, 15:59:15 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -21,8 +21,7 @@
 
 
 # Imports from Python
-from cmd import Cmd
-import cmd
+import cmd, os
 
 def rwinput(prompt):
     while 1:
@@ -35,14 +34,11 @@ def rwinput(prompt):
 
 cmd.raw_input = rwinput
 
-class Console(Cmd):
+class Console(cmd.Cmd):
     def __init__(self, ctrlfd, stdin=None, stdout=None):
         self.ctrlfd = ctrlfd
-        Cmd.__init__(self, stdin=stdin, stdout=stdout)
-        self.prompt = '[admin] '
-
-    def do_foo(self, arg):
-        self.stdout.write("foo(%s)\n" % arg)
+        cmd.Cmd.__init__(self, stdin=stdin, stdout=stdout)
+        self.prompt = '[ssh proxy] '
 
     def do_manage_pwdb(self, arg):
         from pwdb.manage import DBConsole
@@ -54,15 +50,34 @@ class Console(Cmd):
     def emptyline(self):
         return
 
-    def do_echo(self, arg):
-        import socket, sys
-        self.stdout.write('%s\n' % arg)
-        self.chan = self.stdout
-    #    self.chan = socket.fromfd(sys.stdout.fileno(), socket.AF_UNIX, socket.SOCK_STREAM)
-        self.chan.write('%s\n' % arg)
-
     def do_connect(self, arg):
         self.ctrlfd.write('connect '+arg)
         self.ctrlfd.setblocking()
-        self.ctrlfd.read()
+        err = self.ctrlfd.read()
+        if err != 'OK':
+            print err
         return
+
+    def do_list_connections(self, arg):
+        self.ctrlfd.write('list')
+        self.ctrlfd.setblocking()
+        err = self.ctrlfd.read(4096)
+        print err
+
+    def do_switch(self, arg):
+        self.ctrlfd.write('switch '+arg)
+        self.ctrlfd.setblocking()
+        err = self.ctrlfd.read()
+        if err != 'OK':
+            print err
+        
+    def do_back(self, arg):
+        self.ctrlfd.write('back')
+        self.ctrlfd.setblocking()
+        err = self.ctrlfd.read()
+        if err != 'OK':
+            print err
+
+    def do_shell(self, arg):
+        os.system('/bin/bash')
+

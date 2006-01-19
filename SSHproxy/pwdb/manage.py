@@ -55,6 +55,9 @@ class DBConsole(cmd.Cmd):
         cmd.Cmd.__init__(self)
         self.prompt = '[pwdb manager] '
 
+    def emptyline(self):
+        return
+
     def do_select_site(self, arg):
         """select_site [sitename]"""
         arg = CommandLine(arg)
@@ -160,8 +163,11 @@ class DBConsole(cmd.Cmd):
             self.onecmd('help add_user')
             return
         else:
-            pass1 = self.set_password(arg[0])
-            pwdb.add_user_to_site(arg[0], arg[1], pass1, int(arg[2]))
+            try:
+                pass1 = self.set_password(arg[0])
+                pwdb.add_user_to_site(arg[0], arg[1], pass1, int(arg[2]))
+            except KeyboardInterrupt:
+                return
 
 
     def do_list_users(self, arg):

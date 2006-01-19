@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 18, 02:04:15 by david
+# Last modified: 2006 jan 18, 16:55:23 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -50,10 +50,10 @@ class UserData(object):
         self.sitedict[sitedata.sitename] = sitedata
         self.sitelist.append(sitedata.sitename)
 
-    def get_site(self, sitename=None):
+    def get_site(self, sitename=None, index=0):
         if not sitename:
             if len(self.sitelist):
-                return self.sitedict[self.sitelist[0]]
+                return self.sitedict[self.sitelist[index]]
             else:
                 return None
         elif sitename in self.sitelist:
@@ -83,9 +83,17 @@ class SiteData(object):
         self.sitedata = site
         self.password = site.users[user].password
 
+        self.type = 'shell'
         self.cmdline = None
+        self.path = None
     
+    def set_type(self, type):
+        # 'shell' or 'sftp'
+        self.type = type
+        
     def set_cmdline(self, cmdline):
         self.cmdline = cmdline
 
+    def set_sftp_path(self, path):
+        self.path = path
 

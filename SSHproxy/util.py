@@ -7,7 +7,7 @@ class SSHProxyError(Exception):
 class FreeStructure(object):
     pass
 
-SUSPEND, CLOSE = range(1, 3)
+SUSPEND, SWITCH, CLOSE = range(-4, -1)
 
 class PTYWrapper(object):
     def __init__(self, chan, code, msg, *args, **kwargs):
