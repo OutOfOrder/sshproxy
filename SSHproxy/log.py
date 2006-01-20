@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 20, 11:49:35 by david
+# Last modified: 2006 jan 21, 00:42:54 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -26,18 +26,17 @@ import os, sys, logging, logging.handlers
 
 __all__ = [ 'debug', 'info', 'warning', 'error', 'critical', 'exception' ]
 
-clientLogger = logging.getLogger('sshproxy.client')
-clientLogger.setLevel(logging.DEBUG)
-socketHandler = logging.handlers.SocketHandler('localhost',
-                    logging.handlers.DEFAULT_TCP_LOGGING_PORT)
-clientLogger.addHandler(socketHandler)
+from logging.config import fileConfig
 
-class PFilter (object):
+fileConfig('logger.conf')
+
+
+class PFilter (logging.Filter):
     def filter(self, record):
 #        record._threadid = get_thread_id()
         record._pid = os.getpid()
         return True
-_pfilter = PFilter()
+_pfilter = PFilter('sshproxy')
 
 def get_logger(name):
     l = logging.getLogger(name)
@@ -48,9 +47,10 @@ def get_logger(name):
 # following line for all __all__ elements
 # info = get_logger('sshproxy.client').info
 self = sys.modules[__name__]
-logger = get_logger('sshproxy.client')
+logger = get_logger('sshproxy')
 for func in __all__:
     setattr(self, func, getattr(logger, func))
 
-
-
+# just to tag logger lines to delete after development/debuging
+devdebug = debug
+__all__ += [ 'devdebug' ]

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 20, 11:54:17 by david
+# Last modified: 2006 jan 21, 00:40:01 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -23,8 +23,6 @@
 # Imports from Python
 import sys, os.path, socket, threading, traceback
 
-import logserver
-import log
 import paramiko
 
 from ptywrap import PTYWrapper
@@ -35,8 +33,9 @@ from data import UserData, SiteData
 from sftp import ProxySFTPServer
 import proxy, util, pool
 
-paramiko.util.log_to_file('paramiko.log')
+#paramiko.util.log_to_file('paramiko.log')
 
+import log
 
 
 class ProxyServer(paramiko.ServerInterface):
@@ -46,10 +45,10 @@ class ProxyServer(paramiko.ServerInterface):
         self.event = threading.Event()
 
     def check_channel_request(self, kind, chanid):
-        print "check_channel_request", kind, chanid
+        log.devdebug("check_channel_request %s %s", kind, chanid)
         if kind in [ 'session' ]:
             return paramiko.OPEN_SUCCEEDED
-        print 'Ohoh! What is this "%s" channel type ?' % kind
+        log.debug('Ohoh! What is this "%s" channel type ?', kind)
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
     def check_auth_password(self, username, password):
@@ -58,7 +57,6 @@ class ProxyServer(paramiko.ServerInterface):
         return paramiko.AUTH_FAILED
 
     def check_auth_publickey(self, username, key):
-        sys.stdout.flush()
         if self.userdata.valid_auth(username=username, key=key.get_base64()):
             return paramiko.AUTH_SUCCESSFUL
         return paramiko.AUTH_FAILED
@@ -67,17 +65,17 @@ class ProxyServer(paramiko.ServerInterface):
         return 'password,publickey'
 
     def check_channel_shell_request(self, channel):
-        print "check_channel_shell_request"
+        log.devdebug("check_channel_shell_request")
         self.event.set()
         return True
 
     def check_channel_subsystem_request(self, channel, name):
-        print "check_channel_subsystem_request", channel, name
+        log.devdebug("check_channel_subsystem_request %s %s", channel, name)
         return paramiko.ServerInterface.check_channel_subsystem_request(self,
                                             channel, name)
 
     def check_channel_exec_request(self, channel, command):
-        print 'check_channel_exec_request', channel, command
+        log.devdebug('check_channel_exec_request %s %s', channel, command)
         argv = command.split(' ', 1)
         if argv[0] == 'scp':
             while True:
@@ -123,7 +121,8 @@ def service_client(client, addr, host_key_file):
     # start transport for the client
     transport = paramiko.Transport(client)
     transport.set_log_channel("paramiko")
-#    transport.set_hexdump(1)
+    # mega-hyper-duper debug
+    #transport.set_hexdump(1)
 
     try:
         transport.load_server_moduli()
@@ -144,17 +143,15 @@ def service_client(client, addr, host_key_file):
         if not transport.is_active():
             raise 'SSH negotiation failed'
 
-    sys.stdout.flush()
-
     chan = transport.accept(20)
     if chan is None:
-        print '*** No channel.'
+        log.error('*** No channel. Exiting.')
         sys.exit(1)
         
-    print 'Authenticated!'
+    log.info('Authenticated %s', server.userdata.username)
     server.event.wait(10)
     if not server.event.isSet():
-        print '*** Client never asked for a shell.'
+        log.error('*** Client never asked for a shell. Exiting.')
         sys.exit(1)
 
     userdata.set_channel(chan)
@@ -182,7 +179,7 @@ def service_client(client, addr, host_key_file):
             cpool.del_connection(cid)
             chan.close()
             transport.close()
-            print 'Exiting'
+            log.info("Exiting %s", userdata.get_site().sitename)
             return
         # else go to the console
 
@@ -263,7 +260,7 @@ def service_client(client, addr, host_key_file):
 
     chan.close()
     transport.close()
-    print 'Exiting'
+    log.info('Client exiting')
 
 
 servers = []
@@ -275,35 +272,30 @@ def kill_zombies(signum, frame):
     except OSError:
         pass
 
-def run_server(ip='', port=2242):
+def _run_server(ip='', port=2242):
     import signal
 
-    logserver.startlogger('sshproxy.log')
-    log.info("SSHproxy logger started")
     init_plugins()
     # get host key
     host_key_file = os.path.join(os.environ['HOME'], '.sshproxy/id_dsa')
     if not os.path.isfile(host_key_file):
+        # XXX: paramiko knows how to do that now, IIRC
         # generate host key
         cmd =  "ssh-keygen -f %s -t dsa"
         cmd += " -C 'SSH proxy host key' -N '' -q"
         r = os.system(cmd % host_key_file)
-        print r
 
     signal.signal(signal.SIGCHLD, kill_zombies)
 
-#    logserver.startlogger('sshproxy.daemon.log')
-#    log.info("SSHproxy logger started")
 
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((ip, port))
         sock.listen(100)
-        print 'Listening for connection ...'
+        log.debug('Listening for connection ...')
     except Exception, e:
-        print '*** Bind failed: ' + str(e)
-        traceback.print_exc()
+        log.exception('*** Bind failed')
         raise
 
     try:
@@ -315,34 +307,44 @@ def run_server(ip='', port=2242):
                     try:
                         os.kill(pid, signal.SIGTERM)
                     except OSError:
-                        print 'child pid %s already dead' % pid
+                        log.exception('child pid %s already dead', pid)
                 raise
                 sys.exit(1)
             except socket.error:
                 continue
             except Exception, e:
-                print '*** accept failed: ' + str(e)
-                traceback.print_exc()
+                log.exception('*** accept failed')
                 raise
             
-            print 'Got a connection!'
+            log.debug('Got a connection!')
             pid = os.fork()
             if pid == 0:
                 # just serve in the child
                 log.info("Serving %s", addr)
                 service_client(client, addr, host_key_file)
                 os._exit(0)
-            # probable race condition here !
-            # TODO: set an event with kill_zombies or service_client
+            # (im)probable race condition here !
+            # TODO: set an event with service_client
             servers.append(pid)
     finally:
         try:
-            logserver.stoplogger()
+            sock.close()
         except:
             pass
-        print "Exiting"
 
 
+def run_server():
+    log.info("SSHproxy starting")
+    try:
+        while True:
+            try:
+                _run_server()
+            except KeyboardInterrupt:
+                return
+            except:
+                log.exception("SSHproxy restarting...")
+    finally:
+        log.info("SSHproxy ending")
 
 
 if __name__ == '__main__':
