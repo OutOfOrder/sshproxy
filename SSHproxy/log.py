@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 19, 19:20:02 by david
+# Last modified: 2006 Jan 20, 01:07:51 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -21,18 +21,35 @@
 
 
 # Imports from Python
-import logging, logging.handlers
-
-rootLogger = logging.getLogger('')
-rootLogger.setLevel(logging.DEBUG)
-socketHandler = logging.handlers.SocketHandler('localhost',
-                    logging.handlers.DEFAULT_TCP_LOGGING_PORT)
-# don't bother with a formatter, since a socket handler sends the event as
-# an unformatted pickle
-rootLogger.addHandler(socketHandler)
-
-from logging import debug, info, warning, error, critical, exception
+import os, sys, logging, logging.handlers
+#from paramiko.util import get_thread_id
 
 __all__ = [ 'debug', 'info', 'warning', 'error', 'critical', 'exception' ]
+
+clientLogger = logging.getLogger('sshproxy.client')
+clientLogger.setLevel(logging.DEBUG)
+socketHandler = logging.handlers.SocketHandler('192.168.1.7',
+                    logging.handlers.DEFAULT_TCP_LOGGING_PORT)
+clientLogger.addHandler(socketHandler)
+
+class PFilter (object):
+    def filter(self, record):
+#        record._threadid = get_thread_id()
+        record._pid = os.getpid()
+        return True
+_pfilter = PFilter()
+
+def get_logger(name):
+    l = logging.getLogger(name)
+    l.addFilter(_pfilter)
+    return l
+
+# the following for loop does the same thing as the
+# following line for all __all__ elements
+# info = logging.getLogger('sshproxy.client').info
+for func in __all__:
+    setattr(sys.modules[__name__], func, getattr(
+                get_logger('sshproxy.client'), func))
+                #logging.getLogger('sshproxy.client'), func))
 
 

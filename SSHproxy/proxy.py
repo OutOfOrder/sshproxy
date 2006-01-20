@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 19, 02:18:36 by david
+# Last modified: 2006 Jan 20, 01:02:41 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -216,7 +216,6 @@ class ProxyClient(object):
                 if chan in r:
                     try:
                         x = chan.recv(1024)
-                        print "LOGNAME:", t.log_name, client.transport.log_name
                         if len(x) == 0 or chan.closed or chan.eof_received:
                             print '\r\n*** EOF\r\n',
                             break

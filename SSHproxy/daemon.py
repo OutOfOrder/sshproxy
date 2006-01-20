@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 19, 19:57:17 by david
+# Last modified: 2006 Jan 20, 01:14:59 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -22,6 +22,11 @@
 
 # Imports from Python
 import sys, os.path, socket, threading, traceback
+
+#import logserver
+#logserver.startlogger('sshproxy.daemon.log')
+import log
+log.info("SSHproxy logger started")
 import paramiko
 
 from ptywrap import PTYWrapper
@@ -31,9 +36,8 @@ from message import Message
 from data import UserData, SiteData
 from sftp import ProxySFTPServer
 import proxy, util, pool
-import logserver
 
-paramiko.util.log_to_file('sshproxy.log')
+paramiko.util.log_to_file('paramiko.log')
 
 
 
@@ -120,7 +124,7 @@ def service_client(client, addr, host_key_file):
 
     # start transport for the client
     transport = paramiko.Transport(client)
-#    transport.set_log_channel("sshproxy.server")
+    transport.set_log_channel("paramiko")
 #    transport.set_hexdump(1)
 
     try:
@@ -171,6 +175,7 @@ def service_client(client, addr, host_key_file):
         except AttributeError:
             pass
         conn = proxy.ProxyClient(userdata)
+        log.info("Connecting to %s", userdata.get_site().sitename)
         cid = cpool.add_connection(conn)
         ret = conn.loop()
         
@@ -287,7 +292,8 @@ def run_server(ip='', port=2242):
 
     signal.signal(signal.SIGCHLD, kill_zombies)
 
-    # logserver.startlogger()
+#    logserver.startlogger('sshproxy.daemon.log')
+#    log.info("SSHproxy logger started")
 
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -323,7 +329,6 @@ def run_server(ip='', port=2242):
             pid = os.fork()
             if pid == 0:
                 # just serve in the child
-                import log
                 log.info("Serving %s", addr)
                 service_client(client, addr, host_key_file)
                 os._exit(0)
@@ -331,7 +336,10 @@ def run_server(ip='', port=2242):
             # TODO: set an event with kill_zombies or service_client
             servers.append(pid)
     finally:
-        # logserver.stoplogger()
+        try:
+            logserver.stoplogger()
+        except:
+            pass
         print "Exiting"
 
 

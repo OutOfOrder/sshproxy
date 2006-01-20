@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 19, 19:55:46 by david
+# Last modified: 2006 Jan 20, 01:02:55 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -26,6 +26,8 @@ import logging
 import logging.handlers
 import SocketServer
 import struct
+#from threading import Thread
+import os
 
 
 class LogRecordStreamHandler(SocketServer.StreamRequestHandler):
@@ -52,6 +54,7 @@ class LogRecordStreamHandler(SocketServer.StreamRequestHandler):
             obj = self.unPickle(chunk)
             record = logging.makeLogRecord(obj)
             self.handleLogRecord(record)
+#        raise ValueError
 
     def unPickle(self, data):
         return cPickle.loads(data)
@@ -76,7 +79,7 @@ class LogRecordSocketReceiver(SocketServer.ThreadingTCPServer):
 
     allow_reuse_address = 1
 
-    def __init__(self, host='localhost',
+    def __init__(self, host='',
                  port=logging.handlers.DEFAULT_TCP_LOGGING_PORT,
                  handler=LogRecordStreamHandler):
         SocketServer.ThreadingTCPServer.__init__(self, (host, port), handler)
@@ -84,7 +87,7 @@ class LogRecordSocketReceiver(SocketServer.ThreadingTCPServer):
         self.timeout = 1
         self.logname = None
 
-    def run(self):
+    def serve_until_stopped(self):
         import select
         abort = 0
         while not abort:
@@ -97,21 +100,27 @@ class LogRecordSocketReceiver(SocketServer.ThreadingTCPServer):
 
 _logger = None
 
-def startlogger():
+def startlogger(filename, level=logging.DEBUG):
     global _logger
     if _logger:
         return
-    logging.basicConfig(
-        format="%(relativeCreated)5d %(name)-15s %(levelname)-8s %(message)s")
-    _logger = LogRecordSocketReceiver()
-    _logger.logname = 'test.log'
-    print "About to start TCP server..."
-    _logger.start()
+    if not os.fork():
+        l = logging.getLogger('sshproxy')
+        l.setLevel(level)
+        fd = open(filename, 'a')
+        lh = logging.StreamHandler(fd)
+        lh.setFormatter(logging.Formatter(
+            '%(levelname)-.3s [%(asctime)s.%(msecs)03d] %(name)s.%(_pid)d: %(message)s',
+                                          '%Y%m%d-%H:%M:%S'))
+        l.addHandler(lh)
+
+        srv = LogRecordSocketReceiver()
+        srv.logname = 'sshproxy'
+        srv.serve_until_stopped()
 
 def stoplogger():
     global _logger
     if not _logger:
         return
     _logger.abort = 1
-    _logger.join()
 
