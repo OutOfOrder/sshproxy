@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 20, 01:02:55 by david
+# Last modified: 2006 jan 20, 12:00:33 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -105,7 +105,8 @@ def startlogger(filename, level=logging.DEBUG):
     if _logger:
         return
     if not os.fork():
-        l = logging.getLogger('sshproxy')
+        logname = 'sshproxy'
+        l = logging.getLogger(logname)
         l.setLevel(level)
         fd = open(filename, 'a')
         lh = logging.StreamHandler(fd)
@@ -115,7 +116,7 @@ def startlogger(filename, level=logging.DEBUG):
         l.addHandler(lh)
 
         srv = LogRecordSocketReceiver()
-        srv.logname = 'sshproxy'
+        srv.logname = logname
         srv.serve_until_stopped()
 
 def stoplogger():

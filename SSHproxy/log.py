@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 20, 01:07:51 by david
+# Last modified: 2006 jan 20, 11:49:35 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -28,7 +28,7 @@ __all__ = [ 'debug', 'info', 'warning', 'error', 'critical', 'exception' ]
 
 clientLogger = logging.getLogger('sshproxy.client')
 clientLogger.setLevel(logging.DEBUG)
-socketHandler = logging.handlers.SocketHandler('192.168.1.7',
+socketHandler = logging.handlers.SocketHandler('localhost',
                     logging.handlers.DEFAULT_TCP_LOGGING_PORT)
 clientLogger.addHandler(socketHandler)
 
@@ -46,10 +46,11 @@ def get_logger(name):
 
 # the following for loop does the same thing as the
 # following line for all __all__ elements
-# info = logging.getLogger('sshproxy.client').info
+# info = get_logger('sshproxy.client').info
+self = sys.modules[__name__]
+logger = get_logger('sshproxy.client')
 for func in __all__:
-    setattr(sys.modules[__name__], func, getattr(
-                get_logger('sshproxy.client'), func))
-                #logging.getLogger('sshproxy.client'), func))
+    setattr(self, func, getattr(logger, func))
+
 
 

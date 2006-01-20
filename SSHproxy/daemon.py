@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 20, 01:14:59 by david
+# Last modified: 2006 jan 20, 11:54:17 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -23,10 +23,8 @@
 # Imports from Python
 import sys, os.path, socket, threading, traceback
 
-#import logserver
-#logserver.startlogger('sshproxy.daemon.log')
+import logserver
 import log
-log.info("SSHproxy logger started")
 import paramiko
 
 from ptywrap import PTYWrapper
@@ -280,6 +278,8 @@ def kill_zombies(signum, frame):
 def run_server(ip='', port=2242):
     import signal
 
+    logserver.startlogger('sshproxy.log')
+    log.info("SSHproxy logger started")
     init_plugins()
     # get host key
     host_key_file = os.path.join(os.environ['HOME'], '.sshproxy/id_dsa')
