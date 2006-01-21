@@ -1,9 +1,9 @@
 #!/usr/bin/python
 # -*- coding: ISO-8859-15 -*-
 #
-# Copyright (C) 2005 David Guerizec <david@guerizec.net>
+# Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 20, 23:45:22 by david
+# Last modified: 2006 Jan 21, 14:41:32 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -113,8 +113,7 @@ class ProxyScp(object):
             self.transport.connect(username=sitedata.username, password=sitedata.password, hostkey=sitedata.hostkey)
             self.chan = self.transport.open_session()
         except Exception, e:
-            print '*** Caught exception: %s: %s' % (e.__class__, e)
-            traceback.print_exc()
+            log.exception("Unable to set up SSH connection to server")
             try:
                 self.transport.close()
             except:
@@ -137,13 +136,13 @@ class ProxyScp(object):
                 if chan in r:
                     x = chan.recv(1024)
                     if len(x) == 0 or chan.closed or chan.eof_received:
-                        print 'EOF'
+                        log.info("Connection closed by server")
                         break
                     fd.send(x)
                 if fd in r:
                     x = fd.recv(1024)
                     if len(x) == 0 or fd.closed or fd.eof_received:
-                        print 'EOF'
+                        log.info("Connection closed by client")
                         break
                     chan.send(x)
     

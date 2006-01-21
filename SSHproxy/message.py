@@ -1,9 +1,9 @@
 #!/usr/bin/python
 # -*- coding: ISO-8859-15 -*-
 #
-# Copyright (C) 2005 David Guerizec <david@guerizec.net>
+# Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified:
+# Last modified: 2006 Jan 22, 00:09:26 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public

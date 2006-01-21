@@ -1,9 +1,9 @@
 #!/usr/bin/python
 # -*- coding: ISO-8859-15 -*-
 #
-# Copyright (C) 2005 David Guerizec <david@guerizec.net>
+# Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 19, 01:28:01 by david
+# Last modified: 2006 Jan 21, 14:43:10 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -33,8 +33,7 @@ class PTYWrapper(object):
             try:
                 code(cout, *args, **kwargs)
             except Exception, e:
-                print '*** function %s: %s\n' % (code.__name__, str(e))
-                print traceback.format_exc()
+                log.exception('error executing function %s', code.__name__)
                 pass
             cout.write('EOF')
             cout.close()

@@ -1,0 +1,267 @@
+#!/usr/bin/python
+# -*- coding: ISO-8859-15 -*-
+#
+# Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
+#
+# Last modified: 2006 Jan 22, 00:08:45 by david
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2.1 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
+
+
+# Imports from Python
+import sys
+import MySQLdb
+from MySQLdb import MySQLError
+from MySQLdb.constants import CLIENT
+
+from SSHproxy import config
+
+cfg = config.SSHproxyConfig()
+
+cfg.bindip = raw_input("Enter the IP address to listen on [%s] " % (cfg.bindip or 'any')) or cfg.bindip
+if cfg.bindip == 'any':
+    cfg.bindip = ''
+
+cfg.port = raw_input("Enter the port to listen on [%s] " % cfg.port) or cfg.port
+
+print "Write the following configuration to ~/.sshproxy/sshproxy.conf ? (ctrl-C to cancel)"
+print cfg
+try:
+    a = raw_input("Write the above configuration to ~/.sshproxy/sshproxy.conf ? (ctrl-C to cancel)")
+except KeyboardInterrupt:
+    print
+    print "Configuration not saved"
+    sys.exit(0)
+
+if len(a) and a[0] in 'Nn':
+    print "Configuration not saved"
+    sys.exit(0)
+
+cfg._write()
+print "Configuration saved."
+
+
+maincfg = cfg
+
+try:
+    force = sys.argv[1] == '-f'
+except:
+    force = False
+
+cfg = config.MySQLConfig()
+
+def handle_mysql_error(e, cont=None):
+    code, msg = e
+    if 0:
+        pass
+    elif code == 1007: # database already exists
+        print msg
+        print "You can run %s -f to force deletion of the old database" % sys.argv[0]
+    elif code == 1044: # access denied or unknown user
+        print msg
+    elif code == 1045: # incorrect password
+        print msg
+    elif code == 1049: # unknown database
+        print msg
+    elif code == 2003: # can't connect (long timeout)
+        print msg
+    elif code == 2005: # unknown host
+        print msg
+    else:
+        print code, msg
+    if not cont:
+        sys.exit(1)
+    else:
+        print "Continuing..."
+
+def connect_to_db(host, port, db, user, password):
+    try:
+        return MySQLdb.connect(
+            host=host,
+            port=port,
+            db=db,
+            user=user,
+            passwd=password,
+            client_flag=CLIENT.MULTI_STATEMENTS
+            )
+    except MySQLError, e:
+        handle_mysql_error(e)
+        return None
+
+
+adminid="root"
+adminpw=""
+
+
+cfg.host = raw_input("SSHproxy database hostname [%s]: " % cfg.host) or cfg.host
+cfg.port = raw_input("SSHproxy database port [%s]: " % cfg.port) or cfg.port
+cfg.db = raw_input("SSHproxy database name [%s]: " % cfg.db) or cfg.db
+cfg.user = raw_input("SSHproxy database user [%s]: " % cfg.user) or cfg.user
+cfg.password = raw_input("SSHproxy database password [%s]: " % cfg.password) or cfg.password
+
+
+print "Write the following configuration to ~/.sshproxy/mysql.conf ? (ctrl-C to cancel)"
+print cfg
+try:
+    a = raw_input("Write the above configuration to ~/.sshproxy/mysql.conf ? (ctrl-C to cancel)")
+except KeyboardInterrupt:
+    print
+    print "Configuration not saved"
+    sys.exit(0)
+
+if len(a) and a[0] in 'Nn':
+    print "Configuration not saved"
+    sys.exit(0)
+
+cfg._write()
+print "Configuration saved."
+
+adminid = raw_input("MySQL administration user [%s]: " % adminid) or adminid
+adminpw = raw_input("MySQL administration password: ")
+
+db = connect_to_db(cfg.host, cfg.port, "", adminid, adminpw)
+
+c = db.cursor()
+# create database
+while True:
+    try:
+        c.execute("create database %s" % cfg.db)
+        break
+    except MySQLError, e:
+        handle_mysql_error(e, force)
+        try:
+            c.execute("drop database %s" % cfg.db)
+        except MySQLError, e:
+            handle_mysql_error(e)
+            break
+
+try:
+    c.execute("use %s" % cfg.db)
+except MySQLError, e:
+    handle_mysql_error(e)
+
+
+try:
+    # create tables
+    c.execute(open("misc/sshproxy.sql").read())
+except MySQLError, e:
+    handle_mysql_error(e)
+
+selfip = 'localhost'
+selfip = raw_input("Enter the IP of the host connecting to the database (* for any) [%s] " % selfip) or selfip
+try:
+    # create the sshproxy user
+    if cfg.user != adminid:
+        c.execute("GRANT USAGE ON * . * TO '%s'@'%s' IDENTIFIED BY '%s' WITH MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0" % (cfg.user, selfip, cfg.password))
+    c.execute("GRANT SELECT , INSERT , UPDATE , DELETE ON `%s` . * TO '%s'@'%s'" % (cfg.db, cfg.user, selfip))
+except MySQLError, e:
+    raise
+    handle_mysql_error(e)
+
+c.close()
+db.close()
+
+
+# reconnect as sshproxy user
+
+db = connect_to_db(cfg.host, cfg.port, cfg.db, cfg.user, cfg.password)
+
+adminid = 'admin'
+adminpw = ''
+
+adminid = raw_input("Enter the admin uid [%s] " % adminid) or adminid
+
+while not adminpw:
+    adminpw = raw_input("Enter the admin password ")
+    
+
+c = db.cursor()
+
+try:
+    # insert admin login info
+    c.execute("INSERT INTO login VALUES (0, '%s', '%s', 'no key')" % (adminid, adminpw))
+    c.execute("UPDATE login SET id = 0 WHERE uid = '%s'" % adminid)
+except MySQLError, e:
+    handle_mysql_error(e)
+
+
+admingrp = 'Administrators'
+admingrp = raw_input("Enter the admin group name [%s] " % admingrp) or admingrp
+
+try:
+    # insert admin group
+    c.execute("INSERT INTO profile VALUES (0, '%s', 1)" % admingrp)
+    c.execute("UPDATE profile SET id = 0 WHERE name = '%s'" % admingrp)
+except MySQLError, e:
+    handle_mysql_error(e)
+
+try:
+    # link profile to group
+    c.execute("INSERT INTO profile_sgroup VALUES (0, 0)")
+except MySQLError, e:
+    handle_mysql_error(e)
+
+try:
+    # link user to profile
+    c.execute("INSERT INTO login_profile VALUES (0, 0)")
+except MySQLError, e:
+    handle_mysql_error(e)
+
+
+allgrp = 'All Sites'
+allgrp = raw_input("Enter the name of the group containing all sites [%s] " % allgrp) or allgrp
+
+try:
+    # insert all group
+    c.execute("INSERT INTO sgroup VALUES (0, '%s')" % allgrp)
+    c.execute("UPDATE sgroup SET id = 0 WHERE name = '%s'" % allgrp)
+except MySQLError, e:
+    handle_mysql_error(e)
+
+a = raw_input("Do you want to add your first site ? [Y/n] ")
+if not len(a) or a[0] in "yY":
+    sitename = ''
+    while not sitename:
+        sitename = raw_input("Enter the site name (this is symbolic and can be any valid identifiant) ")
+    siteaddress = ''
+    while not siteaddress:
+        siteaddress = raw_input("Enter the site address (DNS name or IP, the latter is stongly recomended) ")
+    siteport = raw_input("Enter the port [22] ") or 22
+    siteloc = raw_input("Enter the location (this is a comment about the site) ")
+    userid = raw_input("Enter the user uid [root] ") or 'root'
+    userpw = ''
+    while not userpw:
+        userpw = raw_input("Enter the user password ")
+
+    try:
+        c.execute("INSERT INTO site (name, ip_address, port, location) VALUES ('%s', '%s', %d, '%s')" % (sitename, siteaddress, siteport, siteloc))
+        c.execute("SELECT LAST_INSERT_ID()")
+        d = c.fetchone()
+        sid = d[0]
+        c.execute("INSERT INTO user (site_id, uid, password, `primary`) VALUES (%d, '%s', '%s', 1)" % (sid, userid, userpw))
+        c.execute("INSERT INTO sgroup_site VALUES (0, %d)" % sid)
+    except MySQLError, e:
+        raise
+
+c.close()
+db.close()
+
+print "Installation complete."
+print "You can now run ./sshproxy in a console, then in another console"
+print "run the following command:"
+print "ssh -tp %s %s@%s" % (maincfg.port, adminid, maincfg.bindip or 'localhost')
+print "Password: (enter %s)" % (adminpw)
+print "Then in the console enter manage_pwdb to enter sites and users"
+print "Enjoy!"

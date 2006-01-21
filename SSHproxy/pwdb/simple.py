@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: ISO-8859-15 -*-
 #
-# Copyright (C) 2005 David Guerizec <david@guerizec.net>
+# Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -78,12 +78,9 @@ class SimplePwDB(object):
         if sid.find('@') >= 0:
             user, sid = sid.split('@')
         if self.sites.has_key(sid):
-            if user:
-                print type(user), "=="
             if user and self.sites[sid].get_user(user):
                 return user, self.sites[sid]
             elif not user and self.sites[sid].default_user():
-                print self.sites[sid].default_user()
                 return self.sites[sid].default_user(), self.sites[sid]
                 
         return None, None

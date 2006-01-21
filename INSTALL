@@ -1,0 +1,155 @@
+SSH Proxy
+=========
+
+Install the software
+--------------------
+
+Untar the tarball in the directory of your choice:
+
+    tar zxvf sshproxy.tar.gz
+
+Now enter in the sshproxy directory.
+
+
+Install the database
+--------------------
+
+It is strongly recomended to use the wizard script installdb.
+
+Run the script, and answer all the questions:
+
+ ./installdb
+ Enter the IP address to listen on [any]
+ Enter the port to listen on [2242]
+ Write the following configuration to ~/.sshproxy/sshproxy.conf ? (ctrl-C to cancel)
+ bindip = ''
+ port = 2242
+ 
+ Write the above configuration to ~/.sshproxy/sshproxy.conf ? (ctrl-C to cancel)
+ Configuration saved.
+ SSHproxy database hostname [127.0.0.1]:
+ SSHproxy database port [3306]:
+ SSHproxy database name [sshproxy2]:
+ SSHproxy database user [sshproxy]:
+ SSHproxy database password [sshproxypw]:
+ Write the following configuration to ~/.sshproxy/mysql.conf ? (ctrl-C to cancel)
+ db = 'sshproxy2'
+ host = '127.0.0.1'
+ password = 'sshproxypw'
+ port = 3306
+ user = 'sshproxy'
+ 
+ Write the above configuration to ~/.sshproxy/mysql.conf ? (ctrl-C to cancel)
+ Configuration saved.
+ MySQL administration user [root]:
+ MySQL administration password: mysqlpassword
+ Enter the IP of the host connecting to the database (* for any) [localhost]
+ Enter the admin uid [admin]
+ Enter the admin password adminpassword
+ Enter the admin group name [Administrators]
+ Enter the name of the group containing all sites [All Sites]
+ Do you want to add your first site ? [Y/n]
+ Enter the site name (this is symbolic and can be any valid identifiant) home
+ Enter the site address (DNS name or IP, the latter is stongly recomended) 1.2.3.4
+ Enter the port [22]
+ Enter the location (this is a comment about the site) My home server
+ Enter the user uid [root] root
+ Enter the user password rootpassword
+ Installation complete.
+ You can now run ./sshproxy in a console, then in another console
+ run the following command:
+ ssh -tp 2242 admin@localhost
+ Password: (enter adminpassword)
+ Then in the console enter manage_pwdb to enter sites and users
+ Enjoy!
+
+
+
+Manual installation of the database
+-----------------------------------
+
+Skip this step if you did it with the wizard.
+
+You can set up the database manually with the following commands:
+
+    mysqladmin create sshproxy
+    mysql -u root -p sshproxy < misc/sshproxy.sql
+    mysql -u root -p < misc/sshproxy-user.sql
+
+Then load some data (edit the file before, see below):
+    mysql -u root -p sshproxy < misc/sshproxy-data.sql
+
+You can adjust values in the 'site' and 'user' tables to reflect
+your own settings.
+Table 'site' is for remote servers (can be localhost as well).
+Table 'user' is for users on these sites.
+
+You can also change the table 'login'. This table is used to
+connect to the proxy.
+
+
+Run the server
+--------------
+
+Issue the following command:
+
+    ./sshproxy.py
+
+This runs the sshproxy server which listens on the port 2242 (or the port
+you configured with the wizard).
+
+
+Run the client
+--------------
+
+Issue the following command:
+
+    ssh -tp 2242 admin@localhost home
+
+You may change the user 'admin' to reflect the one you put in
+the 'login' table.
+At the password prompt, enter the password you put
+into the 'login' table.
+
+You're now connected. Try some commands, then hit Control-X.
+You're now in the console. You can type 'help' to get 
+some explanations about console commands.
+Type 'back' or 'switch 0' to come back to the SSH session.
+
+
+Configuration files
+-------------------
+
+If you ever need to change configuration, the files are placed in ~/.sshproxy:
+
+ ~/.sshproxy
+ ~/.sshproxy/id_dsa
+ ~/.sshproxy/id_dsa.pub
+ ~/.sshproxy/mysql.conf
+ ~/.sshproxy/sshproxy.conf
+
+Of course, '~' here represents the home directory of the user running the
+daemon.
+
+Troubleshooting
+---------------
+
+If you experience locks when you try to connect to a remote site,
+change the /etc/ssh/sshd_config file on the remote site to read:
+
+PasswordAuthentication yes
+
+This is a known bug of sshproxy, and will hopefully be fixed soon.
+
+The sshproxy daemon is not verbose on the console, but it logs thru syslog
+(protocol udp on localhost, facility daemon), so you may check for errors in
+your /var/log/syslog or /var/log/message by the following command:
+
+ tail -f /var/log/{syslog,messages} | grep sshproxy
+ 
+The log system will be enhanced in the next version.
+Of course you need to configure your syslog to accept udp from localhost.
+There is an example syslog-ng.conf file in ./misc/
+
+-- 
+David Guerizec <david@guerizec.net>

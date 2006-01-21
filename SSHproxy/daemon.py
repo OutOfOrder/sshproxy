@@ -1,9 +1,9 @@
 #!/usr/bin/python
 # -*- coding: ISO-8859-15 -*-
 #
-# Copyright (C) 2005 David Guerizec <david@guerizec.net>
+# Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 21, 01:14:22 by david
+# Last modified: 2006 Jan 21, 17:27:36 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -32,6 +32,7 @@ from message import Message
 from data import UserData, SiteData
 from sftp import ProxySFTPServer
 import proxy, util, pool
+import config
 
 #paramiko.util.log_to_file('paramiko.log')
 
@@ -272,9 +273,12 @@ def kill_zombies(signum, frame):
     except OSError:
         pass
 
-def _run_server(ip='', port=2242):
+def _run_server():
     import signal
 
+    conf = config.SSHproxyConfig()
+    ip = conf.bindip
+    port = conf.port
     init_plugins()
     # get host key
     host_key_file = os.path.join(os.environ['HOME'], '.sshproxy/id_dsa')

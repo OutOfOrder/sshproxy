@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: ISO-8859-15 -*-
 #
-# Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
+# Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -17,11 +17,14 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
-import simple
+from distutils.core import setup
 
-SimplePwDB = simple.SimplePwDB
-
-import mysql
-
-MySQLPwDB = mysql.MySQLPwDB
-
+setup(name='SSHproxy',
+      version='0.2.0',
+      description='pure python implementation of an ssh proxy',
+      author='David Guerizec',
+      author_email='david@guerizec.net',
+      url='http://www.nongnu.org/sshproxy/',
+      packages=['SSHproxy','SSHproxy/client','SSHproxy/server','SSHproxy/pwdb'],
+      scripts=['sshproxy'],
+      )

@@ -29,17 +29,6 @@ CREATE TABLE `login` (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 --
--- Dumping data for table `login`
---
-
-
-/*!40000 ALTER TABLE `login` DISABLE KEYS */;
-LOCK TABLES `login` WRITE;
-INSERT INTO `login` VALUES (1,'admin','foobar','');
-UNLOCK TABLES;
-/*!40000 ALTER TABLE `login` ENABLE KEYS */;
-
---
 -- Table structure for table `login_profile`
 --
 
@@ -49,17 +38,6 @@ CREATE TABLE `login_profile` (
   `profile_id` int(10) unsigned NOT NULL default '0',
   PRIMARY KEY  (`login_id`,`profile_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COMMENT='login profil link';
-
---
--- Dumping data for table `login_profile`
---
-
-
-/*!40000 ALTER TABLE `login_profile` DISABLE KEYS */;
-LOCK TABLES `login_profile` WRITE;
-INSERT INTO `login_profile` VALUES (1,0);
-UNLOCK TABLES;
-/*!40000 ALTER TABLE `login_profile` ENABLE KEYS */;
 
 --
 -- Table structure for table `profile`
@@ -74,17 +52,6 @@ CREATE TABLE `profile` (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COMMENT='User groups';
 
 --
--- Dumping data for table `profile`
---
-
-
-/*!40000 ALTER TABLE `profile` DISABLE KEYS */;
-LOCK TABLES `profile` WRITE;
-INSERT INTO `profile` VALUES (0,'pwdb_admin',1);
-UNLOCK TABLES;
-/*!40000 ALTER TABLE `profile` ENABLE KEYS */;
-
---
 -- Table structure for table `profile_sgroup`
 --
 
@@ -94,17 +61,6 @@ CREATE TABLE `profile_sgroup` (
   `sgroup_id` int(10) unsigned NOT NULL default '0',
   PRIMARY KEY  (`profile_id`,`sgroup_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COMMENT='profile sitegroup link';
-
---
--- Dumping data for table `profile_sgroup`
---
-
-
-/*!40000 ALTER TABLE `profile_sgroup` DISABLE KEYS */;
-LOCK TABLES `profile_sgroup` WRITE;
-INSERT INTO `profile_sgroup` VALUES (0,0);
-UNLOCK TABLES;
-/*!40000 ALTER TABLE `profile_sgroup` ENABLE KEYS */;
 
 --
 -- Table structure for table `sgroup`
@@ -118,17 +74,6 @@ CREATE TABLE `sgroup` (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COMMENT='Site groups';
 
 --
--- Dumping data for table `sgroup`
---
-
-
-/*!40000 ALTER TABLE `sgroup` DISABLE KEYS */;
-LOCK TABLES `sgroup` WRITE;
-INSERT INTO `sgroup` VALUES (0,'AllSites');
-UNLOCK TABLES;
-/*!40000 ALTER TABLE `sgroup` ENABLE KEYS */;
-
---
 -- Table structure for table `sgroup_site`
 --
 
@@ -138,11 +83,6 @@ CREATE TABLE `sgroup_site` (
   `site_id` int(10) unsigned NOT NULL default '0',
   PRIMARY KEY  (`sgroup_id`,`site_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
---
--- Dumping data for table `sgroup_site`
---
-
 
 --
 -- Table structure for table `site`
@@ -159,11 +99,6 @@ CREATE TABLE `site` (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 --
--- Dumping data for table `site`
---
-
-
---
 -- Table structure for table `user`
 --
 
@@ -176,10 +111,6 @@ CREATE TABLE `user` (
   `primary` tinyint(1) unsigned NOT NULL default '0',
   PRIMARY KEY  (`id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
---
--- Dumping data for table `user`
---
 
 
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
