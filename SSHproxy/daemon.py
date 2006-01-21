@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 21, 00:40:01 by david
+# Last modified: 2006 Jan 21, 01:14:22 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -336,7 +336,7 @@ def _run_server(ip='', port=2242):
 def run_server():
     log.info("SSHproxy starting")
     try:
-        while True:
+#        while True:
             try:
                 _run_server()
             except KeyboardInterrupt:
