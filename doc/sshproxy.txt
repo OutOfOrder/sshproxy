@@ -1,0 +1,265 @@
+======================
+SSHproxy documentation
+======================
+
+    Author:         David Guerizec <david@guerizec.net>
+    Contributor:    Pierre-Yves Roffes <py@wcube.org>
+
+
+About SSHproxy
+==============
+
+SSHproxy is a pure python implementation of an ssh proxy.
+
+It allows users to connect to remote sites without having to remember the
+password or key of the remote sites.
+
+
+Installation
+============
+
+See the INSTALL file in the top directory of the SSHproxy distribution.
+
+
+Usage
+=====
+
+Run ./sshproxy to launch the daemon on the proxy host.
+
+On the client host, run the following command:
+
+ ssh -tp 2242 admin@proxy
+
+After authentication, you will be given the following prompt:
+
+ [proxy::ssh proxy]
+
+If you used the wizard "installdb" to create a first site, you can try to
+connect with the following command:
+
+ [proxy::ssh proxy] connect home
+
+Here, home is the symbolic name of your site.
+
+If all goes well, you should see your home site prompt:
+
+ user@home ~$
+
+To go back in the console, hit CTRL-X (to hold the connection) or CTRL-D (to
+exit the ssh connection from your home site).
+
+In the console, you can connect to many sites at once, hitting CTRL-X to come
+back to the console each time.
+
+Type the following command to list open connections:
+
+ [proxy::ssh proxy] list_connections
+ 0 me@home
+ 1 root@webserver
+ 2 me@work
+ 
+When you want to go back to an already open connection, type the following
+command:
+
+ [proxy::ssh proxy] switch 1
+ root@webserver #
+
+You can also use the 'back' command, if you want to come back to the last
+visited open connection.
+
+When you exit the console, all connections will be closed.
+
+Managing users and sites
+========================
+
+To understand how and what you will need to do to manage your users and sites,
+you have to know the underlying data model of SSHproxy.
+
+The data model
+--------------
+
+Since SSHproxy is a proxy for ssh, it seems it needs to have knowledge of
+remote sites, and users on these sites.
+There can be several users per site, each having its own password and/or key.
+Sites can be grouped in site groups.
+
+From what we've seen, we can deduce the data model for the sites part, and
+this is like a tree (to be more precise, this is in fact a graph, cause each
+site can be in more than one site group):
+
+    Site Group America
+               |\
+               | Remote Site Arizona
+               |             |\
+               |             | User albert@Arizona
+               |              \
+               |               User benjamin@Arizona
+                \
+                 Remote Site California
+                             |\
+                             | User cathy@California
+                              \
+                               User deby@California
+
+Now SSHproxy need to have knowledge of client users connecting to itself.
+These are called 'logins'. Logins have a username, and a password and/or a
+key. They are also grouped by profile.
+
+So from the logins point of view, here is the tree-like structure (which is
+also a graph, cause logins can belongs to more than one profile):
+
+    Profile Support
+            |\
+            | User zack
+             \
+              User youri
+
+    Profile Exploitation
+            |\
+            | User xena
+             \
+              User wendi
+
+Now let's connect logins to sites. This is done by connecting profiles to site
+groups, so that each profile can be linked to several site groups, and each
+site group can be linked to several profiles.
+
+SSHproxy now knows how logins relate to sites, and this permits to allow or
+deny access to logins.
+Put simply, if Zack from the Support profile wants to connect to
+deby@California, the Support profile must be linked to the America site group.
+In fact, any login in the Support profile can connect to any site from the
+America site group if there is a link between Support and America.
+
+To put this cleary, let's draw the relationships:
+
+    login <-> profile <-> site group <-> site <- user
+
+There is a limitation to this model, that will be addressed in a future
+version of SSHproxy: you can't limit a login to only one user on a particular
+site.
+
+There is however a simple workaround, you can declare a site twice with
+different symbolic names, but with the same IP address. To SSHproxy, these are
+two different sites, so you can put them into different site groups.
+As I said, this limitation will be addressed soon.
+
+The Password Database Manager console
+-------------------------------------
+
+You can manage users and sites with the Password Database Manager console.
+When logged in as an admin (login belonging to the profile Administrators),
+type manage_pwdb and you get into the pwdb_manager console.
+
+You have now a heap of commands to create users and sites:
+
+ [pwdb manager] help
+ 
+ Documented commands (type help <topic>):
+ ========================================
+ add_group             add_site            list_logins            list_users
+ add_login             add_site_to_group   list_profile_group
+ add_login_to_profile  add_user            list_profiles
+ add_profile           list_groups         list_sites
+ add_profile_to_group  list_login_profile  list_sites_from_group
+ 
+ Undocumented commands:
+ ======================
+ EOF  exit  help
+
+You can have help on each documented command by typing "help cmd".
+
+Let's start by the add_* commands.
+
+ add_group [group1] [group2] ...
+
+  This commands allows you to add site groups. All it does is really only
+  adding groups, no link with profiles or sites will be created. The arguments
+  are group names.
+
+ add_login [uid] [key]
+  
+  This command inserts a new login in the database. You have to provide the
+  username (uid). The key parameter is optional. The password will be prompted
+  and is mandatory.
+  If no key is entered, this doesn't mean that you won't be able to connect
+  with a key. In fact, if you want to forbid key authentication, you can put a
+  false key here, something like 'no_key'.
+  The first time a user is authenticated by password, if the key is empty, and
+  if the user has a key on her workstation, that key will be inserted in the
+  database, so that the next time she logs in, no password will be prompted.
+  If the key has already been entered in the database, it won't be replaced by
+  a new key. 
+
+ add_profile [profile] [profile]
+
+  Same as add_group, this command just inserts new profiles in the database.
+
+ add_login_to_profile [login] [profile]
+
+  This is to put a login in a profile.
+
+ add_profile_to_group [profile] [group]
+
+  Same as add_login_to_profile, this links a profile to a site group.
+
+ add_site [name] [IP address] [port] [location]
+
+  Declare a new site. The 'name' argument is a symbolic name. It shouldn't
+  have any space or weird characters. Character range of a DNS name or an
+  identifier should be safe. 'IP address' is either the IP address of the
+  remote site, or the DNS name if the IP address is dynamic. 'port' is
+  generally 22 for ssh, but if you have to access a host in a DMZ, this port
+  can be DNAT'ed to anything. 'location' is just a comment, and is not used
+  for the moment.
+
+ add_site_to_group [site] [group]
+
+  Same as add_login_to_profile, this adds a site in a site group.
+
+ add_user [uid] [site] [primary]
+
+  This adds a user, and links it to a site. 'uid' is the username (not the
+  numeric uid), 'site' is the sympolic name of a site already present in the
+  database. 'primary' is a boolean, 0 or 1, denoting if this user will be
+  taken by default if not specified on login.
+
+ list_groups
+
+  This lists site groups in the database.
+
+ list_login_profile [profile]
+
+  This lists the logins associated to a profile.
+
+ list_logins
+
+  This lists logins. Passwords and keys are dumped in clear! (this may change
+  in a future version)
+
+ list_profile_group
+
+  This lists the associations between profiles and site groups.
+
+ list_profiles
+
+  This lists profiles.
+
+ list_sites
+
+  This lists all sites declared in the database.
+
+ list_sites_from_group [group]
+
+  This lists only sites belonging to a site group.
+
+ list_users [site name]
+
+  This lists users from a site. 'site name' is the symbolic name of a site.
+
+ 
+  
+
+
+
+
