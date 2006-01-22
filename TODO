@@ -34,6 +34,10 @@ Solution 3:
 
 We can develop an ssh client based on libssh that would be able to accept back-connections for sftp channel comming from sshproxy (beware of security implications here!)
 
+PWDB
+----
+
+Let users belong to a group too (maybe only users, and not sites) to allow a login to connect, say, to sudoer@site, but not to root@site.
 
 MySQLPwDB:
 ----------
@@ -49,3 +53,15 @@ Direct command execution
 ssh -tp 2242 me@proxy user@site command options
 
 This does not work yet...
+
+PWDB Console
+------------
+
+add commands to modify and delete records.
+add a wizard command to add a site and link it to site groups and users.
+
+
+All consoles
+------------
+
+Add arguments completion and history
