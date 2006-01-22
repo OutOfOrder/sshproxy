@@ -1,3 +1,5 @@
+# Last modified: 2006 Jan 22, 15:36:52 by david
+
 Pre-release Cleaning
 --------------------
 
@@ -64,4 +66,12 @@ add a wizard command to add a site and link it to site groups and users.
 All consoles
 ------------
 
-Add arguments completion and history
+Add arguments completion and history.
+
+
+Good stuff
+----------
+
+Add a graph generator for the data structure.
+Add an ncurses UI to monitor several sites at once.
+

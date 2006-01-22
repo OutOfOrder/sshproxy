@@ -69,6 +69,21 @@ visited open connection.
 
 When you exit the console, all connections will be closed.
 
+If you want to connect directly to a remote site, just type:
+
+ ssh -tp 2242 admin@proxy root@webserver
+ root@webserver #
+ 
+Exiting this shell will not bring you to the console, but hitting CTRL-X will,
+and you can then connect to another site with the connect command.
+
+Direct command execution doesn't work. ie.:
+
+ ssh -tp 2242 admin@proxy root@webserver /etc/init.d/apache2 restart
+
+is not yet implemented, but will be in a future version.
+
+
 Managing users and sites
 ========================
 
@@ -78,8 +93,8 @@ you have to know the underlying data model of SSHproxy.
 The data model
 --------------
 
-Since SSHproxy is a proxy for ssh, it seems it needs to have knowledge of
-remote sites, and users on these sites.
+Since SSHproxy is a proxy for ssh, it needs to have knowledge of remote sites,
+and users on these sites.
 There can be several users per site, each having its own password and/or key.
 Sites can be grouped in site groups.
 
