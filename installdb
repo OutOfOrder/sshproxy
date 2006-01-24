@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 22, 00:08:45 by david
+# Last modified: 2006 Jan 24, 20:45:26 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -100,6 +100,12 @@ def connect_to_db(host, port, db, user, password):
         handle_mysql_error(e)
         return None
 
+def Q(str):
+    """Safe quote mysql values"""
+    if str is None:
+        return ''
+    return str.replace("'", "\\'")
+
 
 adminid="root"
 adminpw=""
@@ -137,18 +143,18 @@ c = db.cursor()
 # create database
 while True:
     try:
-        c.execute("create database %s" % cfg.db)
+        c.execute("create database %s" % Q(cfg.db))
         break
     except MySQLError, e:
         handle_mysql_error(e, force)
         try:
-            c.execute("drop database %s" % cfg.db)
+            c.execute("drop database %s" % Q(cfg.db))
         except MySQLError, e:
             handle_mysql_error(e)
             break
 
 try:
-    c.execute("use %s" % cfg.db)
+    c.execute("use %s" % Q(cfg.db))
 except MySQLError, e:
     handle_mysql_error(e)
 
@@ -164,8 +170,12 @@ selfip = raw_input("Enter the IP of the host connecting to the database (* for a
 try:
     # create the sshproxy user
     if cfg.user != adminid:
-        c.execute("GRANT USAGE ON * . * TO '%s'@'%s' IDENTIFIED BY '%s' WITH MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0" % (cfg.user, selfip, cfg.password))
-    c.execute("GRANT SELECT , INSERT , UPDATE , DELETE ON `%s` . * TO '%s'@'%s'" % (cfg.db, cfg.user, selfip))
+        c.execute("GRANT USAGE ON * . * TO '%s'@'%s' IDENTIFIED BY '%s' WITH
+                MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0
+                MAX_UPDATES_PER_HOUR 0" % (Q(cfg.user), Q(selfip),
+                                            Q(cfg.password)))
+    c.execute("GRANT SELECT , INSERT , UPDATE , DELETE ON `%s` . * TO
+                '%s'@'%s'" % (Q(cfg.db), Q(cfg.user), Q(selfip)))
 except MySQLError, e:
     raise
     handle_mysql_error(e)
@@ -191,8 +201,8 @@ c = db.cursor()
 
 try:
     # insert admin login info
-    c.execute("INSERT INTO login VALUES (0, '%s', '%s', 'no key')" % (adminid, adminpw))
-    c.execute("UPDATE login SET id = 0 WHERE uid = '%s'" % adminid)
+    c.execute("INSERT INTO login VALUES (0, '%s', '%s', 'no key')" % (Q(adminid), Q(adminpw)))
+    c.execute("UPDATE login SET id = 0 WHERE uid = '%s'" % Q(adminid))
 except MySQLError, e:
     handle_mysql_error(e)
 
@@ -202,8 +212,8 @@ admingrp = raw_input("Enter the admin group name [%s] " % admingrp) or admingrp
 
 try:
     # insert admin group
-    c.execute("INSERT INTO profile VALUES (0, '%s', 1)" % admingrp)
-    c.execute("UPDATE profile SET id = 0 WHERE name = '%s'" % admingrp)
+    c.execute("INSERT INTO profile VALUES (0, '%s', 1)" % Q(admingrp))
+    c.execute("UPDATE profile SET id = 0 WHERE name = '%s'" % Q(admingrp))
 except MySQLError, e:
     handle_mysql_error(e)
 
@@ -225,8 +235,8 @@ allgrp = raw_input("Enter the name of the group containing all sites [%s] " % al
 
 try:
     # insert all group
-    c.execute("INSERT INTO sgroup VALUES (0, '%s')" % allgrp)
-    c.execute("UPDATE sgroup SET id = 0 WHERE name = '%s'" % allgrp)
+    c.execute("INSERT INTO sgroup VALUES (0, '%s')" % Q(allgrp))
+    c.execute("UPDATE sgroup SET id = 0 WHERE name = '%s'" % Q(allgrp))
 except MySQLError, e:
     handle_mysql_error(e)
 
@@ -246,11 +256,11 @@ if not len(a) or a[0] in "yY":
         userpw = raw_input("Enter the user password ")
 
     try:
-        c.execute("INSERT INTO site (name, ip_address, port, location) VALUES ('%s', '%s', %d, '%s')" % (sitename, siteaddress, siteport, siteloc))
+        c.execute("INSERT INTO site (name, ip_address, port, location) VALUES ('%s', '%s', %d, '%s')" % (Q(sitename), Q(siteaddress), siteport, Q(siteloc)))
         c.execute("SELECT LAST_INSERT_ID()")
         d = c.fetchone()
         sid = d[0]
-        c.execute("INSERT INTO user (site_id, uid, password, `primary`) VALUES (%d, '%s', '%s', 1)" % (sid, userid, userpw))
+        c.execute("INSERT INTO user (site_id, uid, password, `primary`) VALUES (%d, '%s', '%s', 1)" % (sid, Q(userid), Q(userpw)))
         c.execute("INSERT INTO sgroup_site VALUES (0, %d)" % sid)
     except MySQLError, e:
         raise
