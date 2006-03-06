@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 21, 14:43:10 by david
+# Last modified: 2006 Mar 06, 17:25:55 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -22,6 +22,8 @@
 
 # Imports from Python
 import os, select, pty, traceback
+
+import log
 
 class PTYWrapper(object):
     def __init__(self, chan, code, msg, *args, **kwargs):
@@ -47,7 +49,10 @@ class PTYWrapper(object):
             rfds, wfds, xfds = select.select(
                     [master_fd, chan, cin], [], [],5)
             if master_fd in rfds:
-                data = pty._read(master_fd)
+                try:
+                    data = pty._read(master_fd)
+                except OSError:
+                    break
                 chan.send(data)
             if chan in rfds:
                 data = chan.recv(1024)
