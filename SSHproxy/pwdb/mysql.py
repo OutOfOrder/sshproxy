@@ -145,6 +145,20 @@ class MySQLPwDB(simple.SimplePwDB):
         profile.close()
         return 1
 
+    def remove_profile(self, name):
+        q = """
+            delete from profile where name = '%s'
+        """
+        profile_id = self.get_id('profile', name)
+        if not profile_id:
+            return False
+        self.unlink_login_profile(None, profile_id)
+        self.unlink_profile_group(profile_id, None)
+        profile = db.cursor()
+        profile.execute(q % Q(name))
+        profile.close()
+        return True
+
 ################ functions for scripts/add_group ########################
 
     def list_groups(self, site=None):
@@ -191,6 +205,20 @@ class MySQLPwDB(simple.SimplePwDB):
         group.close()
         return 1
 
+    def remove_group(self, name):
+        q = """
+            delete from sgroup where name = '%s'
+        """
+        group_id = self.get_id('group', name)
+        if not group_id:
+            return False
+        self.unlink_profile_group(None, group_id)
+        self.unlink_group_site(group_id, None)
+        group = db.cursor()
+        group.execute(q % Q(name))
+        group.close()
+        return True
+
 ################ functions for scripts/add_site #######################
 
     def list_sites(self, group=None):
@@ -222,7 +250,7 @@ class MySQLPwDB(simple.SimplePwDB):
         return p
 
     # XXX: rename this method
-    def get_site_for_script(self, name):
+    def get_site(self, name):
         q_getsite = """
             select id,
                    name,
@@ -253,12 +281,25 @@ class MySQLPwDB(simple.SimplePwDB):
                     location)
                 values ('%s','%s',%d,'%s')
         """
-        if self.get_site_for_script(name):
+        if self.get_site(name):
             return None
         site = db.cursor()
         site.execute(q_addsite % (Q(name), Q(ip_address), port, Q(location)))
         site.close()
         return 1
+
+    def remove_site(self, name):
+        q = "delete from site where name = '%s'"
+        site_id = self.get_id('site', name)
+        if not site_id:
+            return False
+        for u in self.list_users(site_id):
+            self.remove_user(u['uid'], site_id)
+        self.unlink_group_site(None, site_id)
+        site = db.cursor()
+        site.execute(q % Q(name))
+        site.close()
+        return True
 
 ################## functions for scripts/add_user #####################
 
@@ -267,7 +308,7 @@ class MySQLPwDB(simple.SimplePwDB):
             select site_id, uid, password, `primary` from user
         """
         if site_id:
-            q_listuser = q_listuser + " where site_id = " + str(int(site_id))
+            q_listuser = q_listuser + " where site_id = %d" % site_id
         site = db.cursor()
         site.execute(q_listuser)
         p = []
@@ -287,6 +328,8 @@ class MySQLPwDB(simple.SimplePwDB):
                    `primary`
                 from user where uid = '%s' and site_id = %d
         """
+        if type(site_id) == type(""):
+            site_id = self.get_id("site", site_id)
         user = db.cursor()
         user.execute(q_getuser % (Q(uid), site_id))
         p = user.fetchone()
@@ -300,8 +343,9 @@ class MySQLPwDB(simple.SimplePwDB):
 
     def add_user_to_site(self, uid, site, password, primary):
         site_id = self.get_id('site', site)
-        self.add_user(uid, site_id, password, primary)
-        return 1
+        if not site_id:
+            return False
+        return self.add_user(uid, site_id, password, primary)
 
     def add_user(self, uid, site_id, password, primary):
         q_adduser = """
@@ -318,6 +362,25 @@ class MySQLPwDB(simple.SimplePwDB):
         user.execute(q_adduser % (Q(uid), site_id, Q(password), primary))
         user.close()
         return 1
+
+    def remove_user_from_site(self, uid, site):
+        site_id = self.get_id('site', site)
+        if not site_id:
+            return False
+        return self.remove_user(uid, site_id)
+
+    def remove_user(self, uid, site_id):
+        q = """
+            delete from user where uid = '%s' and site_id = %d
+        """
+        if type(site_id) == type(""):
+            site_id = self.get_id("site", site_id)
+        if not self.get_users(uid, site_id):
+            return False
+        user = db.cursor()
+        user.execute(q % (Q(uid), site_id))
+        user.close()
+        return True
 
 ################### functions for scripts/add_login   #############
 
@@ -356,6 +419,19 @@ class MySQLPwDB(simple.SimplePwDB):
         addlogin.close()
         return True
 
+    def remove_login(self, login):
+        q = """
+            delete from login where uid = '%s'
+        """
+        login_id = self.get_id('login', login)
+        if not login_id:
+            return False
+        self.unlink_login_profile(login_id, None)
+        removelogin = db.cursor()
+        removelogin.execute(q % Q(login))
+        removelogin.close()
+        return True
+
 ######### functions for link scripts/add_login_profile ###############
 
     def list_login_profile(self):
@@ -374,15 +450,32 @@ class MySQLPwDB(simple.SimplePwDB):
 
     def add_login_profile(self, login_id, profile_id):
         q_addlogin = """
-            insert into login_profile (login_id, profile_id) values (%d, %d)
+            replace into login_profile (login_id, profile_id) values (%d, %d)
         """
         login = db.cursor()
         login.execute(q_addlogin % (login_id, profile_id))
         login.close()
         return 1
 
+    def unlink_login_profile(self, login_id, profile_id):
+        q = """
+            delete from login_profile where 
+        """
+        q_where = []
+        if login_id is not None:
+            q_where.append("login_id = %d" % login_id)
+        if profile_id is not None:
+            q_where.append("profile_id = %d" % profile_id)
+        if not len(q_where):
+            return False
 
-######### functions for link scripts/add_profile_sgroup ###############
+        login = db.cursor()
+        login.execute(q + ' and '.join(q_where))
+        login.close()
+        return True
+
+
+######### functions for link scripts/add_profile_group ###############
 
     def list_profile_group(self):
         q_list = """
@@ -400,12 +493,28 @@ class MySQLPwDB(simple.SimplePwDB):
 
     def add_profile_group(self, profile_id, sgroup_id):
         q_addlogin = """
-            insert into profile_sgroup (profile_id,sgroup_id) values (%d, %d)
+            replace into profile_sgroup (profile_id,sgroup_id) values (%d, %d)
         """
         login = db.cursor()
         login.execute(q_addlogin % (profile_id, sgroup_id))
         login.close()
         return 1
+
+    def unlink_profile_group(self, profile_id, sgroup_id):
+        q = """
+            delete from profile_sgroup where 
+        """
+        q_where = []
+        if profile_id is not None:
+            q_where.append("profile_id = %d" % profile_id)
+        if sgroup_id is not None:
+            q_where.append("sgroup_id = %d" % sgroup_id)
+        if not len(q_where):
+            return False
+        login = db.cursor()
+        login.execute(q + ' and '.join(q_where))
+        login.close()
+        return True
 
 
 ######### functions for link scripts/add_group_site ###############
@@ -426,12 +535,29 @@ class MySQLPwDB(simple.SimplePwDB):
 
     def add_group_site(self, sgroup_id, site_id):
         q_addlogin = """
-            insert into sgroup_site (sgroup_id, site_id) values (%d, %d)
+            replace into sgroup_site (sgroup_id, site_id) values (%d, %d)
         """
         login = db.cursor()
         login.execute(q_addlogin % (sgroup_id, site_id))
         login.close()
         return 1
+
+    def unlink_group_site(self, sgroup_id, site_id):
+        q = """
+            delete from sgroup_site where 
+        """
+        q_where = []
+        if sgroup_id is not None:
+            q_where.append("sgroup_id = %d" % sgroup_id)
+        if site_id is not None:
+            q_where.append("site_id = %d" % site_id)
+        if not len(q_where):
+            return False
+
+        login = db.cursor()
+        login.execute(q + ' and '.join(q_where))
+        login.close()
+        return True
 
 ######################################################################
 
@@ -448,6 +574,8 @@ class MySQLPwDB(simple.SimplePwDB):
 
     def get_id(self, table, name):
         id = None
+        if table == 'group': # alias group to sgroup
+            table = 'sgroup'
         if table == 'login':
             query = """
             select id from `%s` where uid = '%s' 
@@ -460,7 +588,10 @@ class MySQLPwDB(simple.SimplePwDB):
         c.execute(query % (Q(table), Q(name)))
         id = c.fetchone()
         c.close()
-        return id[0]
+        if id and len(id):
+            return id[0]
+        else:
+            return 0
 
     def is_allowed(self, username, password=None, key=None):
         """Check is a user is allowed to connect to the proxy."""
@@ -485,7 +616,7 @@ class MySQLPwDB(simple.SimplePwDB):
             self.login = username
         return login
 
-    def get_site(self, sid):
+    def get_user_site(self, sid):
         user = None
         if sid.find('@') >= 0:
             user, sid = sid.split('@')

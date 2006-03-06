@@ -73,7 +73,7 @@ class SimplePwDB(object):
         for site in site_list:
             self.sites[site.sid] = site
 
-    def get_site(self, sid):
+    def get_user_site(self, sid):
         user = None
         if sid.find('@') >= 0:
             user, sid = sid.split('@')

@@ -115,6 +115,18 @@ class DBConsole(cmd.Cmd):
         else:
             pwdb.add_site(arg[0], arg[1], int(arg[2]), arg[3])
 
+    def do_remove_site(self, arg):
+        """remove_site [name]
+           All users belonging to that site will be destroy !"""
+        arg = CommandLine(arg)
+        if len(arg) != 1:
+            self.onecmd('help remove_site')
+            return
+        else:
+            if not pwdb.remove_site(arg[0]):
+                print "No such site %s\n" % arg[0]
+                
+
     def _sites(self, group=None):
         sites=[]
         for site in pwdb.list_sites(group=group):
@@ -142,6 +154,7 @@ class DBConsole(cmd.Cmd):
 ################################ users ##################################
 
     def set_password(self, user):
+        import termios
         pass1 = ""
         pass2 = " "
         print 'Setting password for user %s' % user
@@ -149,9 +162,19 @@ class DBConsole(cmd.Cmd):
             while (pass1 != pass2):
                 pass1 = getpass.getpass("Enter new password: ")
                 pass2 = getpass.getpass("Confirm password: ")
+            #pass1 = pass1.strip()
+            if pass1 == '':
+                raise termios.error
         except EOFError:
             print 'Abort'
             return
+        except termios.error:
+            print 'Warning: Could not set password, setting random password:'
+            import string, random
+            pass1 = [ random.choice(string.ascii_letters + string.digits)
+                     for x in range(8) ]
+            pass1 = ''.join(pass1)
+            print pass1
         print 'Password set for user %s' % user
         return pass1
 
@@ -161,12 +184,23 @@ class DBConsole(cmd.Cmd):
         if (len(arg) != 3):
             self.onecmd('help add_user')
             return
+        elif pwdb.get_users(arg[0], arg[1]):
+            print "User %s@%s already exists" % (arg[0], arg[1])
         else:
             try:
                 pass1 = self.set_password(arg[0])
                 pwdb.add_user_to_site(arg[0], arg[1], pass1, int(arg[2]))
             except KeyboardInterrupt:
                 return
+
+    def do_remove_user(self, arg):
+        """remove_user [uid] [site]"""
+        arg = CommandLine (arg)
+        if (len(arg) != 2):
+            self.onecmd('help remove_user')
+            return
+        else:
+            pwdb.remove_user_from_site(arg[0], arg[1])
 
 
     def do_list_users(self, arg):
@@ -180,7 +214,7 @@ class DBConsole(cmd.Cmd):
         else:
             site = arg[0]
 
-        res = pwdb.get_site_for_script(site)
+        res = pwdb.get_site(site)
         if res:
             site_id = res['id']
         else:
@@ -216,6 +250,15 @@ class DBConsole(cmd.Cmd):
                 key = None
             pwdb.add_login (login=arg[0], password=pass1, key=key)
 
+    def do_remove_login(self, arg):
+        """remove_login [uid]"""
+        arg = CommandLine (arg)
+        if len (arg) != 1:
+            self.onecmd('help remove_login')
+            return
+        else:
+            pwdb.remove_login(arg[0])
+
     def do_list_logins(self,arg):
         """list_logins"""
         lg_list = pwdb.list_logins()
@@ -235,6 +278,17 @@ class DBConsole(cmd.Cmd):
             login_id = pwdb.get_id('login', arg[0])
             profile_id = pwdb.get_id('profile', arg[1])
             pwdb.add_login_profile(login_id, profile_id)
+
+    def do_unlink_login_from_profile(self, arg):
+        """unlink_login_from_profile [login] [profile]"""
+        arg = CommandLine(arg)
+        if len (arg) != 2:
+            self.onecmd('help unlink_login_from_profile')
+            return
+        else:
+            login_id = pwdb.get_id('login', arg[0])
+            profile_id = pwdb.get_id('profile', arg[1])
+            pwdb.unlink_login_profile(login_id, profile_id)
 
     def do_list_login_profile(self, arg):
         """list_login_profile [profile]"""
@@ -261,6 +315,16 @@ class DBConsole(cmd.Cmd):
             for name in arg:
                 pwdb.add_profile(name)
 
+    def do_remove_profile(self, arg):
+        """remove_profile [profile] [profile] ..."""
+        arg = CommandLine (arg)
+        if len(arg) < 1:
+            self.onecmd('help remove_profile')
+            return
+        else:
+            for name in arg:
+                pwdb.remove_profile(name)
+
     # FIXME: sort profile list
     def do_list_profiles(self,args):
         """list existing profiles"""
@@ -285,6 +349,17 @@ class DBConsole(cmd.Cmd):
             sgroup_id = pwdb.get_id('sgroup', arg[1])
             pwdb.add_profile_group(profile_id, sgroup_id)
 
+    def do_unlink_profile_from_group(self, arg):
+        """unlink_profile_from_group [profile] [group]"""
+        arg = CommandLine(arg)
+        if len (arg) != 2:
+            self.onecmd('help unlink_profile_from_group')
+            return
+        else:
+            profile_id = pwdb.get_id('profile', arg[0])
+            sgroup_id = pwdb.get_id('sgroup', arg[1])
+            pwdb.unlink_profile_group(profile_id, sgroup_id)
+
     def do_list_profile_group(self, arg):
         """list existing links between profile and group tables"""
         pg_list = pwdb.list_profile_group()
@@ -302,6 +377,16 @@ class DBConsole(cmd.Cmd):
         else:
             for name in arg[:]:
                 pwdb.add_group(name)
+
+    def do_remove_group(self, arg):
+        """remove_group [group1] [group2] ..."""
+        arg = CommandLine (arg)
+        if len (arg) < 1:
+            self.onecmd('help remove_group')
+            return
+        else:
+            for name in arg[:]:
+                pwdb.remove_group(name)
 
     def _groups(self, site=None):
         groups = pwdb.list_groups(site=site)
@@ -335,6 +420,17 @@ class DBConsole(cmd.Cmd):
             site_id = pwdb.get_id('site', arg[0])
             group_id = pwdb.get_id('sgroup', arg[1])
             pwdb.add_group_site(group_id, site_id)
+
+    def do_unlink_site_from_group(self, arg):
+        """unlink_site_from_group [site] [group]"""
+        arg = CommandLine(arg)
+        if len(arg) != 2:
+            self.onecmd('help unlink_site_from_group')
+            return
+        else:
+            site_id = pwdb.get_id('site', arg[0])
+            group_id = pwdb.get_id('sgroup', arg[1])
+            pwdb.unlink_group_site(group_id, site_id)
 
     def do_list_sites_from_group(self, arg):
         """list_sites_from_group [group]"""
