@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 21, 01:09:42 by david
+# Last modified: 2006 Mar 08, 01:08:33 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -45,7 +45,7 @@ def get_logger(name):
 
 # the following for loop does the same thing as the
 # following line for all __all__ elements
-# info = get_logger('sshproxy.client').info
+# info = get_logger('sshproxy').info
 self = sys.modules[__name__]
 logger = get_logger('sshproxy')
 for func in __all__:

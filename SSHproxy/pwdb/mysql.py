@@ -21,6 +21,7 @@
 import simple
 import MySQLdb
 from SSHproxy.config import MySQLConfig
+from SSHproxy.util import SSHProxyAuthError
 
 cfg = MySQLConfig()
 
@@ -76,7 +77,7 @@ class MySQLPwDB(simple.SimplePwDB):
         if not user:
             user = self.login
         if not user:
-            raise ValueError("Missing user and not authenticated")
+            raise SSHProxyAuthError("Missing user and not authenticated")
         if not force and len(self.get_login(user)['key']):
             # Don't overwrite an existing key
             return True
@@ -616,10 +617,12 @@ class MySQLPwDB(simple.SimplePwDB):
             self.login = username
         return login
 
-    def get_user_site(self, sid):
+    def get_user_site(self, site_id):
         user = None
-        if sid.find('@') >= 0:
-            user, sid = sid.split('@')
+        if site_id.find('@') >= 0:
+            user, sid = site_id.split('@')
+        else:
+            sid = site_id
         users = db.cursor()
         if not user:
             q_user = """
@@ -641,14 +644,13 @@ class MySQLPwDB(simple.SimplePwDB):
             users.execute(q_user % (Q(sid), user))
         user = users.fetchone()
         if not user or not len(user):
-            raise AttributeError("No such user")
-            return None, None
+            raise SSHProxyAuthError("No such user: %s" % site_id)
         user = user[0]
         users.close()
         if not self.can_connect(user, sid):
-            raise AttributeError(
-                "You can't connect to %s@%s" % (user, sid))
-            return None, None
+            raise SSHProxyAuthError(
+                "User %s is not allowed to connect to %s@%s" % (self.login, 
+                                                                user, sid))
         q_sites = """
             select id, name, ip_address, port, location
                 from site

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 21, 17:27:36 by david
+# Last modified: 2006 Mar 08, 01:32:03 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -88,6 +88,9 @@ class ProxyServer(paramiko.ServerInterface):
             try:
                 self.userdata.add_site(site)
             except util.SSHProxyError, msg:
+                # unfortunatly, we cannot explain here why
+                # the user gets rejected so we just close the channel
+                channel.close()
                 self.event.set()
                 return False
             sitedata = self.userdata.get_site(site)
@@ -99,6 +102,9 @@ class ProxyServer(paramiko.ServerInterface):
             try:
                 self.userdata.add_site(argv[0])
             except util.SSHProxyError, msg:
+                channel.send("Authentication error: "
+                    "%s does not exist in your scope\r\n" % argv[0])
+                channel.close()
                 self.event.set()
                 return False
             sitedata = self.userdata.get_site(argv[0])
@@ -204,8 +210,9 @@ def service_client(client, addr, host_key_file):
             sitename = data.strip()
             try:
                 sitename = userdata.add_site(sitename)
-            except util.SSHProxyError, msg:
-                status.write('ERR %s' % msg)
+            except util.SSHProxyAuthError, msg:
+                print msg
+                status.write(str(msg))
                 continue
             conn = proxy.ProxyClient(userdata, sitename)
             cid = cpool.add_connection(conn)

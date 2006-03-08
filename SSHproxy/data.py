@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Mar 06, 14:28:01 by david
+# Last modified: 2006 Mar 08, 00:49:24 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -78,13 +78,10 @@ class SiteData(object):
     def __init__(self, userdata, sitename):
         self.userdata = userdata
 
-        try:
-            user, site = userdata.pwdb.get_user_site(sitename)
-        except AttributeError, msg:
-            raise SSHProxyError(msg)
+        user, site = userdata.pwdb.get_user_site(sitename)
 
         if not site:
-            raise SSHProxyError("Site %s does not exist in the database" % sitename)
+            raise SSHProxyAuthError("Site %s does not exist in the database" % sitename)
         self.sid = site.sid
         self.username = user
         self.sitename = '%s@%s' % (user, site.sid)

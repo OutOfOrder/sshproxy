@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 19, 01:28:26 by david
+# Last modified: 2006 Mar 08, 13:31:25 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -23,8 +23,22 @@
 # Imports from Python
 import os, select, pty, traceback
 
+from SSHproxy import log
+
 class SSHProxyError(Exception):
-    pass
+    def __init__(self, msg):
+        log.error("PROXY: "+msg)
+        Exception.__init__(self, msg)
+
+class SSHProxyAuthError(SSHProxyError):
+    def __init__(self, msg):
+        log.error("AUTH: "+msg)
+        Exception.__init__(self, "Authentication error")
+
+class SSHProxyPluginError(SSHProxyError):
+    def __init__(self, msg):
+        log.error("PLUG: "+msg)
+        Exception.__init__(self, "Plugin error: "+msg)
 
 
 SUSPEND, SWITCH, CLOSE = range(-4, -1)
