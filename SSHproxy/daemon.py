@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Mar 08, 01:32:03 by david
+# Last modified: 2006 Mar 08, 15:45:43 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -179,7 +179,14 @@ def service_client(client, addr, host_key_file):
         conn = proxy.ProxyClient(userdata)
         log.info("Connecting to %s", userdata.get_site().sitename)
         cid = cpool.add_connection(conn)
-        ret = conn.loop()
+        try:
+            ret = conn.loop()
+        except:
+            chan.send("\r\n *** An exception occured: this"
+                            " is probably due to a bug\r\n"
+                            " *** Sorry for the inconvenience\r\n")
+            chan.close()
+            raise
         
         if ret == util.CLOSE:
             # if the direct connection closed, then exit cleanly
