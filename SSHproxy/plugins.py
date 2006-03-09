@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 jan 12, 15:52:19 by david
+# Last modified: 2006 Mar 09, 00:53:56 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -21,10 +21,10 @@
 
 
 # Imports from Python
+import os, sys
 
-import os
-#from itools import get_abspath
-import sys
+import log
+
 
 plugindir = os.path.join(os.path.dirname(sys.modules[__name__].__file__), 'lib')
 pluginInfo = []
@@ -52,9 +52,11 @@ for module in os.listdir(plugindir):
             else:
                 desc = "No description specified"
             pluginInfo.append((name, m.__name__, m, desc, 0))
+            log.info("Loaded plugin %s" % name)
 
 
 def init_plugins():
-    for name, dummy, plugin, dummy, dummy in pluginInfo:
-        plugin.__init_plugin__()
+    for name, dummy, plugin, dummy, disabled in pluginInfo:
+        if not disabled:
+            plugin.__init_plugin__()
 
