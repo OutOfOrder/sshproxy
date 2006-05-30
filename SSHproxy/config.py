@@ -1,7 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: ISO-8859-15 -*-
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
+#
+# Last modified: 2006 mai 30, 13:12:42 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License

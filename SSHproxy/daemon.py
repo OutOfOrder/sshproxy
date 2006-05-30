@@ -1,27 +1,26 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: ISO-8859-15 -*-
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Mar 08, 15:45:43 by david
+# Last modified: 2006 mai 30, 19:54:16 by david
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation; either
-# version 2.1 of the License, or (at your option) any later version.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
 #
-# This library is distributed in the hope that it will be useful,
+# This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-# Imports from Python
-import sys, os.path, socket, threading, traceback
+import sys, os.path, socket, threading, traceback, signal
 
 import paramiko
 
@@ -88,8 +87,8 @@ class ProxyServer(paramiko.ServerInterface):
             try:
                 self.userdata.add_site(site)
             except util.SSHProxyError, msg:
-                # unfortunatly, we cannot explain here why
-                # the user gets rejected so we just close the channel
+                # we cannot explain here why the user gets rejected so we
+                # just close the channel
                 channel.close()
                 self.event.set()
                 return False
@@ -102,8 +101,8 @@ class ProxyServer(paramiko.ServerInterface):
             try:
                 self.userdata.add_site(argv[0])
             except util.SSHProxyError, msg:
-                channel.send("Authentication error: "
-                    "%s does not exist in your scope\r\n" % argv[0])
+                channel.send("ERROR: %s does not exist in your scope\r\n" %
+                                                                    argv[0])
                 channel.close()
                 self.event.set()
                 return False
@@ -121,14 +120,23 @@ class ProxyServer(paramiko.ServerInterface):
         return True
 
 
+
+
 def service_client(client, addr, host_key_file):
-    
+
+    maxcon = 0 # unlimited
+    conf = config.SSHproxyConfig()
+    if hasattr(conf, 'max_connections'):
+        maxcon = conf.max_connections
+
+
+
     host_key = paramiko.DSSKey(filename=host_key_file)
 
     # start transport for the client
     transport = paramiko.Transport(client)
     transport.set_log_channel("paramiko")
-    # mega-hyper-duper debug
+    # debug !!
     #transport.set_hexdump(1)
 
     try:
@@ -142,28 +150,29 @@ def service_client(client, addr, host_key_file):
     userdata = UserData()
     server = ProxyServer(userdata)
     negotiation_ev = threading.Event()
-    transport.set_subsystem_handler('sftp', paramiko.SFTPServer, ProxySFTPServer)
+    transport.set_subsystem_handler('sftp', paramiko.SFTPServer,
+                                            ProxySFTPServer)
     transport.start_server(negotiation_ev, server)
 
     while not negotiation_ev.isSet():
-        negotiation_ev.wait(0.1)
+        negotiation_ev.wait(0.5)
         if not transport.is_active():
-            raise 'SSH negotiation failed'
+            raise 'ERROR: SSH negotiation failed'
 
     chan = transport.accept(20)
     if chan is None:
-        log.error('*** No channel. Exiting.')
+        log.error('ERROR: cannot open the channel. '
+                  'Check the transport object. Exiting..')
         sys.exit(1)
-        
     log.info('Authenticated %s', server.userdata.username)
-    server.event.wait(10)
+    server.event.wait(15)
     if not server.event.isSet():
-        log.error('*** Client never asked for a shell. Exiting.')
+        log.error('ERROR: client never asked for a shell. Exiting.')
         sys.exit(1)
 
     userdata.set_channel(chan)
 
-            
+
 
     cpool = pool.get_connection_pool()
     # is this a direct connection ?
@@ -182,9 +191,8 @@ def service_client(client, addr, host_key_file):
         try:
             ret = conn.loop()
         except:
-            chan.send("\r\n *** An exception occured: this"
-                            " is probably due to a bug\r\n"
-                            " *** Sorry for the inconvenience\r\n")
+            chan.send("\r\n ERROR: seems you found a bug"
+                      "\r\n Please report it to david@guerizec.net\r\n")
             chan.close()
             raise
         
@@ -196,36 +204,57 @@ def service_client(client, addr, host_key_file):
             log.info("Exiting %s", userdata.get_site().sitename)
             return
         # else go to the console
-
+    
     msg = Message()
+    
+
+
     def PtyConsole(*args, **kwargs):
         Console(*args, **kwargs).cmdloop()
-    main_console = PTYWrapper(chan, PtyConsole, msg, userdata.is_admin())
 
+    main_console = PTYWrapper(chan, PtyConsole, msg, userdata.is_admin())
     status = msg.get_parent_fd()
+    
     while True:
+
+        status.reset()
+    
         data = main_console.loop()
         if data is None:
             break
         try:
-            action, data = data.split(' ')
+            action, data = data.split(' ', 1)
         except ValueError:
             action = data.strip()
             data = ''
+        #==================================================
+        # FIXME: need to rewrite the actions routines (EM)
+        # better create an array of outputs and call status.response()
+        # once by action!! 
 
-        if action == 'connect':
+        # status.response() absolutely NEEDS to be called once an action
+        # has been processed, otherwise you may experience hang ups.
+        if action == 'open':
+            if maxcon and len(cpool) >= maxcon:
+                status.response("ERROR: Max connection count reached")
+                continue
             sitename = data.strip()
+            if sitename == "":
+                status.response("ERROR: where to?")
+                continue
             try:
                 sitename = userdata.add_site(sitename)
             except util.SSHProxyAuthError, msg:
-                print msg
-                status.write(str(msg))
+                status.response("ERROR: site does not exist or you don't "
+                                "have sufficient rights")
+                log.error("ERROR(open): %s", msg)
                 continue
             conn = proxy.ProxyClient(userdata, sitename)
+
             cid = cpool.add_connection(conn)
             while True:
                 if not conn:
-                    ret = 'Inexistant connection id: %d' % cid
+                    ret = 'ERROR: no connection id %s' % cid
                     break
                 ret = conn.loop()
                 if ret == util.CLOSE:
@@ -236,20 +265,24 @@ def service_client(client, addr, host_key_file):
                     continue
                 ret = 'OK'
                 break
-            status.write(ret)
-
-        elif action == 'switch' or action == 'back':
+            if not ret:
+                ret = 'OK'
+            status.response(ret)
+        #=========================================================
+        # switch between one connection to the other
+        elif action == 'switch':
             try:
                 cid 
             except UnboundLocalError:
-                status.write('No previous connection open')
+                status.response('ERROR: no opened connection')
                 continue
-            if action == 'switch':
-                cid = int(data.strip())
+            data = data.strip()
+            if action == 'switch' and data:
+                cid = int(data)
             while True:
                 conn = cpool.get_connection(cid)
                 if not conn:
-                    ret = 'Inexistant connection id: %d' % cid
+                    ret = 'ERROR: no id %d found' % cid
                     break
                 ret = conn.loop()
                 if ret == util.CLOSE:
@@ -259,23 +292,74 @@ def service_client(client, addr, host_key_file):
                     continue
                 ret = 'OK'
                 break
-            status.write(ret)
+            status.response(ret)
+        #=====================================================
+        # close connections
+        elif action == 'close':
+            data = data.strip()
 
-        elif action == 'list':
+            # there must exist open connections
+            if len(cpool):
+                # close all connections
+                if data == "all":
+                    l = len(cpool)
+                    while len(cpool):
+                        cpool.del_connection(0)
+                    status.response("%d connections closed" % l)
+                # argument must be a digit
+                elif data != "":
+                    if data.isdigit():
+                        try:
+                            cid = int(data)
+                            cpool.del_connection(cid)
+                            msg="connection %d closed" % cid
+                        except UnboundLocalError:
+                            msg = 'ERROR: unknown connection %s' % data
+                        status.response('%s' % msg )
+                    else:
+                        status.response('ERROR: argument must be a digit')
+                else:
+                    status.response('ERROR: give an argument')
+            else:
+                status.response('ERROR: no open connection')
+
+        #==============================================
+        # show opened connections
+        elif action == 'list_conn':
             l = []
             i = 0
+            # list the open connections
             for c in cpool.list_connections():
                 l.append('%d %s\n' % (i, c.name))
                 i = i + 1
             if not len(l):
-                status.write('No currently open connections')
+                status.response('ERROR: no opened connections')
             else:
-                status.write(''.join(l))
-
+                # send the connection list
+                status.response(''.join(l))
+        #==================================================
+        # whoami command
+        elif action == 'whoami':
+            status.response('%s' % (userdata.username) )
+        #==================================================
+        # check open connections for exit
+        elif action == 'exit_verify':
+            if cpool:
+                status.response('ERROR: close all connections first!')
+            else:
+                break
+        #========================================================
+        # dump the listing of all sites we're allowed to connect to
+        elif action == 'sites':
+            # TODO: see console.py : Console._sites()
+            status.response('OK') 
+        #==================================================
 
     chan.close()
     transport.close()
-    log.info('Client exiting')
+    log.info('Client exits now!')
+
+
 
 
 servers = []
@@ -286,35 +370,39 @@ def kill_zombies(signum, frame):
             del servers[servers.index(pid)]
     except OSError:
         pass
+        
+
 
 def _run_server():
-    import signal
-
     conf = config.SSHproxyConfig()
     ip = conf.bindip
     port = conf.port
+
+
     init_plugins()
+
     # get host key
     host_key_file = os.path.join(os.environ['HOME'], '.sshproxy/id_dsa')
     if not os.path.isfile(host_key_file):
         # XXX: paramiko knows how to do that now, IIRC
         # generate host key
-        cmd =  "ssh-keygen -f %s -t dsa"
-        cmd += " -C 'SSH proxy host key' -N '' -q"
+        cmd =  "ssh-keygen -f %s -t dsa -C 'SSH proxy host key' -N '' -q"
         r = os.system(cmd % host_key_file)
 
+    # set up the child killer handler
     signal.signal(signal.SIGCHLD, kill_zombies)
-
 
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((ip, port))
         sock.listen(100)
+        print "Server ready, clients may login now ..."
         log.debug('Listening for connection ...')
     except Exception, e:
-        log.exception('*** Bind failed')
-        raise
+        log.exception("ERROR: Couldn't bind on port %s" % port)
+        print "ERROR: Couldn't bind on port %s" % port
+        sys.exit(0)
 
     try:
         while True:
@@ -325,15 +413,14 @@ def _run_server():
                     try:
                         os.kill(pid, signal.SIGTERM)
                     except OSError:
-                        log.exception('child pid %s already dead', pid)
+                        log.exception('ERROR: child pid %s already dead', pid)
                 raise
                 sys.exit(1)
             except socket.error:
                 continue
             except Exception, e:
-                log.exception('*** accept failed')
+                log.exception('ERROR: socket accept failed')
                 raise
-            
             log.debug('Got a connection!')
             pid = os.fork()
             if pid == 0:
@@ -342,28 +429,28 @@ def _run_server():
                 service_client(client, addr, host_key_file)
                 os._exit(0)
             # (im)probable race condition here !
-            # TODO: set an event with service_client
             servers.append(pid)
     finally:
         try:
             sock.close()
         except:
             pass
+            
+
 
 
 def run_server():
-    log.info("SSHproxy starting")
+    log.info("sshproxy starting")
     try:
-#        while True:
-            try:
-                _run_server()
-            except KeyboardInterrupt:
-                return
-            except:
-                log.exception("SSHproxy restarting...")
+        try:
+            _run_server()
+        except KeyboardInterrupt:
+            return
+        except:
+            log.exception("ERROR: sshproxy may have crashed:"
+                                                    " AUTORESTARTING...")
     finally:
-        log.info("SSHproxy ending")
-
+        log.info("sshproxy ending")
 
 if __name__ == '__main__':
     run_server()

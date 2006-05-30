@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# You can edit the values of the following variables
+# or you can set SSHPROXY_* in your .environment
+# via your .bashrc or .bash_profile
+PROXY_PORT=${SSHPROXY_PORT:-2242}
+PROXY_HOST=${SSHPROXY_HOST:-sshproxy}
+PROXY_USER=${SSHPROXY_USER:-username}
+
+REMOTE=$PROXY_USER@$PROXY_HOST
+
+OPTS=( )
+origin=
+target=
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -*)
+            OPTS=( "${OPTS[@]}" "$1" )
+            ;;
+        *:*)
+            [ -z "$origin" ] && origin="$REMOTE:$1" || target="$REMOTE:$1"
+            ;;
+        *)
+            [ -z "$origin" ] && origin="$1" || target="$1"
+
+            ;;
+    esac
+    shift
+done
+
+echo scp -v -oPort=$PROXY_PORT "${OPTS[@]}" "$origin" "$target"
+scp -v -oPort=$PROXY_PORT "${OPTS[@]}" "$origin" "$target"

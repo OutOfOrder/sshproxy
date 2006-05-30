@@ -4,6 +4,7 @@ About SSHproxy
 
     Author:         David Guerizec <david@guerizec.net>
     Contributor:    Pierre-Yves Roffes <py@wcube.org>
+    Contributor:    Erick Michau <emichau@wallix.com>
 
 
 About SSHproxy
@@ -51,7 +52,7 @@ What else do I need to make it work?
 
 SSHproxy requires:
   - python >=2.3
-  - paramiko-1.5.2
+  - paramiko >=1.5.3
   - pycrypto (needed for paramiko)
   - mysql-python
 

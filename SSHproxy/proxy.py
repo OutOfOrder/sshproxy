@@ -1,37 +1,38 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: ISO-8859-15 -*-
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 21, 14:41:32 by david
+# Last modified: 2006 mai 30, 17:42:34 by david
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation; either
-# version 2.1 of the License, or (at your option) any later version.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
 #
-# This library is distributed in the hope that it will be useful,
+# This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-# Imports from Python
-import sys, os, traceback, select, socket, fcntl
+import sys, os, select, socket, fcntl, time
+import threading
 
 import paramiko
+from paramiko.transport import SSHException, DEBUG
 
-import SSHproxy
-import keys as key
-import util
-import log
+import SSHproxy, keys, util, log
+
 
 
 class Logger(object):
+    """Logger class to log everything that passes on a channel"""
+
     def __init__(self, passthru=None, logfile=sys.stderr):
         self.logfile = logfile
         self.passthru = passthru
@@ -93,6 +94,8 @@ class Logger(object):
     def makefile(self, *args, **kwargs):
         return self.passthru.makefile(*args, **kwargs)
 
+
+
 oldtty = None
 def reset_term(term):
     global oldtty
@@ -103,14 +106,19 @@ def reset_term(term):
     fcntl.fcntl(term, fcntl.F_SETFL, mode & ~os.O_NDELAY)
     oldtty = None
 
+
+
 class ProxyScp(object):
     def __init__(self, userdata):
         self.client = userdata.channel
         self.sitedata = sitedata = userdata.get_site(0)
         try:
-            self.transport = paramiko.Transport((sitedata.hostname, sitedata.port))
+            self.transport = paramiko.Transport((sitedata.hostname,
+                                                 sitedata.port))
 #            self.transport.set_hexdump(1)
-            self.transport.connect(username=sitedata.username, password=sitedata.password, hostkey=sitedata.hostkey)
+            self.transport.connect(username=sitedata.username,
+                                   password=sitedata.password,
+                                   hostkey=sitedata.hostkey)
             self.chan = self.transport.open_session()
         except Exception, e:
             log.exception("Unable to set up SSH connection to server")
@@ -145,11 +153,11 @@ class ProxyScp(object):
                         log.info("Connection closed by client")
                         break
                     chan.send(x)
-    
         finally:
             pass
-
         return util.CLOSE
+
+
 
 
 class ProxyClient(object):
@@ -158,22 +166,41 @@ class ProxyClient(object):
         self.sitedata = sitedata = userdata.get_site(sitename)
         self.name = '%s@%s' % (self.sitedata.username, self.sitedata.sid)
 
-        log.info("Connect to %s@%s by %s\n" % (sitedata.username, sitedata.hostname, userdata.username))
+        now = time.ctime()
+        print ("\nConnecting to %s by %s the %s" %
+                                    (sitename, userdata.username, now))
+        log.info("Connecting to %s by %s the %s" %
+                                    (sitename, userdata.username, now))
 
         try:
-            self.transport = paramiko.Transport((sitedata.hostname, sitedata.port))
+            self.transport = paramiko.Transport((sitedata.hostname,
+                                                 sitedata.port))
             # XXX: debugging code follows
             #self.transport.set_hexdump(1)
-            self.transport.connect(username=sitedata.username, password=sitedata.password, hostkey=sitedata.hostkey)
+
+            self.transport.connect(username=sitedata.username,
+                                   password=sitedata.password,
+                                   hostkey=sitedata.hostkey) 
             self.chan = self.transport.open_session()
+
             self.chan.get_pty(userdata.term, userdata.width, userdata.height)
             self.chan.invoke_shell()
+
         except Exception, e:
-            log.exception("Unable to set up SSH connection to server")
+            log.exception("Unable to set up SSH connection"
+                          " to the remote server")
             try:
                 self.transport.close()
             except:
                 pass
+        
+        now = time.ctime()
+        print ("Connected to %s by %s the %s" %
+                                    (sitename, userdata.username, now))
+        log.info("Connected to %s by %s the %s\n" %
+                                    (sitename, userdata.username, now))
+
+
 
     def loop(self):
         t = self.transport
@@ -191,7 +218,7 @@ class ProxyClient(object):
                     r, w, e = select.select([chan, fd], [], [], 0.2)
                 except select.error:
                     # this happens sometimes when returning from console
-                    log.exception('select.select() failed')
+                    log.exception('ERROR: select.select() failed')
                     continue
                 if chan in r:
                     try:
@@ -207,32 +234,42 @@ class ProxyClient(object):
                     if len(x) == 0 or fd.closed or fd.eof_received:
                         log.info("Connection closed by client")
                         break
-                    if x == key.CTRL_X:
+                    if x == keys.CTRL_X:
                         return util.SUSPEND
-                    #SSHproxy.call_hooks('filter-console', fd, chan, sitedata, x)
+                    #SSHproxy.call_hooks('filter-console', fd, chan,
+                    #                                      sitedata, x)
                     # XXX: debuging code following
                     #if ord(x[0]) < 0x20:
                     #    fd.send('ctrl char: %s\r\n' % ' '.join([
                     #                    '%02x' % ord(c) for c in x ]))
-                    if x in key.ALT_NUMBERS:
-                        return key.get_alt_number(x)
-                    if x == key.CTRL_K:
+                    if x in keys.ALT_NUMBERS:
+                        return keys.get_alt_number(x)
+                    if x == keys.CTRL_K:
                         client.settimeout(None)
                         fd.send('\r\nEnter script name: ')
                         name = fd.makefile('rU').readline().strip()
                         client.settimeout(0.0)
-                        SSHproxy.call_hooks('console', fd, chan, name, sitedata)
+                        SSHproxy.call_hooks('console', fd, chan,
+                                                       name, sitedata)
                         continue
                     chan.send(x)
     
         finally:
+            now = time.ctime()
+            print ("Disconnected from %s by %s the %s" %
+                                    (self.name, self.sitedata.username, now))
             log.debug("Exiting ProxyClient.loop()")
 
         return util.CLOSE
             
-    
+
     def __del__(self):
-        self.chan.close()
+        if not hasattr(self, 'chan'):
+            return
+        try:
+            self.chan.close()
+        except ValueError:
+            pass
 
 
     

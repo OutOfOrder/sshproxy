@@ -1,7 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: ISO-8859-15 -*-
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
+#
+# Last modified: 2006 mai 30, 19:10:25 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -108,7 +110,6 @@ class MySQLPwDB(simple.SimplePwDB):
             return False
         return True
 
-
 ################## functions for script/add_profile #####################
 
     def list_profiles(self):
@@ -154,75 +155,75 @@ class MySQLPwDB(simple.SimplePwDB):
         if not profile_id:
             return False
         self.unlink_login_profile(None, profile_id)
-        self.unlink_profile_group(profile_id, None)
+        self.unlink_profile_domain(profile_id, None)
         profile = db.cursor()
         profile.execute(q % Q(name))
         profile.close()
         return True
 
-################ functions for scripts/add_group ########################
+################ functions for scripts/add_domain ########################
 
-    def list_groups(self, site=None):
-        q_getgroup = """
+    def list_domains(self, site=None):
+        q_domain = """
             select sgroup.id,
                    sgroup.name
                 from sgroup
         """
         if site:
-            q_getgroup = q_getgroup.strip() + """,
+            q_domain = q_domain.strip() + """,
                      sgroup_site,
                      site
                 where site.name = '%s' and
                       site.id = sgroup_site.site_id and
                       sgroup_site.sgroup_id = sgroup.id""" % Q(site)
-        group = db.cursor()
-        group.execute(q_getgroup)
+        domain = db.cursor()
+        domain.execute(q_domain)
         p = []
-        for id, name in group.fetchall():
+        for id, name in domain.fetchall():
             p.append({ 'id': id, 'name': name })
-        group.close()
+        domain.close()
         return p
 
-    def get_group(self, name):
-        q_getgroup = """
+    def get_domain(self, name):
+        q_domain = """
             select id, name from sgroup where name = '%s'
         """
-        group = db.cursor()
-        group.execute(q_getgroup % Q(name))
-        p = group.fetchone()
+        domain = db.cursor()
+        domain.execute(q_domain % Q(name))
+        p = domain.fetchone()
         if not p or not len(p):
             return None
-        group.close()
+        domain.close()
         return { 'id': p[0], 'name': p[1] }
 
-    def add_group(self, name):
-        q_addgroup = """
+    def add_domain(self, name):
+        q_domain = """
             insert into sgroup (name) values ('%s')
         """
         if self.get_group(name):
             return None
-        group = db.cursor()
-        group.execute(q_addgroup % Q(name))
-        group.close()
+        domain = db.cursor()
+        domain.execute(q_domain % Q(name))
+        domain.close()
         return 1
 
-    def remove_group(self, name):
+    def remove_domain(self, name):
         q = """
             delete from sgroup where name = '%s'
         """
-        group_id = self.get_id('group', name)
+        group_id = self.get_id('domain', name)
         if not group_id:
             return False
-        self.unlink_profile_group(None, group_id)
-        self.unlink_group_site(group_id, None)
-        group = db.cursor()
-        group.execute(q % Q(name))
-        group.close()
+        self.unlink_profile_domain(None, group_id)
+        self.unlink_domain_site(group_id, None)
+        domain = db.cursor()
+        domain.execute(q % Q(name))
+        domain.close()
         return True
 
 ################ functions for scripts/add_site #######################
 
-    def list_sites(self, group=None):
+    def list_sites(self, domain=None):
         q_listsite = """
             select site.id,
                    site.name,
@@ -231,13 +232,13 @@ class MySQLPwDB(simple.SimplePwDB):
                    site.location
                 from site
         """
-        if group:
+        if domain:
             q_listsite = q_listsite.strip() + """,
                      sgroup_site,
                      sgroup
                 where sgroup.name = '%s' and
                       sgroup_site.sgroup_id = sgroup.id and
-                      sgroup_site.site_id = site.id""" % Q(group)
+                      sgroup_site.site_id = site.id""" % Q(domain)
         site = db.cursor()
         site.execute(q_listsite)
         p = []
@@ -296,7 +297,7 @@ class MySQLPwDB(simple.SimplePwDB):
             return False
         for u in self.list_users(site_id):
             self.remove_user(u['uid'], site_id)
-        self.unlink_group_site(None, site_id)
+        self.unlink_domain_site(None, site_id)
         site = db.cursor()
         site.execute(q % Q(name))
         site.close()
@@ -476,40 +477,40 @@ class MySQLPwDB(simple.SimplePwDB):
         return True
 
 
-######### functions for link scripts/add_profile_group ###############
+######### functions for link scripts/add_profile_domain ###############
 
-    def list_profile_group(self):
+    def list_profile_domain(self):
         q_list = """
              select profile_id, sgroup_id from profile_sgroup
         """
         lists = db.cursor()
         lists.execute(q_list)
         p = []
-        for profile_id,sgroup_id in lists.fetchall():
+        for profile_id, domain_id in lists.fetchall():
             profile = self.get_name('profile', profile_id)
-            sgroup = self.get_name('sgroup', sgroup_id)
-            p.append({'prof': profile, 'sgroup': sgroup})
+            domain = self.get_name('domain', domain_id)
+            p.append({'profile': profile, 'domain': domain})
         lists.close()
         return p
 
-    def add_profile_group(self, profile_id, sgroup_id):
+    def add_profile_domain(self, profile_id, domain_id):
         q_addlogin = """
-            replace into profile_sgroup (profile_id,sgroup_id) values (%d, %d)
+            replace into profile_sgroup (profile_id, sgroup_id) values (%d, %d)
         """
         login = db.cursor()
-        login.execute(q_addlogin % (profile_id, sgroup_id))
+        login.execute(q_addlogin % (profile_id, domain_id))
         login.close()
         return 1
 
-    def unlink_profile_group(self, profile_id, sgroup_id):
+    def unlink_profile_domain(self, profile_id, domain_id):
         q = """
             delete from profile_sgroup where 
         """
         q_where = []
         if profile_id is not None:
             q_where.append("profile_id = %d" % profile_id)
-        if sgroup_id is not None:
-            q_where.append("sgroup_id = %d" % sgroup_id)
+        if domain_id is not None:
+            q_where.append("sgroup_id = %d" % domain_id)
         if not len(q_where):
             return False
         login = db.cursor()
@@ -518,38 +519,38 @@ class MySQLPwDB(simple.SimplePwDB):
         return True
 
 
-######### functions for link scripts/add_group_site ###############
+######### functions for link scripts/add_domain_site ###############
 
-    def list_group_site(self):
+    def list_domain_site(self):
         q_list = """
-             select sgroup_id,site_id from sgroup_site
+             select sgroup_id, site_id from sgroup_site
         """
         lists = db.cursor()
         lists.execute(q_list)
         p = []
-        for sgroup_id,site_id in lists.fetchall():
-            sgroup = self.get_name('sgroup', sgroup_id)
+        for domain_id, site_id in lists.fetchall():
+            domain = self.get_name('domain', domain_id)
             site = self.get_name('site', site_id)
-            p.append({'sgroup': sgroup, 'site': site})
+            p.append({'domain': domain, 'site': site})
         lists.close()
         return p
 
-    def add_group_site(self, sgroup_id, site_id):
+    def add_domain_site(self, domain_id, site_id):
         q_addlogin = """
             replace into sgroup_site (sgroup_id, site_id) values (%d, %d)
         """
         login = db.cursor()
-        login.execute(q_addlogin % (sgroup_id, site_id))
+        login.execute(q_addlogin % (domain_id, site_id))
         login.close()
         return 1
 
-    def unlink_group_site(self, sgroup_id, site_id):
+    def unlink_domain_site(self, domain_id, site_id):
         q = """
             delete from sgroup_site where 
         """
         q_where = []
-        if sgroup_id is not None:
-            q_where.append("sgroup_id = %d" % sgroup_id)
+        if domain_id is not None:
+            q_where.append("sgroup_id = %d" % domain_id)
         if site_id is not None:
             q_where.append("site_id = %d" % site_id)
         if not len(q_where):
@@ -563,6 +564,8 @@ class MySQLPwDB(simple.SimplePwDB):
 ######################################################################
 
     def get_name(self, table, id, name='name'):
+        if table in ('group', 'domain'): # alias group/domain to sgroup
+            table = 'sgroup'
         query = """
         select %s from `%s` where id = '%d'
         """
@@ -575,7 +578,7 @@ class MySQLPwDB(simple.SimplePwDB):
 
     def get_id(self, table, name):
         id = None
-        if table == 'group': # alias group to sgroup
+        if table in ('group', 'domain'): # alias group/domain to sgroup
             table = 'sgroup'
         if table == 'login':
             query = """
@@ -630,7 +633,7 @@ class MySQLPwDB(simple.SimplePwDB):
                 from site, user
                 where site.id = user.site_id and site.name = '%s'
                 order by `primary` desc            
-"""
+            """
             users.execute(q_user % Q(sid))
         else:
             q_user = """
@@ -639,7 +642,7 @@ class MySQLPwDB(simple.SimplePwDB):
                 where site.id = user.site_id and site.name = '%s'
                   and user.uid = '%s'
                 order by `primary` desc            
-"""
+            """
 
             users.execute(q_user % (Q(sid), user))
         user = users.fetchone()
@@ -678,7 +681,7 @@ class MySQLPwDB(simple.SimplePwDB):
         return user, site
 
     def can_connect(self, user, site):
-        q_group = """
+        q_domain = """
         select count(*) 
         from
             login,
@@ -700,9 +703,53 @@ class MySQLPwDB(simple.SimplePwDB):
           and user.site_id = site.id
           and user.uid = '%s'  
         """
-        group = db.cursor()
-        group.execute(q_group % (Q(self.login), Q(site), Q(user)))
-        gr = group.fetchone()[0]
-        group.close()
+        link = db.cursor()
+        link.execute(q_domain % (Q(self.login), Q(site), Q(user)))
+        gr = link.fetchone()[0]
+        link.close()
         return gr
+
+    def list_allowed_sites(self, domain=None, user=None):
+        q_domain = """
+        select site.id,
+               site.name,
+               site.ip_address,
+               site.port,
+               site.location,
+               user.uid
+        from
+            login,
+            login_profile,
+            profile,
+            profile_sgroup,
+            sgroup,
+            sgroup_site,
+            site,
+            user 
+        where login.uid = '%s' 
+          and login.id = login_profile.login_id 
+          and login_profile.profile_id = profile.id 
+          and profile.id = profile_sgroup.profile_id 
+          and profile_sgroup.sgroup_id = sgroup.id
+          and sgroup.id = sgroup_site.sgroup_id
+          and sgroup_site.site_id = site.id
+          and user.site_id = site.id
+        """
+        if domain:
+            q_domain += """ and sgroup.name = '%s'""" % Q(domain)
+        q_domain += """ group by user.uid, site.name"""
+        if not user:
+            user = self.login
+        sites = db.cursor()
+        sites.execute(q_domain % (Q(user)))
+        p = []
+        for id, name, ip_address, port, location, uid in sites.fetchall():
+            p.append({ 'id': id,
+                       'name': name,
+                       'ip': ip_address,
+                       'port': port,
+                       'location': location,
+                       'uid': uid })
+        sites.close()
+        return p
 

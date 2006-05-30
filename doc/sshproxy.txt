@@ -96,13 +96,13 @@ The data model
 Since SSHproxy is a proxy for ssh, it needs to have knowledge of remote sites,
 and users on these sites.
 There can be several users per site, each having its own password and/or key.
-Sites can be grouped in site groups.
+Sites can be grouped in domains, also called site groups.
 
 From what we've seen, we can deduce the data model for the sites part, and
 this is like a tree (to be more precise, this is in fact a graph, cause each
-site can be in more than one site group):
+site can be in more than one domain):
 
-    Site Group America
+  Site Group / Domain America
                |\
                | Remote Site Arizona
                |             |\
@@ -135,20 +135,20 @@ also a graph, cause logins can belongs to more than one profile):
              \
               User wendi
 
-Now let's connect logins to sites. This is done by connecting profiles to site
-groups, so that each profile can be linked to several site groups, and each
-site group can be linked to several profiles.
+Now let's connect logins to sites. This is done by connecting profiles to
+domains, so that each profile can be linked to several domains, and each
+domain can be linked to several profiles.
 
 SSHproxy now knows how logins relate to sites, and this permits to allow or
 deny access to logins.
 Put simply, if Zack from the Support profile wants to connect to
-deby@California, the Support profile must be linked to the America site group.
+deby@California, the Support profile must be linked to the America domain.
 In fact, any login in the Support profile can connect to any site from the
-America site group if there is a link between Support and America.
+America domain if there is a link between Support and America.
 
 To put this cleary, let's draw the relationships:
 
-    login <-> profile <-> site group <-> site <- user
+    login <-> profile <-> domain <-> site <- user
 
 There is a limitation to this model, that will be addressed in a future
 version of SSHproxy: you can't limit a login to only one user on a particular
@@ -156,7 +156,7 @@ site.
 
 There is however a simple workaround, you can declare a site twice with
 different symbolic names, but with the same IP address. To SSHproxy, these are
-two different sites, so you can put them into different site groups.
+two different sites, so you can put them into different domains.
 As I said, this limitation will be addressed soon.
 
 The Password Database Manager console
@@ -168,29 +168,30 @@ type manage_pwdb and you get into the pwdb_manager console.
 
 You have now a heap of commands to create users and sites:
 
- [pwdb manager] help
- 
- Documented commands (type help <topic>):
- ========================================
- add_group             add_site            list_logins            list_users
- add_login             add_site_to_group   list_profile_group
- add_login_to_profile  add_user            list_profiles
- add_profile           list_groups         list_sites
- add_profile_to_group  list_login_profile  list_sites_from_group
- 
- Undocumented commands:
- ======================
- EOF  exit  help
+db> help
+
+Documented commands (type help <topic>):
+========================================
+add_domain   del_login            link_site_domain     list_rlogins
+add_login    del_profile          list_domains         list_sites
+add_profile  del_rlogin           list_logins          list_site_domain
+add_rlogin   del_site             list_login_profile   unlink_login_profile
+add_site     link_login_profile   list_profiles        unlink_profile_domain
+del_domain   link_profile_domain  list_profile_domain  unlink_site_domain
+
+Undocumented commands:
+======================
+EOF  exit  help
 
 You can have help on each documented command by typing "help cmd".
 
 Let's start by the add_* commands.
 
- add_group [group1] [group2] ...
+ add_domain [domain1] [domain2] ...
 
-  This commands allows you to add site groups. All it does is really only
-  adding groups, no link with profiles or sites will be created. The arguments
-  are group names.
+  This commands allows you to add domains. All it does is really only
+  adding domains, no link with profiles or sites will be created. The arguments
+  are domain names.
 
  add_login [uid] [key]
   
@@ -208,15 +209,15 @@ Let's start by the add_* commands.
 
  add_profile [profile] [profile]
 
-  Same as add_group, this command just inserts new profiles in the database.
+  Same as add_domain, this command just inserts new profiles in the database.
 
- add_login_to_profile [login] [profile]
+ link_login_profile [login] [profile]
 
   This is to put a login in a profile.
 
- add_profile_to_group [profile] [group]
+ link_profile_domain [profile] [domain]
 
-  Same as add_login_to_profile, this links a profile to a site group.
+  Same as add_login_to_profile, this links a profile to a site domain.
 
  add_site [name] [IP address] [port] [location]
 
@@ -228,9 +229,9 @@ Let's start by the add_* commands.
   can be DNAT'ed to anything. 'location' is just a comment, and is not used
   for the moment.
 
- add_site_to_group [site] [group]
+ link_site_domain [site] [domain]
 
-  Same as add_login_to_profile, this adds a site in a site group.
+  Same as link_login_profile, this adds a site in a domain.
 
  add_user [uid] [site] [primary]
 
@@ -239,9 +240,9 @@ Let's start by the add_* commands.
   database. 'primary' is a boolean, 0 or 1, denoting if this user will be
   taken by default if not specified on login.
 
- list_groups
+ list_domain
 
-  This lists site groups in the database.
+  This lists domains in the database.
 
  list_login_profile [profile]
 
@@ -252,11 +253,11 @@ Let's start by the add_* commands.
   This lists logins. Passwords and keys are dumped in clear! (this may change
   in a future version)
 
- list_profile_group
+ list_profile_domain
 
-  This lists the associations between profiles and site groups.
+  This lists the associations between profiles and domains.
 
- list_profiles
+ list_profile
 
   This lists profiles.
 
@@ -264,9 +265,9 @@ Let's start by the add_* commands.
 
   This lists all sites declared in the database.
 
- list_sites_from_group [group]
+ list_sites_from_domain [domain]
 
-  This lists only sites belonging to a site group.
+  This lists only sites belonging to a site domain.
 
  list_users [site name]
 

@@ -1,26 +1,25 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: ISO-8859-15 -*-
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jan 22, 00:09:26 by david
+# Last modified: 2006 mai 30, 15:11:50 by david
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation; either
-# version 2.1 of the License, or (at your option) any later version.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
 #
-# This library is distributed in the hope that it will be useful,
+# This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-# Imports from Python
 import os, select
 
 class Pipe(object):
@@ -28,12 +27,13 @@ class Pipe(object):
         self.rfd = r
         self.wfd = w
         self.timeout = 0.0
+        self.reset()
 
     def close(self):
         os.close(self.rfd)
         os.close(self.wfd)
 
-    def read(self, sz=1024):
+    def read(self, sz=10240):
         if self.timeout == 0.0:
             return os.read(self.rfd, sz)
         elif self.timeout is None:
@@ -45,8 +45,21 @@ class Pipe(object):
             r, w, e = select.select([self.rfd], [], [], self.timeout)
             return os.read(self.rfd, sz)
 
-    def write(self, str):
-        return os.write(self.wfd, str)
+    def write(self, s):
+        return os.write(self.wfd, str(s))
+
+    def response(self, s):
+        if self._responded:
+            raise Exception('Already responded, not reset')
+        if not s:
+            s = 'OK'
+        
+        ret = self.write(s)
+        self._responded = True
+        return ret
+
+    def reset(self):
+        self._responded = False
 
     def fileno(self):
         # fileno is useful for select
@@ -61,6 +74,10 @@ class Pipe(object):
 
     def settimeout(self, timeout):
         self.timeout = timeout
+
+    def flush(self):
+        return
+        #os.fdatasync(self.wfd)
 
 class Message(object):
     def __init__(self):
