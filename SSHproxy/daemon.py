@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 mai 30, 19:54:16 by david
+# Last modified: 2006 Jun 01, 22:53:32 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -256,7 +256,13 @@ def service_client(client, addr, host_key_file):
                 if not conn:
                     ret = 'ERROR: no connection id %s' % cid
                     break
-                ret = conn.loop()
+                try:
+                    ret = conn.loop()
+                except:
+                    chan.send("\r\n ERROR: seems you found a bug"
+                              "\r\n Please report it to david@guerizec.net\r\n")
+                    chan.close()
+                    raise
                 if ret == util.CLOSE:
                     cpool.del_connection(cid)
                 elif ret >= 0:
