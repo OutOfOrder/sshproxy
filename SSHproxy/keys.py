@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: Tue May 30 12:05:55 2006 by david
+# Last modified: 2006 Jun 01, 23:56:22 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -51,6 +51,7 @@ CTRL__ = '\x1f'
 INS    = '\x1b\x5b\x32\x7e'
 DEL    = '\x1b\x5b\x33\x7e'
 END    = '\x1b\x5b\x46'
+BS     = '\x7f'
 HOME   = '\x1b\x5b\x48'
 PG_UP  = '\x1b\x5b\x35\x7e'
 PG_DN  = '\x1b\x5b\x36\x7e'
@@ -89,4 +90,7 @@ def get_alt_number(key):
         return None
     return list(ALT_NUMBERS).index(key)
 
-ARW_UP = '\x1b\x5b\x41'
+ARW_UP    = '\x1b\x5b\x41'
+ARW_DOWN  = '\x1b\x5b\x42'
+ARW_RIGHT = '\x1b\x5b\x43'
+ARW_LEFT  = '\x1b\x5b\x44'
