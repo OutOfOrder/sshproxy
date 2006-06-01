@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 mai 30, 13:21:18 by david
+# Last modified: 2006 Jun 02, 00:19:02 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -63,11 +63,11 @@ class Console(cmd.Cmd):
 
     #needed for do_show_sites
     # TODO: put this in daemon.py when the ctrlfd protocol is more robust
-    def _sites(self, group=None):
+    def _sites(self, domain=None):
         from pwdb.manage import pwdb
         sites=[]
         user = self._whoami().strip()
-        for site in pwdb.list_allowed_sites(user=user, group=group):
+        for site in pwdb.list_allowed_sites(user=user, domain=domain):
             sites.append((site['name'], site['uid'],
                           site['ip'], site['location']))
         sites.sort(lambda x, y: x[1] < y[1])
@@ -109,10 +109,10 @@ class Console(cmd.Cmd):
         """sites"""
         from pwdb.manage import CommandLine
         arg = CommandLine(arg)
-        group = None
+        domain = None
         if len(arg) and arg[0] != '#':
-            group = arg[0]
-        sites = self._sites(group=group)
+            domain = arg[0]
+        sites = self._sites(domain=domain)
         if len(sites):
             name_width = max([ len(e[0]) for e in sites ])
             for name, uid, ip, location in sites:
