@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 mai 30, 17:42:34 by david
+# Last modified: 2006 Jun 02, 00:08:47 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -236,12 +236,12 @@ class ProxyClient(object):
                         break
                     if x == keys.CTRL_X:
                         return util.SUSPEND
-                    #SSHproxy.call_hooks('filter-console', fd, chan,
-                    #                                      sitedata, x)
+                    SSHproxy.call_hooks('filter-proxy', fd, chan,
+                                                          sitedata, x)
                     # XXX: debuging code following
-                    #if ord(x[0]) < 0x20:
-                    #    fd.send('ctrl char: %s\r\n' % ' '.join([
-                    #                    '%02x' % ord(c) for c in x ]))
+                    #if ord(x[0]) < 0x20 or ord(x[0]) > 126:
+                    #    fd.send('ctrl char: %s\r\n' % ''.join([
+                    #                    '\\x%02x' % ord(c) for c in x ]))
                     if x in keys.ALT_NUMBERS:
                         return keys.get_alt_number(x)
                     if x == keys.CTRL_K:
