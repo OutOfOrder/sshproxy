@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 02, 00:08:47 by david
+# Last modified: 2006 Jun 02, 02:24:20 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -117,7 +117,7 @@ class ProxyScp(object):
                                                  sitedata.port))
 #            self.transport.set_hexdump(1)
             self.transport.connect(username=sitedata.username,
-                                   password=sitedata.password,
+                                   password=util.decipher(sitedata.password),
                                    hostkey=sitedata.hostkey)
             self.chan = self.transport.open_session()
         except Exception, e:
@@ -179,7 +179,7 @@ class ProxyClient(object):
             #self.transport.set_hexdump(1)
 
             self.transport.connect(username=sitedata.username,
-                                   password=sitedata.password,
+                                   password=util.decipher(sitedata.password),
                                    hostkey=sitedata.hostkey) 
             self.chan = self.transport.open_session()
 
