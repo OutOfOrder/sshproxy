@@ -28,5 +28,5 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-echo scp -v -oPort=$PROXY_PORT "${OPTS[@]}" "$origin" "$target"
-scp -v -oPort=$PROXY_PORT "${OPTS[@]}" "$origin" "$target"
+echo scp -oPort=$PROXY_PORT "${OPTS[@]}" "$origin" "$target"
+scp -oPort=$PROXY_PORT "${OPTS[@]}" "$origin" "$target"
