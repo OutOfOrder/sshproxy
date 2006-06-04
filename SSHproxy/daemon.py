@@ -77,10 +77,12 @@ class ProxyServer(paramiko.ServerInterface):
     def check_channel_exec_request(self, channel, command):
         log.devdebug('check_channel_exec_request %s %s', channel, command)
         argv = command.split(' ', 1)
+        args = []
         if argv[0] == 'scp':
             while True:
                 argv = argv[1].split(' ', 1)
                 if argv[0][0] == '-':
+                    args.append(argv[0])
                     continue
                 break
             site, path = argv[0].split(':', 1)
@@ -89,11 +91,13 @@ class ProxyServer(paramiko.ServerInterface):
             except util.SSHProxyError, msg:
                 # we cannot explain here why the user gets rejected so we
                 # just close the channel
+                log.error('Site %s is not in your scope' % site)
                 channel.close()
                 self.event.set()
                 return False
             sitedata = self.userdata.get_site(site)
             sitedata.set_sftp_path(path)
+            sitedata.set_sftp_args(' '.join(args))
             sitedata.set_type('scp')
             self.event.set()
             return True

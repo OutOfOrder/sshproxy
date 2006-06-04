@@ -132,7 +132,8 @@ class ProxyScp(object):
         chan = self.chan
         client = self.client
         sitedata = self.sitedata
-        chan.exec_command('scp -t -v %s' % sitedata.path)
+        log.info('Executing: scp %s %s' % (sitedata.args, sitedata.path))
+        chan.exec_command('scp %s %s' % (sitedata.args, sitedata.path))
         try:
             chan.settimeout(0.0)
             client.settimeout(0.0)

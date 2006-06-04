@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 mai 30, 13:51:32 by david
+# Last modified: 2006 Jun 04, 04:19:46 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -97,6 +97,7 @@ class SiteData(object):
         self.type = 'shell'
         self.cmdline = None
         self.path = None
+        self.args = None
     
     def set_type(self, type):
         # 'shell' or 'sftp'
@@ -106,5 +107,8 @@ class SiteData(object):
         self.cmdline = cmdline
 
     def set_sftp_path(self, path):
-        self.path = path
+        self.path = path or '.'
+
+    def set_sftp_args(self, args):
+        self.args = args
 
