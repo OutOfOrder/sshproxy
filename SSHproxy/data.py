@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 04, 04:19:46 by david
+# Last modified: 2006 Jun 04, 16:41:16 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -55,6 +55,7 @@ class UserData(object):
     def add_site(self, sitename):
         sitedata = SiteData(self, sitename)
         self.sitedict[sitedata.sitename] = sitedata
+        self.sitedict[sitename] = sitedata
         self.sitelist.append(sitedata.sitename)
         # return real sitename (user@sid)
         return sitedata.sitename
@@ -65,7 +66,7 @@ class UserData(object):
                 return self.sitedict[self.sitelist[index]]
             else:
                 return None
-        elif sitename in self.sitelist:
+        elif sitename in self.sitedict.keys():
             return self.sitedict[sitename]
         else:
             return None
@@ -100,7 +101,7 @@ class SiteData(object):
         self.args = None
     
     def set_type(self, type):
-        # 'shell' or 'sftp'
+        # 'shell' or 'scp' or 'cmd'
         self.type = type
         
     def set_cmdline(self, cmdline):

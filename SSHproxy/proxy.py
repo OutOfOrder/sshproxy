@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 03, 22:25:15 by david
+# Last modified: 2006 Jun 04, 16:43:16 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,88 +30,11 @@ import SSHproxy, keys, cipher, util, log
 
 
 
-class Logger(object):
-    """Logger class to log everything that passes on a channel"""
-
-    def __init__(self, passthru=None, logfile=sys.stderr):
-        self.logfile = logfile
-        self.passthru = passthru
-
-    
-    def closed(self):
-        return self.passthru.closed
-    closed = property(closed)
-
-    def eof_received(self):
-        return self.passthru.eof_received
-    eof_received = property(eof_received)
-
-    def set_passthru(self, passthru):
-        self.passthru = passthru
-        return self
-
-    def send(self, msg):
-        ret = self.logfile.write(msg)
-        self.flush()
-        if self.passthru:
-            self.passthru.send(msg)
-        return ret
-
-    def recv(self, sz):
-        return self.passthru.recv(sz)
-
-    def write(self, msg):
-        ret = self.logfile.write(msg)
-        self.flush()
-        if self.passthru:
-            self.passthru.write(msg)
-        return ret
-
-    def read(self, sz=None):
-        if sz:
-            return self.passthru.read(sz)
-        else:
-            return self.passthru.read()
-
-    def flush(self):
-        return self.logfile.flush()
-
-    def fileno(self):
-        return self.passthru.fileno()
-
-    def close(self):
-        return self.logfile.close()
-        
-    def active(self):
-        try:
-            return self.passthru.active()
-        except AttributeError:
-            return 1
-        
-    def readline(self):
-        return self.passthru.readline()
-
-    def makefile(self, *args, **kwargs):
-        return self.passthru.makefile(*args, **kwargs)
-
-
-
-oldtty = None
-def reset_term(term):
-    global oldtty
-    return # XXX: deactivated
-    if oldtty:
-        termios.tcsetattr(term, termios.TCSADRAIN, oldtty)
-    mode = fcntl.fcntl(term, fcntl.F_GETFL)
-    fcntl.fcntl(term, fcntl.F_SETFL, mode & ~os.O_NDELAY)
-    oldtty = None
-
-
-
 class ProxyScp(object):
     def __init__(self, userdata):
         self.client = userdata.channel
         self.sitedata = sitedata = userdata.get_site(0)
+        self.userdata = userdata
         try:
             self.transport = paramiko.Transport((sitedata.hostname,
                                                  sitedata.port))
@@ -138,26 +61,66 @@ class ProxyScp(object):
             chan.settimeout(0.0)
             client.settimeout(0.0)
             fd = client
-#            fd = logger.set_passthru(fd)
     
+            size = 4096
             while t.is_active() and client.active:
-                r, w, e = select.select([chan, fd], [], [], 0.2)
+                r, w, e = select.select([chan, fd], [chan, fd], [], 0.2)
+
                 if chan in r:
-                    x = chan.recv(1024)
+                    if fd.out_window_size > 0:
+                        x = chan.recv(size)
+                        fd.send(x)
                     if len(x) == 0 or chan.closed or chan.eof_received:
                         log.info("Connection closed by server")
                         break
-                    fd.send(x)
                 if fd in r:
-                    x = fd.recv(1024)
+                    if chan.out_window_size > 0:
+                        x = fd.recv(size)
+                        chan.send(x)
                     if len(x) == 0 or fd.closed or fd.eof_received:
                         log.info("Connection closed by client")
                         break
-                    chan.send(x)
         finally:
             pass
         return util.CLOSE
 
+
+class ProxyCmd(ProxyScp):
+    def loop(self):
+        t = self.transport
+        chan = self.chan
+        client = self.client
+        sitedata = self.sitedata
+        userdata = self.userdata
+        log.info('Executing: %s' % (sitedata.cmdline))
+        self.chan.get_pty(userdata.term, userdata.width, userdata.height)
+        chan.exec_command(sitedata.cmdline)
+        try:
+            chan.settimeout(0.0)
+            client.settimeout(0.0)
+            fd = client
+    
+            size = 40960
+            while t.is_active() and client.active:
+                r, w, e = select.select([chan, fd], [chan, fd], [], 0.2)
+
+                if chan in r:
+                    if fd.out_window_size > 0:
+                        x = chan.recv(size)
+                        fd.send(x)
+                    if len(x) == 0 or chan.closed or chan.eof_received:
+                        log.info("Connection closed by server")
+                        break
+                if fd in r:
+                    if chan.out_window_size > 0:
+                        x = fd.recv(size)
+                        chan.send(x)
+                    if len(x) == 0 or fd.closed or fd.eof_received:
+                        log.info("Connection closed by client")
+                        break
+        finally:
+            pass
+        return util.CLOSE
 
 
 
@@ -212,7 +175,6 @@ class ProxyClient(object):
             chan.settimeout(0.0)
             client.settimeout(0.0)
             fd = client
-#            fd = logger.set_passthru(fd)
     
             while t.is_active() and client.active:
                 try:

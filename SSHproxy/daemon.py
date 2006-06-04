@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 03, 22:21:57 by david
+# Last modified: 2006 Jun 04, 16:06:32 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -112,7 +112,10 @@ class ProxyServer(paramiko.ServerInterface):
                 return False
             sitedata = self.userdata.get_site(argv[0])
             if len(argv) > 1:
-                sitedata.set_cmdline(argv[1])
+                sitedata.set_type('cmd')
+                sitedata.set_cmdline(' '.join(argv[1:]))
+            else:
+                sitedata.set_type('shell')
             self.event.set()
             return True
 
@@ -167,7 +170,8 @@ def service_client(client, addr, host_key_file):
     log.info('Authenticated %s', server.userdata.username)
     server.event.wait(15)
     if not server.event.isSet():
-        log.error('ERROR: client never asked for a shell. Exiting.')
+        log.error('ERROR: client never asked for a shell or a command.'
+                    ' Exiting.')
         sys.exit(1)
 
     userdata.set_channel(chan)
@@ -177,14 +181,16 @@ def service_client(client, addr, host_key_file):
     cpool = pool.get_connection_pool()
     # is this a direct connection ?
     if len(userdata.list_sites()):
-        try:
-            if userdata.get_site().type == 'scp':
-                proxy.ProxyScp(userdata).loop()
-                chan.close()
-                transport.close()
-                return
-        except AttributeError:
-            pass
+        if userdata.get_site().type == 'scp':
+            proxy.ProxyScp(userdata).loop()
+            chan.close()
+            transport.close()
+            return
+        if userdata.get_site().type == 'cmd':
+            proxy.ProxyCmd(userdata).loop()
+            chan.close()
+            transport.close()
+            return
         conn = proxy.ProxyClient(userdata)
         log.info("Connecting to %s", userdata.get_site().sitename)
         cid = cpool.add_connection(conn)
