@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 02, 03:18:30 by david
+# Last modified: 2006 Jun 04, 02:11:39 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,49 +19,53 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
-raise 'use util classes !'
-import sys, base64
-
-from Crypto.Cipher import Blowfish
+#raise 'use util classes !'
+import sys, base64, getpass
 
 from SSHproxy import config
-from SSHproxy import util
+from SSHproxy.cipher import cipher, decipher, SSHproxyConfig
 from SSHproxy.pwdb.mysql import db, Q
 
 conf = config.SSHproxyConfig()
 
-newsecret = ''
-if len(sys.argv) > 1:
-    newsecret = sys.argv[1]
+dry_run = False
 
-if newsecret == conf.secret:
-    print 'Same secrets, doing nothing'
+def usage():
+    print '''Usage: %s <cipher_type> [<secret>]''' % sys.argv[0]
+    print 
+    print '''       cipher_type is one of 'plain', 'base64', 'blowfish' '''
+    print ('''       secret is optionnal for blowfish and ignored for'''
+                                                    '''plain and base64''')
+    print '''       if secret is not given for blowfish, the old one is taken'''
+    print '''       if secret is empty, it is prompted'''
     sys.exit(0)
 
-def cipher(text):
-    ftext = '%s:%s%s' % (len(text), text, '*'*8)
-    ftext = ftext[:len(ftext) - (len(ftext)%8) ]
-    return '$cipher$' + base64.b64encode(_cipher_engine.encrypt(ftext))
 
-def decipher(text):
-    if text[:8] == '$cipher$':
-        text = text[8:]
-        size, ftext = _cipher_engine.decrypt(base64.b64decode(text)).split(':', 1)
-        return ftext[:int(size)]
-    else:
-        return text
-
-if newsecret:
-    _cipher_engine = Blowfish.new(newsecret, Blowfish.MODE_ECB)
+newsecret = ''
+if len(sys.argv) in (2, 3) :
+    cipher_type = sys.argv[1]
 else:
-    class NullCipher(object):
-        def encrypt(self, text): return text
-        def decrypt(self, text): return text
+    usage()
 
-    _cipher_engine = NullCipher()
+if cipher_type == 'blowfish':
+    if len(sys.argv) != 3:
+        newsecret = SSHproxyConfig().secret
+    else:
+        newsecret = sys.argv[2]
+    if not newsecret:
+        sec1 = 1
+        sec2 = 2
+        while not sec1 or sec1 != sec2:
+            sec1 = getpass.getpass("Enter secret (1/2)")
+            sec2 = getpass.getpass("Enter secret (2/2)")
+        newsecret = sec1
+elif cipher_type not in ('plain', 'base64'):
+    print "unknown cipher_type", cipher_type
+    usage()
 
 
 conf.newsecret = newsecret
+dry_run or conf._write() # just in case it goes wrong in the middle
 
 c = db.cursor()
 
@@ -69,12 +73,15 @@ users = c.execute("select * from user")
 
 for id, site_id, uid, password, primary in c.fetchall():
     # decipher with old secret
-    password = util.decipher(password)
-    print password
+    password = decipher(password)
+    print password, 
     # cipher with new secret
-    newpass = cipher(password)
+    newpass = cipher(password, type=cipher_type, secret=newsecret)
+    print newpass, decipher(newpass, secret=newsecret)
     u = db.cursor()
-    u.execute("update user set password = '%s' where id = %d" % (newpass, id))
+    query = "update user set password = '%s' where id = %d" % (newpass, id)
+    print query
+    dry_run or u.execute(query)
     u.close()
 
 c.close()
@@ -82,6 +89,7 @@ c.close()
 del conf.newsecret
 # update secret
 conf.secret = newsecret
-conf._write()
+conf.cipher_type = cipher_type
+dry_run or conf._write()
 
 

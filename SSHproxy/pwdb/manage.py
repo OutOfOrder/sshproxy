@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 mai 30, 19:17:38 by david
+# Last modified: 2006 Jun 04, 01:35:07 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,7 +24,12 @@ import getpass
 import sys
 import cmd
 import readline
+
+from SSHproxy.cipher import cipher
+
 from mysql import MySQLPwDB
+
+
 
 pwdb = MySQLPwDB()
 
@@ -213,7 +218,8 @@ class DBConsole(cmd.Cmd):
         else:
             try:
                 password = self.set_password(arg[0])
-                pwdb.add_user_to_site(arg[0], arg[1], password, int(arg[2]))
+                pwdb.add_user_to_site(arg[0], arg[1], cipher(password),
+                                                                int(arg[2]))
             except KeyboardInterrupt:
                 return
 

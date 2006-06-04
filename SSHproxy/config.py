@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 02, 01:35:15 by david
+# Last modified: 2006 Jun 04, 01:31:03 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -69,8 +69,10 @@ class SSHproxyConfig(Config):
         # set default values
         self.port = 2242
         self.bindip = ''
+        self.max_connections = 0 # unlimited
         self.secret = ('Enoch Root has an old cigar box on his lap.'
             ' Golden light is shining out of the crack around its lid.')
+        self.cipher_type = 'blowfish' # see cipher.py for available values
         
         # read file values
         Config.__init__(self, 'sshproxy')

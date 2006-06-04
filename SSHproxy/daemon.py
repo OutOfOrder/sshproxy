@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 01, 22:53:32 by david
+# Last modified: 2006 Jun 03, 22:21:57 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,7 +30,7 @@ from console import Console
 from message import Message
 from data import UserData, SiteData
 from sftp import ProxySFTPServer
-import proxy, util, pool
+import proxy, util, pool, cipher
 import config
 
 #paramiko.util.log_to_file('paramiko.log')
@@ -124,12 +124,8 @@ class ProxyServer(paramiko.ServerInterface):
 
 def service_client(client, addr, host_key_file):
 
-    maxcon = 0 # unlimited
     conf = config.SSHproxyConfig()
-    if hasattr(conf, 'max_connections'):
-        maxcon = conf.max_connections
-
-
+    maxcon = conf.max_connections
 
     host_key = paramiko.DSSKey(filename=host_key_file)
 
