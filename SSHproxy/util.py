@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 mai 30, 19:26:50 by david
+# Last modified: 2006 Jun 03, 22:20:48 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,10 +19,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
-
-import os, select, pty, traceback
-
 from SSHproxy import log
+
 
 class SSHProxyError(Exception):
     def __init__(self, msg):
@@ -38,6 +36,7 @@ class SSHProxyPluginError(SSHProxyError):
     def __init__(self, msg):
         log.error("PLUG: "+msg)
         Exception.__init__(self, "Plugin error: "+msg)
+
 
 SUSPEND, SWITCH, CLOSE = range(-4, -1)
 
