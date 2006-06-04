@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 04, 01:31:03 by david
+# Last modified: 2006 Jun 05, 01:18:00 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,87 +20,189 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-# TODO: parse config file located at $HOME/.sshproxy/server/config
-
 import os, os.path, sys
+from ConfigParser import ConfigParser
 import imp
 
 
-class Config(object):
-    def __init__(self, service):
-        self._dirname = os.path.join(os.environ['HOME'], '.sshproxy')
-        self._filename = os.path.join(self._dirname, service+'.conf')
-        if os.path.isfile(self._filename):
-            fp = open(self._filename)
-            # Ugly hack to make imp.load_source silent
-            class Sssshh(object):
-                def write(self, msg):
-                    pass
-            oldstdout = sys.stdout
-            sys.stdout = Sssshh()
-            # Why does imp.load_source bark out the filename ???
-            module = imp.load_source(service,
-                        'THIS/IS/TO/AVOID/CREATION/OF/A/C/FILE!!!', fp)
-            sys.stdout = oldstdout
-            # END Ugly hack to make imp.load_source silent
-            fp.close()
-            for var in dir(module):
-                if var[0] == '_':
-                    continue
-                setattr(self, var, getattr(module, var))
+class ConfigSection(object):
+    section_defaults = {}
+    types = {}
+
+    def __init__(self, config, section):
+        self._config = config
+        self._parser = config._parser
+        self._section = section
+        if not self._parser.has_section(section):
+            self._parser.add_section(section)
+            self._config.touch()
+        self.init_section()
+
+    def init_section(self):
+        for k, v in self.section_defaults.items():
+            value = self.get(k, None)
+            if value is None:
+                self.set(k, str(v))
+                self._config.touch()
+        self._config.write()
+
+    def get_default(self, option, default=None):
+        return self.section_defaults.get(option, default)
+
+    def __getitem__(self, option):
+        return self.types.get(option, str)(self._parser.get(self._section,
+                                                            option))
+
+    def __setitem__(self, option, value):
+        self._config.touch()
+        return self._parser.set(self._section, option, str(value))
+
+    def keys(self):
+        return self._parser.options(self._section)
+
+    def has_key(self, option):
+        return self._parser.has_option(self._section, option)
+
+    def get(self, option, default=None):
+        if self.has_key(option):
+            return self.types.get(option, str)(self._parser.get(self._section,
+                                                                option))
         else:
-            if not os.path.isdir(self._dirname):
-                os.mkdir(self._dirname, 0700)
-            self._write()
+            return default
+
+    def set(self, option, value):
+        self._config.touch()
+        return self._parser.set(self._section, option, str(value))
+
+    def pop(self, option):
+        self._config.touch()
+        return self.types.get(option, str)(self._parser.remove_option(
+                                                    self._section, option))
+
+    def items(self):
+        return self._parser.items(self._section)
+
+    def __getattr__(self, attr):
+        print 'unallowed getattr (section=%s, attr=%s)' % (self._section, attr)
+        return self[attr]
 
     def _write(self):
-        fp = open(self._filename, "w")
-        fp.write(repr(self))
-        fp.close()
-        
-    def __repr__(self):
-        # regenerate the config file
-        return '\n'.join([ '%s = %s' % (o, repr(getattr(self, o))) \
-                            for o in dir(self) if o[0] != '_' ])+'\n'
-        
+        print 'unallowed getattr (section=%s, attr=_write)' % (self._section)
+        self._config.write()
+        pass
 
-class SSHproxyConfig(Config):
-    def __init__(self):
-        # set default values
-        self.port = 2242
-        self.bindip = ''
-        self.max_connections = 0 # unlimited
-        self.secret = ('Enoch Root has an old cigar box on his lap.'
-            ' Golden light is shining out of the crack around its lid.')
-        self.cipher_type = 'blowfish' # see cipher.py for available values
-        
-        # read file values
-        Config.__init__(self, 'sshproxy')
-        
-        # readjust values
-        try:
-            self.port = int(self.port)
-        except:
-            print "Warning: port %s is not numeric. Using default." % self.port
-            self.port = 2242
 
-class MySQLConfig(Config):
-    def __init__(self):
-        # set default values
-        self.host = 'localhost'
-        self.user = 'sshproxy'
-        self.password = 'sshproxypw'
-        self.db = 'sshproxy'
-        self.port = 3306
-        
-        # read file values
-        Config.__init__(self, 'mysql')
-        
-        # readjust values
+class Config(object):
+    section_handlers = {}
+
+    @classmethod
+    def register_handler(cls, name, handler):
+        cls.section_handlers[name] = handler
+
+    @classmethod
+    def get_handler(cls, name):
+        return cls.section_handlers.get(name, ConfigSection)
+
+    def __init__(self, inifile, ):
+        self._inifile = inifile
+        self._parser = None
+        self._sections = {}
+        self._dirty = False
+
+    def __call__(self, section=None):
+        if not self._parser:
+            from ConfigParser import SafeConfigParser as ConfigParser
+            self._parser = ConfigParser()
+            self._parser.read(self._inifile)
+
+        if not section:
+            return self
+        else:
+            return self[section]
+
+    def __getitem__(self, section):
+        if not self._sections.has_key(section):
+            self._sections[section] = self.get_handler(section)(self, section)
+        return self._sections[section]
+
+    def __setitem__(self, section, options):
+        if not self._parser.has_section(section):
+            self._parser.add_section(section)
+            self._sections[section] = self.get_handler(section)(self, section)
+        sect = self._sections[section]
+
+        for option in sect.keys():
+            sect.pop(option)
+        for option, value in options:
+            sect[option] = value
+        self.touch()
+
+    def pop(self, section):
+        self.touch()
+        return self._parser.remove_section(section)
+
+    def keys(self):
+        return self._parser.sections()
+
+    def has_key(self, section):
+        return self._parser.has_section(section)
+
+    def defaults(self):
+        return self._parser.defaults()
+
+    def touch(self):
+        self._dirty = True
+
+    def write(self, inifile=None):
+        if not self._dirty:
+            return
+        if inifile is None:
+            inifile = self._inifile
+
         try:
-            self.port = int(self.port)
-        except:
-            print "Warning: port %s is not numeric. Using default." % self.port
-            self.port = 3306
+            ini = open(inifile, 'w')
+            print 'writing', inifile
+            return self._parser.write(ini)
+        finally:
+            self._dirty = False
+            ini.close()
+
+inifile = '%s/.sshproxy/sshproxy.ini' % os.environ['HOME']
+get_config = Config(inifile)
+
+
+class SSHproxySection(ConfigSection):
+    section_defaults = {
+        'port': 2242,
+        'bindip': '', # listen on all interfaces
+        'max_connections': 0, # default is unlimited
+        'cipher_type': 'blowfish', # see cipher.py for available values
+        }
+    types = {
+        'port': int,
+        'max_connections': int,
+        }
+
+Config.register_handler('sshproxy', SSHproxySection)
+
+class MySQLSection(ConfigSection):
+    section_defaults = {
+        'host': 'localhost',
+        'user': 'sshproxy',
+        'password': 'sshproxypw',
+        'db': 'sshproxy',
+        'port': 3306,
+        }
+    types = {
+        'port': int,
+        }
+
+Config.register_handler('mysql', MySQLSection)
         
+def SSHproxyConfig():
+    return get_config('sshproxy')
+
+def MySQLConfig():
+    return get_config('mysql')
+
 

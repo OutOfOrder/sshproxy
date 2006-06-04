@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 04, 01:58:33 by david
+# Last modified: 2006 Jun 05, 01:20:37 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,7 +23,7 @@
 from Crypto.Cipher import Blowfish
 import base64
 
-from SSHproxy.config import SSHproxyConfig
+from SSHproxy.config import Config, ConfigSection, get_config
 
 _engine_registry = {}
 
@@ -114,13 +114,13 @@ class BlowfishCipher(BaseCipher):
 
     @classmethod
     def set_default(cls):
-        cls.engine = cls.get_engine(SSHproxyConfig().secret)
+        cls.engine = cls.get_engine(get_config('blowfish').secret)
         _default_engine[0] = cls
 
     @classmethod
     def get_engine(cls, secret=None):
         if secret is None:
-            secret = getattr(cls, 'secret', SSHproxyConfig().secret)
+            secret = getattr(cls, 'secret', get_config('blowfish').secret)
         return Blowfish.new(secret, Blowfish.MODE_ECB)
 
     @classmethod
@@ -145,8 +145,16 @@ register_engine(BlowfishCipher)
 
 _default_engine = [ PlainCipher ]
 
-def _init_cipher(secret=None):
-    cipher_type = SSHproxyConfig().cipher_type
+class BlowfishConfigSection(ConfigSection):
+    section_defaults = {
+        'secret': ('Enoch Root has an old cigar box on his lap.'
+        ' Golden light is shining out of the crack around its lid.'),
+        }
+
+Config.register_handler('blowfish', BlowfishConfigSection)
+
+def _init_cipher():
+    cipher_type = get_config('sshproxy').cipher_type
     get_engine(cipher_type).set_default()
 
 _init_cipher()
