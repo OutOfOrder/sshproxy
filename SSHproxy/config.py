@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 06, 00:10:06 by david
+# Last modified: 2006 Jun 06, 00:44:00 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -56,6 +56,10 @@ class ConfigSection(object):
     def __setitem__(self, option, value):
         self._config.touch()
         return self._parser.set(self._section, option, str(value))
+
+    def __delitem__(self, option):
+        self._config.touch()
+        return self._parser.remove_option(self._section, option)
 
     def keys(self):
         return self._parser.options(self._section)
@@ -130,6 +134,10 @@ class Config(object):
         for option, value in options:
             sect[option] = value
         self.touch()
+
+    def __delitem__(self, section):
+        self.touch()
+        return self._parser.remove_section(section)
 
     def pop(self, section):
         self.touch()
