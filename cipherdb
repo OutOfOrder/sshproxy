@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 04, 02:11:39 by david
+# Last modified: 2006 Jun 06, 00:43:56 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,10 +23,10 @@
 import sys, base64, getpass
 
 from SSHproxy import config
-from SSHproxy.cipher import cipher, decipher, SSHproxyConfig
+from SSHproxy.cipher import cipher, decipher
 from SSHproxy.pwdb.mysql import db, Q
 
-conf = config.SSHproxyConfig()
+conf = config.get_config()
 
 dry_run = False
 
@@ -49,7 +49,7 @@ else:
 
 if cipher_type == 'blowfish':
     if len(sys.argv) != 3:
-        newsecret = SSHproxyConfig().secret
+        newsecret = conf['blowfish']['secret']
     else:
         newsecret = sys.argv[2]
     if not newsecret:
@@ -64,8 +64,9 @@ elif cipher_type not in ('plain', 'base64'):
     usage()
 
 
-conf.newsecret = newsecret
-dry_run or conf._write() # just in case it goes wrong in the middle
+if cipher_type == 'blowfish':
+    conf['blowfish']['newsecret'] = newsecret
+    dry_run or conf.write() # just in case it goes wrong in the middle
 
 c = db.cursor()
 
@@ -86,10 +87,11 @@ for id, site_id, uid, password, primary in c.fetchall():
 
 c.close()
 
-del conf.newsecret
-# update secret
-conf.secret = newsecret
-conf.cipher_type = cipher_type
-dry_run or conf._write()
+if cipher_type == 'blowfish':
+    del conf['blowfish']['newsecret']
+    # update secret
+    conf['blowfish']['secret'] = newsecret
+conf['sshproxy']['cipher_type'] = cipher_type
+dry_run or conf.write()
 
 
