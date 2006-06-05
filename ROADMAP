@@ -1,0 +1,23 @@
+0.3.2
+    * update installdb to make it work with cipher and config
+    * make the auto-add-key feature optional via config
+    * hide local user passwords in list_users
+    * make it possible to change the password (and key) for users and rlogins
+
+0.4
+    * database more coherent (rename columns and tables)
+    * cleanup and refactoring of the pwdb module
+    * admin password in the config file
+    * options can be given on the ssh command line (before sites) to be able
+      to optionally get rid of the console
+    * encrypt the local users passwords
+
+0.5
+    * profiles gain more precise ACLs
+    * profiles will be optionally linked to rlogins
+    * remote sites will be reachable with keys instead of just password
+
+0.6
+    * http access to manage the database
+
+
