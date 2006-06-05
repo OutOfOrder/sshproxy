@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 02, 00:08:36 by david
+# Last modified: 2006 Jun 05, 23:27:58 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,8 +22,15 @@
 
 import os.path
 
-from SSHproxy import config
+from SSHproxy.config import get_config, Config, ConfigSection
 from SSHproxy import keys
+
+class LogUsersConfigSection(ConfigSection):
+    section_defaults = {
+        'logdir': '/tmp/sshproxy_logusers',
+        }
+
+Config.register_handler('logusers', LogUsersConfigSection)
 
 class PluginLogUsers(object):
     tr_table = {}
@@ -35,14 +42,11 @@ class PluginLogUsers(object):
             '>':            '<SUP>',
         }
     def __init__(self):
-        conf = config.SSHproxyConfig()
-        if not hasattr(conf, 'logusers_dir'):
-            conf.logusers_dir = '/tmp/sshproxy_logusers'
-            conf._write()
-        if not os.path.isdir(conf.logusers_dir):
-            os.mkdir(conf.logusers_dir)
+        conf = get_config('logusers')
+        if not os.path.isdir(conf['logdir']):
+            os.mkdir(conf['logdir'])
         
-        self.path = conf.logusers_dir
+        self.path = conf['logdir']
 
         for key in dir(keys):
             if key[0] == '_' or not isinstance(getattr(keys, key), str):

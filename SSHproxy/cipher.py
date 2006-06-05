@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 05, 01:20:37 by david
+# Last modified: 2006 Jun 05, 22:58:20 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -114,13 +114,13 @@ class BlowfishCipher(BaseCipher):
 
     @classmethod
     def set_default(cls):
-        cls.engine = cls.get_engine(get_config('blowfish').secret)
+        cls.engine = cls.get_engine(get_config('blowfish')['secret'])
         _default_engine[0] = cls
 
     @classmethod
     def get_engine(cls, secret=None):
         if secret is None:
-            secret = getattr(cls, 'secret', get_config('blowfish').secret)
+            secret = getattr(cls, 'secret', get_config('blowfish')['secret'])
         return Blowfish.new(secret, Blowfish.MODE_ECB)
 
     @classmethod
@@ -154,7 +154,7 @@ class BlowfishConfigSection(ConfigSection):
 Config.register_handler('blowfish', BlowfishConfigSection)
 
 def _init_cipher():
-    cipher_type = get_config('sshproxy').cipher_type
+    cipher_type = get_config('sshproxy')['cipher_type']
     get_engine(cipher_type).set_default()
 
 _init_cipher()

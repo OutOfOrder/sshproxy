@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 05, 01:18:00 by david
+# Last modified: 2006 Jun 06, 00:10:06 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -82,14 +82,8 @@ class ConfigSection(object):
     def items(self):
         return self._parser.items(self._section)
 
-    def __getattr__(self, attr):
-        print 'unallowed getattr (section=%s, attr=%s)' % (self._section, attr)
-        return self[attr]
-
-    def _write(self):
-        print 'unallowed getattr (section=%s, attr=_write)' % (self._section)
+    def write(self):
         self._config.write()
-        pass
 
 
 class Config(object):
@@ -171,7 +165,7 @@ inifile = '%s/.sshproxy/sshproxy.ini' % os.environ['HOME']
 get_config = Config(inifile)
 
 
-class SSHproxySection(ConfigSection):
+class SSHproxyConfigSection(ConfigSection):
     section_defaults = {
         'port': 2242,
         'bindip': '', # listen on all interfaces
@@ -183,9 +177,9 @@ class SSHproxySection(ConfigSection):
         'max_connections': int,
         }
 
-Config.register_handler('sshproxy', SSHproxySection)
+Config.register_handler('sshproxy', SSHproxyConfigSection)
 
-class MySQLSection(ConfigSection):
+class MySQLConfigSection(ConfigSection):
     section_defaults = {
         'host': 'localhost',
         'user': 'sshproxy',
@@ -197,12 +191,6 @@ class MySQLSection(ConfigSection):
         'port': int,
         }
 
-Config.register_handler('mysql', MySQLSection)
+Config.register_handler('mysql', MySQLConfigSection)
         
-def SSHproxyConfig():
-    return get_config('sshproxy')
-
-def MySQLConfig():
-    return get_config('mysql')
-
 

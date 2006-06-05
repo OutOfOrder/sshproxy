@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 mai 30, 19:10:25 by david
+# Last modified: 2006 Jun 05, 23:05:41 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,17 +22,17 @@
 
 import simple
 import MySQLdb
-from SSHproxy.config import MySQLConfig
+from SSHproxy.config import get_config
 from SSHproxy.util import SSHProxyAuthError
 
-cfg = MySQLConfig()
+cfg = get_config('mysql')
 
 db = MySQLdb.connect(
-        host=cfg.host,
-        port=cfg.port,
-        db=cfg.db,
-        user=cfg.user,
-        passwd=cfg.password)
+        host=cfg['host'],
+        port=cfg['port'],
+        db=cfg['db'],
+        user=cfg['user'],
+        passwd=cfg['password'])
 
 
 def Q(str):

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 04, 16:06:32 by david
+# Last modified: 2006 Jun 05, 23:06:39 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -131,8 +131,8 @@ class ProxyServer(paramiko.ServerInterface):
 
 def service_client(client, addr, host_key_file):
 
-    conf = config.SSHproxyConfig()
-    maxcon = conf.max_connections
+    conf = config.get_config('sshproxy')
+    maxcon = conf['max_connections']
 
     host_key = paramiko.DSSKey(filename=host_key_file)
 
@@ -386,9 +386,9 @@ def kill_zombies(signum, frame):
 
 
 def _run_server():
-    conf = config.SSHproxyConfig()
-    ip = conf.bindip
-    port = conf.port
+    conf = config.get_config('sshproxy')
+    ip = conf['bindip']
+    port = conf['port']
 
 
     init_plugins()
