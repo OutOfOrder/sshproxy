@@ -3,6 +3,7 @@
     * make the auto-add-key feature optional via config
     * hide local user passwords in list_users
     * make it possible to change the password (and key) for users and rlogins
+    * check for mode 600 on config file
 
 0.4
     * database more coherent (rename columns and tables)
