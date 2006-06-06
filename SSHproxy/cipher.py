@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 05, 22:58:20 by david
+# Last modified: 2006 Jun 07, 00:41:28 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -82,7 +82,7 @@ class BaseCipher(object):
         raise NotImplementedError
 
 class PlainCipher(BaseCipher):
-    cipher_id = 'plain'
+    cipher_id = "plain"
 
     @classmethod
     def prefix(cls):
@@ -137,8 +137,10 @@ class BlowfishCipher(BaseCipher):
         engine = kw.get('engine', getattr(cls, 'engine', None))
         if not engine:
             engine = cls.get_engine(kw.get('secret', None))
-        size, ftext = engine.decrypt(
-                    base64.b64decode(text)).split(':', 1)
+        crypted = base64.b64decode(text)
+        # an exception here means we've lost the key...
+        # how to handle that situation ?
+        size, ftext = engine.decrypt(crypted).split(':', 1)
         return ftext[:int(size)]
 
 register_engine(BlowfishCipher)
@@ -151,6 +153,11 @@ class BlowfishConfigSection(ConfigSection):
         ' Golden light is shining out of the crack around its lid.'),
         }
 
+    def __setitem__(self, option, value):
+        ConfigSection.__setitem__(self, option, value)
+        if option == 'secret':
+            reload()
+
 Config.register_handler('blowfish', BlowfishConfigSection)
 
 def _init_cipher():
@@ -159,3 +166,4 @@ def _init_cipher():
 
 _init_cipher()
 
+reload = _init_cipher

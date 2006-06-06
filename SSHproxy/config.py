@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 06, 00:44:00 by david
+# Last modified: 2006 Jun 06, 23:58:07 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,7 +22,7 @@
 
 import os, os.path, sys
 from ConfigParser import ConfigParser
-import imp
+from StringIO import StringIO
 
 
 class ConfigSection(object):
@@ -88,6 +88,9 @@ class ConfigSection(object):
 
     def write(self):
         self._config.write()
+
+    def __str__(self):
+        return str(self._config)
 
 
 class Config(object):
@@ -163,11 +166,17 @@ class Config(object):
 
         try:
             ini = open(inifile, 'w')
-            print 'writing', inifile
+            #print 'writing', inifile
             return self._parser.write(ini)
         finally:
             self._dirty = False
             ini.close()
+
+    def __str__(self):
+        fp = StringIO()
+        self._parser.write(fp)
+        fp.seek(0L)
+        return fp.read()
 
 inifile = '%s/.sshproxy/sshproxy.ini' % os.environ['HOME']
 get_config = Config(inifile)

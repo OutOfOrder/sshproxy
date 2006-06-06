@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: Tue May 30 13:08:28 2006 by david
+# Last modified: 2006 Jun 07, 00:42:20 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,46 +20,54 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-import sys
+import sys, getpass
 import MySQLdb
 from MySQLdb import MySQLError
 from MySQLdb.constants import CLIENT
 
-from SSHproxy import config
+from SSHproxy import config, cipher
 
-cfg = config.SSHproxyConfig()
+cfg = config.get_config('sshproxy')
 
-cfg.bindip = raw_input("Enter the IP address to listen on [%s] " % (cfg.bindip or 'any')) or cfg.bindip
-if cfg.bindip == 'any':
-    cfg.bindip = ''
+cfg['bindip'] = raw_input("Enter the IP address to listen on [%s]: " % (
+                                cfg['bindip'] or 'any')) or cfg['bindip']
+if cfg['bindip'] == 'any':
+    cfg['bindip'] = ''
 
-cfg.port = raw_input("Enter the port to listen on [%s] " % cfg.port) or cfg.port
+cfg['port'] = raw_input("Enter the port to listen on [%s]: " % 
+                                        cfg['port']) or cfg['port']
 
-print "Write the following configuration to ~/.sshproxy/sshproxy.conf ? (ctrl-C to cancel)"
-print cfg
-try:
-    a = raw_input("Write the above configuration to ~/.sshproxy/sshproxy.conf ? (ctrl-C to cancel)")
-except KeyboardInterrupt:
-    print
-    print "Configuration not saved"
-    sys.exit(0)
-
-if len(a) and a[0] in 'Nn':
-    print "Configuration not saved"
-    sys.exit(0)
-
-cfg._write()
-print "Configuration saved."
+cfg['cipher_type'] = raw_input("Enter the cipher method to crypt passwords"
+                            " in the database (plain/base64/blowfish) [%s]: " % 
+                                    cfg['cipher_type']) or cfg['cipher_type']
 
 
 maincfg = cfg
+
+if cfg['cipher_type'] == 'blowfish':
+    cfg = config.get_config('blowfish')
+
+    print
+    secret = ''
+    while not secret:
+        secret1 = getpass.getpass("Enter the secret passphrase that will be "
+                        "used to crypt passwords (at least 10 characters): ")
+        secret2 = getpass.getpass("Confirm passphrase: ")
+        if (len(secret1) + len(secret2)) < 20:
+            print "You must enter at least 10 characters"
+        elif secret1 == secret2:
+            secret = secret1
+        else:
+            print "Passphrases don't match"
+
+    cfg['secret'] = secret
 
 try:
     force = sys.argv[1] == '-f'
 except:
     force = False
 
-cfg = config.MySQLConfig()
+cfg = config.get_config('mysql')
 
 def handle_mysql_error(e, cont=None):
     code, msg = e
@@ -67,7 +75,16 @@ def handle_mysql_error(e, cont=None):
         pass
     elif code == 1007: # database already exists
         print msg
-        print "You can run %s -f to force deletion of the old database" % sys.argv[0]
+        print ("You can run %s -f to force deletion of the old database" 
+                                                            % sys.argv[0])
+        while True:
+            a = raw_input("Do you want to delete the old database ? (yes/no)")
+            if a == 'yes':
+                cont = 1
+                break
+            elif a == 'no':
+                print "Exiting..."
+                break
     elif code == 1044: # access denied or unknown user
         print msg
     elif code == 1045: # incorrect password
@@ -110,17 +127,25 @@ adminid="root"
 adminpw=""
 
 
-cfg.host = raw_input("SSHproxy database hostname [%s]: " % cfg.host) or cfg.host
-cfg.port = raw_input("SSHproxy database port [%s]: " % cfg.port) or cfg.port
-cfg.db = raw_input("SSHproxy database name [%s]: " % cfg.db) or cfg.db
-cfg.user = raw_input("SSHproxy database user [%s]: " % cfg.user) or cfg.user
-cfg.password = raw_input("SSHproxy database password [%s]: " % cfg.password) or cfg.password
+print
+cfg['host'] = (raw_input("SSHproxy database hostname [%s]: " % cfg['host'])
+                                                            or cfg['host'])
+cfg['port'] = (raw_input("SSHproxy database port [%s]: " % cfg['port'])
+                                                            or cfg['port'])
+cfg['db'] = (raw_input("SSHproxy database name [%s]: " % cfg['db'])
+                                                            or cfg['db'])
+cfg['user'] = (raw_input("SSHproxy database user [%s]: " % cfg['user'])
+                                                            or cfg['user'])
+cfg['password'] = (raw_input("SSHproxy database password [%s]: " 
+                                         % cfg['password']) or cfg['password'])
 
 
-print "Write the following configuration to ~/.sshproxy/mysql.conf ? (ctrl-C to cancel)"
+print ("Write the following configuration to ~/.sshproxy/sshproxy.ini ?"
+                                                    " (ctrl-C to cancel)")
 print cfg
 try:
-    a = raw_input("Write the above configuration to ~/.sshproxy/mysql.conf ? (ctrl-C to cancel)")
+    a = raw_input("Write the above configuration to ~/.sshproxy/sshproxy.ini ?"
+                                                    " (ctrl-C to cancel)")
 except KeyboardInterrupt:
     print
     print "Configuration not saved"
@@ -130,30 +155,30 @@ if len(a) and a[0] in 'Nn':
     print "Configuration not saved"
     sys.exit(0)
 
-cfg._write()
+cfg.write()
 print "Configuration saved."
 
 adminid = raw_input("MySQL administration user [%s]: " % adminid) or adminid
-adminpw = raw_input("MySQL administration password: ")
+adminpw = getpass.getpass("MySQL administration password: ")
 
-db = connect_to_db(cfg.host, cfg.port, "", adminid, adminpw)
+db = connect_to_db(cfg['host'], cfg['port'], "", adminid, adminpw)
 
 c = db.cursor()
 # create database
 while True:
     try:
-        c.execute("create database %s" % Q(cfg.db))
+        c.execute("create database %s" % Q(cfg['db']))
         break
     except MySQLError, e:
         handle_mysql_error(e, force)
         try:
-            c.execute("drop database %s" % Q(cfg.db))
+            c.execute("drop database %s" % Q(cfg['db']))
         except MySQLError, e:
             handle_mysql_error(e)
             break
 
 try:
-    c.execute("use %s" % Q(cfg.db))
+    c.execute("use %s" % Q(cfg['db']))
 except MySQLError, e:
     handle_mysql_error(e)
 
@@ -165,16 +190,17 @@ except MySQLError, e:
     handle_mysql_error(e)
 
 selfip = 'localhost'
-selfip = raw_input("Enter the IP of the host connecting to the database (* for any) [%s] " % selfip) or selfip
+selfip = raw_input("Enter the IP of the host connecting to the database"
+                                    " (* for any) [%s] " % selfip) or selfip
 try:
     # create the sshproxy user
-    if cfg.user != adminid:
+    if cfg['user'] != adminid:
         c.execute("GRANT USAGE ON * . * TO '%s'@'%s' IDENTIFIED BY '%s' WITH "
                 "MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 "
-                "MAX_UPDATES_PER_HOUR 0" % (Q(cfg.user), Q(selfip),
-                                            Q(cfg.password)))
+                "MAX_UPDATES_PER_HOUR 0" % (Q(cfg['user']), Q(selfip),
+                                            Q(cfg['password'])))
     c.execute("GRANT SELECT , INSERT , UPDATE , DELETE ON `%s` . * TO "
-                "'%s'@'%s'" % (Q(cfg.db), Q(cfg.user), Q(selfip)))
+                "'%s'@'%s'" % (Q(cfg['db']), Q(cfg['user']), Q(selfip)))
 except MySQLError, e:
     raise
     handle_mysql_error(e)
@@ -185,7 +211,8 @@ db.close()
 
 # reconnect as sshproxy user
 
-db = connect_to_db(cfg.host, cfg.port, cfg.db, cfg.user, cfg.password)
+db = connect_to_db(cfg['host'], cfg['port'], cfg['db'],
+                   cfg['user'], cfg['password'])
 
 adminid = 'admin'
 adminpw = ''
@@ -193,31 +220,39 @@ adminpw = ''
 adminid = raw_input("Enter the admin uid [%s] " % adminid) or adminid
 
 while not adminpw:
-    adminpw = raw_input("Enter the admin password ")
+    adminpw1 = getpass.getpass("Enter the admin password ")
+    adminpw2 = getpass.getpass("Confirm the admin password ")
+    if adminpw1 == adminpw2:
+        adminpw = adminpw1
+        if not adminpw:
+            print "Empty passwords are not allowed"
+    else:
+        print "Passwords don't match"
     
 
 c = db.cursor()
 
 try:
     # insert admin login info
-    c.execute("INSERT INTO login VALUES (0, '%s', '%s', 'no key')" % (Q(adminid), Q(adminpw)))
+    c.execute("INSERT INTO login VALUES (0, '%s', '%s', 'no key')"
+                                                % (Q(adminid), Q(adminpw)))
     c.execute("UPDATE login SET id = 0 WHERE uid = '%s'" % Q(adminid))
 except MySQLError, e:
     handle_mysql_error(e)
 
 
 admingrp = 'Administrators'
-admingrp = raw_input("Enter the admin group name [%s] " % admingrp) or admingrp
+admingrp = raw_input("Enter the admin profile name [%s] " % admingrp) or admingrp
 
 try:
-    # insert admin group
+    # insert admin profile
     c.execute("INSERT INTO profile VALUES (0, '%s', 1)" % Q(admingrp))
     c.execute("UPDATE profile SET id = 0 WHERE name = '%s'" % Q(admingrp))
 except MySQLError, e:
     handle_mysql_error(e)
 
 try:
-    # link profile to group
+    # link profile to domain
     c.execute("INSERT INTO profile_sgroup VALUES (0, 0)")
 except MySQLError, e:
     handle_mysql_error(e)
@@ -229,37 +264,49 @@ except MySQLError, e:
     handle_mysql_error(e)
 
 
-allgrp = 'All Sites'
-allgrp = raw_input("Enter the name of the group containing all sites [%s] " % allgrp) or allgrp
+print
+
+domainall = 'AllSites'
+domainall = raw_input("Enter the name of the domain containing all sites [%s] "
+                                                    % domainall) or domainall
 
 try:
     # insert all group
-    c.execute("INSERT INTO sgroup VALUES (0, '%s')" % Q(allgrp))
-    c.execute("UPDATE sgroup SET id = 0 WHERE name = '%s'" % Q(allgrp))
+    c.execute("INSERT INTO sgroup VALUES (0, '%s')" % Q(domainall))
+    c.execute("UPDATE sgroup SET id = 0 WHERE name = '%s'" % Q(domainall))
 except MySQLError, e:
     handle_mysql_error(e)
+
+print
 
 a = raw_input("Do you want to add your first site ? [Y/n] ")
 if not len(a) or a[0] in "yY":
     sitename = ''
     while not sitename:
-        sitename = raw_input("Enter the site name (this is symbolic and can be any valid identifiant) ")
+        sitename = raw_input("Enter the site name"
+                    " (this is symbolic and can be any valid identifiant) ")
     siteaddress = ''
     while not siteaddress:
-        siteaddress = raw_input("Enter the site address (DNS name or IP, the latter is stongly recomended) ")
+        siteaddress = raw_input("Enter the site address"
+                    " (DNS name or IP, the latter is stongly recomended) ")
     siteport = raw_input("Enter the port [22] ") or 22
-    siteloc = raw_input("Enter the location (this is a comment about the site) ")
+    siteloc = raw_input("Enter the location"
+                    " (this is a comment about the site) ")
     userid = raw_input("Enter the user uid [root] ") or 'root'
     userpw = ''
     while not userpw:
-        userpw = raw_input("Enter the user password ")
+        userpw = getpass.getpass("Enter the user password ")
 
     try:
-        c.execute("INSERT INTO site (name, ip_address, port, location) VALUES ('%s', '%s', %d, '%s')" % (Q(sitename), Q(siteaddress), siteport, Q(siteloc)))
+        c.execute("INSERT INTO site (name, ip_address, port, location)"
+                    " VALUES ('%s', '%s', %d, '%s')"
+                    % (Q(sitename), Q(siteaddress), siteport, Q(siteloc)))
         c.execute("SELECT LAST_INSERT_ID()")
         d = c.fetchone()
         sid = d[0]
-        c.execute("INSERT INTO user (site_id, uid, password, `primary`) VALUES (%d, '%s', '%s', 1)" % (sid, Q(userid), Q(userpw)))
+        c.execute("INSERT INTO user (site_id, uid, password, `primary`)"
+                    " VALUES (%d, '%s', '%s', 1)"
+                    % (sid, Q(userid), Q(cipher.cipher(userpw))))
         c.execute("INSERT INTO sgroup_site VALUES (0, %d)" % sid)
     except MySQLError, e:
         raise
@@ -270,7 +317,9 @@ db.close()
 print "Installation complete."
 print "You can now run ./sshproxy in a console, then in another console"
 print "run the following command:"
-print "ssh -tp %s %s@%s" % (maincfg.port, adminid, maincfg.bindip or 'localhost')
-print "Password: (enter %s)" % (adminpw)
-print "Then in the console enter manage_pwdb to enter sites and users"
+print "ssh -tp %s %s@%s" % (maincfg['port'], adminid,
+                            maincfg['bindip'] or 'localhost')
+print "Password: (type %s)" % (adminpw)
+print "Then in the console, type the command 'db' to enter new sites and users"
 print "Enjoy!"
+
