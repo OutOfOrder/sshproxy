@@ -1,10 +1,12 @@
+Please contact me (david@guerizec.net) if you need me to change the priorities.
+
 0.3.2
     - update installdb to make it work with cipher and config
+    - check for mode 600 on config file
+    - hide local user passwords in list_users
     * make the auto-add-key feature optional via config
     * encrypt the local users passwords
-    - hide local user passwords in list_users
     * make it possible to change the password (and key) for users and rlogins
-    * check for mode 600 on config file
 
 0.4
     * database more coherent (rename columns and tables)

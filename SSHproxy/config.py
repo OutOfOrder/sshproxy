@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 06, 23:58:07 by david
+# Last modified: 2006 Jun 07, 01:12:52 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -109,6 +109,17 @@ class Config(object):
         self._parser = None
         self._sections = {}
         self._dirty = False
+        try:
+            mode = os.stat(inifile)[0] & 0777
+        except OSError:
+            # file does not exist, this is ok
+            return
+
+        if mode & 0177:
+            print ("File mode %o for %s is not enough restrictive and is a "
+                                "security threat." % (mode, inifile))
+            print "Please chmod it to 600."
+            sys.exit(1)
 
     def __call__(self, section=None):
         if not self._parser:
@@ -171,6 +182,7 @@ class Config(object):
         finally:
             self._dirty = False
             ini.close()
+            os.chmod(self._inifile, 0600)
 
     def __str__(self):
         fp = StringIO()
