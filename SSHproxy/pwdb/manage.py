@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 04, 01:35:07 by david
+# Last modified: 2006 Jun 07, 00:53:32 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -265,7 +265,7 @@ class DBConsole(cmd.Cmd):
         for user in pwdb.list_users(site_id=site_id):
             users.append((user['uid'],
                     ''.join([ '*' for i in user['password'] ])))
-        users.sort(lambda x,y: x[0]<y[0])
+        users.sort()
         if len(users):
             uid_width = max([ len(e[0]) for e in users ])
         else:
@@ -317,8 +317,20 @@ class DBConsole(cmd.Cmd):
             List all users allowed to connect to the proxy.
         """
         lg_list = pwdb.list_logins()
+        users = []
         for lg in lg_list :
-            print 'uid: %s passwd: %s key: %s' % (lg['login'], lg['password'], lg['key'])
+            users.append((lg['login'], '*'*len(lg['password']), lg['key']))
+        users.sort()
+        if len(users):
+            uid_width = max([ len(e[0]) for e in users ])
+            pwd_width = max([ len(e[1]) for e in users ])
+        else:
+            print 'No local users in the database'
+            return
+        for uid, passwd, key in users:
+            print uid + ' '*(uid_width - len(uid)),
+            print passwd + ' '*(pwd_width - len(passwd)),
+            print key
 
     def do_link_login_to_profile(self, arg):
         """

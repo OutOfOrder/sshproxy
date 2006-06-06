@@ -1,8 +1,8 @@
 0.3.2
-    * update installdb to make it work with cipher and config
+    - update installdb to make it work with cipher and config
     * make the auto-add-key feature optional via config
     * encrypt the local users passwords
-    * hide local user passwords in list_users
+    - hide local user passwords in list_users
     * make it possible to change the password (and key) for users and rlogins
     * check for mode 600 on config file
 
