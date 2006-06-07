@@ -5,7 +5,7 @@ Please contact me (david@guerizec.net) if you need me to change the priorities.
     - check for mode 600 on config file
     - hide local user passwords in list_users
     - make the auto-add-key feature optional via config
-    * encrypt the local users passwords
+    - encrypt the local users passwords (done with mysql's sha1() function)
     * make it possible to change the password (and key) for users and rlogins
 
 0.4

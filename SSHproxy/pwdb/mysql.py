@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 05, 23:05:41 by david
+# Last modified: 2006 Jun 07, 23:44:11 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -412,7 +412,8 @@ class MySQLPwDB(simple.SimplePwDB):
 
     def add_login(self, login, password, key=None):
         q_addlogin = """
-            insert into login (uid, `password`, `key`) values ('%s','%s','%s')
+            insert into login (uid, `password`, `key`)
+                        values ('%s',sha1('%s'),'%s')
         """
         if self.get_login(login):
             return None
@@ -603,7 +604,8 @@ class MySQLPwDB(simple.SimplePwDB):
             return None
         if key is None:
             q_access = """
-                select 1 from login where uid = '%s' and `password` = '%s'
+                select 1 from login
+                    where uid = '%s' and `password` = sha1('%s')
             """ % (Q(username), Q(password))
         else:
             q_access = """

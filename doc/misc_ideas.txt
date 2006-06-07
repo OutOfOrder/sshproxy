@@ -1,4 +1,4 @@
-# Last modified: 2006 Jan 22, 15:36:52 by david
+# Last modified: 2006 Jun 07, 01:29:19 by david
 
 Pre-release Cleaning
 --------------------
@@ -48,13 +48,6 @@ rewrite part of the API, so that the get_site() method is dynamic and the __init
 
 * Done for get_site(), but has to be checked for side-effects. (__init__() still fetches all sites)
 
-
-Direct command execution
-------------------------
-
-ssh -tp 2242 me@proxy user@site command options
-
-This does not work yet...
 
 PWDB Console
 ------------
