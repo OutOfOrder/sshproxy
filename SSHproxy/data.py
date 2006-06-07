@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 04, 16:41:16 by david
+# Last modified: 2006 Jun 07, 23:25:50 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,7 +21,8 @@
 
 
 from pwdb import MySQLPwDB
-from util import SSHProxyError
+from util import SSHProxyError, istrue
+from config import get_config
 
 # XXX: this class should be a singleton
 class UserData(object):
@@ -39,7 +40,8 @@ class UserData(object):
             return False
         else:
             if key is None and hasattr(self, 'unauth_key'):
-                self.pwdb.set_user_key(self.unauth_key)
+                if istrue(get_config('sshproxy')['auto_add_key']):
+                    self.pwdb.set_user_key(self.unauth_key)
             self.username = username
             return True
 

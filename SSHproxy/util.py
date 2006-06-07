@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 03, 22:20:48 by david
+# Last modified: 2006 Jun 07, 23:26:04 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -37,6 +37,9 @@ class SSHProxyPluginError(SSHProxyError):
         log.error("PLUG: "+msg)
         Exception.__init__(self, "Plugin error: "+msg)
 
+def istrue(s):
+    return s.lower().strip() in ('yes', 'true', 'on', '1')
+        
 
 SUSPEND, SWITCH, CLOSE = range(-4, -1)
 
