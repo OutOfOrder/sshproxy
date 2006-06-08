@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 07, 23:44:11 by david
+# Last modified: 2006 Jun 09, 00:11:10 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -363,7 +363,19 @@ class MySQLPwDB(simple.SimplePwDB):
         user = db.cursor()
         user.execute(q_adduser % (Q(uid), site_id, Q(password), primary))
         user.close()
-        return 1
+        return True
+
+    def set_user_password(self, uid, site, password):
+        q_setpassword = """
+            update user set `password` = '%s'
+                where uid = '%s' and site_id = %d
+        """
+        site_id = self.get_id('site', site)
+        if not site_id:
+            return False
+        update = db.cursor()
+        update.execute(q_setpassword % (Q(password), Q(uid), site_id))
+        return True
 
     def remove_user_from_site(self, uid, site):
         site_id = self.get_id('site', site)
@@ -420,6 +432,14 @@ class MySQLPwDB(simple.SimplePwDB):
         addlogin = db.cursor()
         addlogin.execute(q_addlogin % (Q(login), Q(password), Q(key)))
         addlogin.close()
+        return True
+
+    def set_login_password(self, uid, password):
+        q_setpassword = """
+            update login set `password` = sha1('%s') where uid = '%s'
+        """
+        update = db.cursor()
+        update.execute(q_setpassword % (Q(password), Q(uid)))
         return True
 
     def remove_login(self, login):

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 07, 00:53:32 by david
+# Last modified: 2006 Jun 09, 00:54:30 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -217,9 +217,31 @@ class DBConsole(cmd.Cmd):
             print "Remote login %s@%s already exists" % (arg[0], arg[1])
         else:
             try:
-                password = self.set_password(arg[0])
+                password = self.set_password('%s@%s' % (arg[0], arg[1]))
                 pwdb.add_user_to_site(arg[0], arg[1], cipher(password),
                                                                 int(arg[2]))
+            except KeyboardInterrupt:
+                return
+
+    def do_set_rlogin_password(self, arg):
+        """
+            set_rlogin_password uid site
+        
+            Change the password of a remote user.
+        """
+        arg = CommandLine (arg)
+        if (len(arg) != 2):
+            self.onecmd('help set_rlogin_password')
+            return
+        elif not pwdb.get_users(arg[0], arg[1]):
+            print "Remote login %s@%s does not exist" % (arg[0], arg[1])
+            return
+        else:
+            try:
+                password = self.set_password('%s@%s' % (arg[0], arg[1]))
+                if not pwdb.set_user_password(arg[0], arg[1],
+                                                        cipher(password)):
+                    print "Could not update password"
             except KeyboardInterrupt:
                 return
 
@@ -284,9 +306,12 @@ class DBConsole(cmd.Cmd):
             will be disabled for this user (ie. put 'nokey' to disable key
             authentication).
         """
-        arg = CommandLine (arg)
+        arg = CommandLine(arg)
         if len(arg) not in (1, 2):
             self.onecmd('help add_login')
+            return
+        elif pwdb.get_login(arg[0]):
+            print "Login %s already exists"
             return
         else:
             password = self.set_password(arg[0])
@@ -296,6 +321,48 @@ class DBConsole(cmd.Cmd):
                 key = None
             pwdb.add_login (login=arg[0], password=password, key=key)
 
+    def do_set_login_password(self, arg):
+        """
+            set_login_password uid
+        
+            Change the password of a local user.
+        """
+        arg = CommandLine(arg)
+        if (len(arg) != 1):
+            self.onecmd('help set_login_password')
+            return
+        elif not pwdb.get_login(arg[0]):
+            print "Login %s does not exist"
+            return
+        else:
+            try:
+                password = self.set_password(arg[0])
+                if not pwdb.set_login_password(arg[0], password):
+                    print "Could not update password"
+            except KeyboardInterrupt:
+                return
+
+    def do_set_login_key(self, arg):
+        """
+            set_login_key uid
+        
+            Change the public key of a local user.
+        """
+        arg = CommandLine(arg)
+        if (len(arg) != 1):
+            self.onecmd('help set_login_key')
+            return
+        elif not pwdb.get_login(arg[0]):
+            print "Login %s does not exist"
+            return
+        else:
+            try:
+                key = raw_input("Paste public key: ")
+                if not pwdb.set_user_key(key, user=arg[0], force=True):
+                    print "Could not update key"
+            except KeyboardInterrupt:
+                return
+
     def do_del_login(self, arg):
         """
             del_login uid
@@ -303,8 +370,8 @@ class DBConsole(cmd.Cmd):
             Remove a local user from the database, preventing any further
             connection.
         """
-        arg = CommandLine (arg)
-        if len (arg) != 1:
+        arg = CommandLine(arg)
+        if len(arg) != 1:
             self.onecmd('help del_login')
             return
         else:
