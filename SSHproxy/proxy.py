@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 04, 16:43:16 by david
+# Last modified: 2006 Jun 10, 00:35:21 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -63,7 +63,7 @@ class ProxyScp(object):
             fd = client
     
             size = 4096
-            while t.is_active() and client.active:
+            while t.is_active() and client.active and not chan.eof_received:
                 r, w, e = select.select([chan, fd], [chan, fd], [], 0.2)
 
                 if chan in r:
@@ -101,7 +101,7 @@ class ProxyCmd(ProxyScp):
             fd = client
     
             size = 40960
-            while t.is_active() and client.active:
+            while t.is_active() and client.active and not chan.eof_received:
                 r, w, e = select.select([chan, fd], [chan, fd], [], 0.2)
 
                 if chan in r:
@@ -176,7 +176,7 @@ class ProxyClient(object):
             client.settimeout(0.0)
             fd = client
     
-            while t.is_active() and client.active:
+            while t.is_active() and client.active and not chan.eof_received:
                 try:
                     r, w, e = select.select([chan, fd], [], [], 0.2)
                 except select.error:
