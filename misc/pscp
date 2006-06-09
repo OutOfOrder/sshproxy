@@ -9,24 +9,36 @@ PROXY_USER=${SSHPROXY_USER:-username}
 
 REMOTE=$PROXY_USER@$PROXY_HOST
 
+verbose=false
 OPTS=( )
-origin=
-target=
+remote_set=
+args=( )
 while [ $# -gt 0 ]; do
     case "$1" in
         -*)
-            OPTS=( "${OPTS[@]}" "$1" )
+            if [ "$1" = "-d" ]; then
+                verbose=true
+            else
+                OPTS=( "${OPTS[@]}" "$1" )
+            fi
             ;;
         *:*)
-            [ -z "$origin" ] && origin="$REMOTE:$1" || target="$REMOTE:$1"
+            if [ -z "$remote_set" ]; then
+                args=( "${args[@]}" "$REMOTE:$1" )
+                remote_set=yes
+            else
+                echo "Cannot have two remote locations"
+                exit 1
+            fi
             ;;
         *)
-            [ -z "$origin" ] && origin="$1" || target="$1"
+            args=( "${args[@]}" "$1" )
 
             ;;
     esac
     shift
 done
 
-echo scp -oPort=$PROXY_PORT "${OPTS[@]}" "$origin" "$target"
-scp -oPort=$PROXY_PORT "${OPTS[@]}" "$origin" "$target"
+
+$verbose && echo scp -oPort=$PROXY_PORT "${OPTS[@]}" "${args[@]}"
+eval scp -oPort=$PROXY_PORT "${OPTS[@]}" "${args[@]}"
