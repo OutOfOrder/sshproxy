@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 09, 00:11:10 by david
+# Last modified: 2006 Jun 10, 09:15:42 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -46,32 +46,6 @@ class MySQLPwDB(simple.SimplePwDB):
     def __init__(self):
         self.db = db
         self.login = None
-        q_sites = """
-            select id, name, ip_address, port, location
-                from site order by name
-            """
-        q_users = """
-            select id, site_id, uid, password, `primary`
-                from user where site_id = %d
-            """
-        site_list = []
-        sites = db.cursor()
-        sites.execute(q_sites)
-        for id, name, ip_address, port, location in sites.fetchall():
-            user_list = []
-            users = db.cursor()
-            users.execute(q_users % id)
-            for id, site_id, uid, password, primary in users.fetchall():
-                user_list.append(simple.UserEntry(uid, password, primary))
-            site_list.append(simple.SiteEntry(sid=name,
-                                              ip_address=ip_address,
-                                              port=port,
-                                              location=location,
-                                              user_list=user_list))
-        simple.SimplePwDB.__init__(self, site_list)
-
-    #def __del__(self):
-    #   db.close()
 
 ################## miscellaneous functions ##############################
 
