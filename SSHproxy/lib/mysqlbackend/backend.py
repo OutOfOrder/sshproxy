@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 10, 09:15:42 by david
+# Last modified: 2006 Jun 11, 01:35:33 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,21 +19,28 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
-
-import simple
 import MySQLdb
-from SSHproxy.config import get_config
+
+from SSHproxy import backend
+from SSHproxy.config import get_config, Config, ConfigSection
 from SSHproxy.util import SSHProxyAuthError
 
-cfg = get_config('mysql')
+import console
 
-db = MySQLdb.connect(
-        host=cfg['host'],
-        port=cfg['port'],
-        db=cfg['db'],
-        user=cfg['user'],
-        passwd=cfg['password'])
+class MySQLConfigSection(ConfigSection):
+    section_defaults = {
+        'host': 'localhost',
+        'user': 'sshproxy',
+        'password': 'sshproxypw',
+        'db': 'sshproxy',
+        'port': 3306,
+        }
+    types = {
+        'port': int,
+        }
 
+if get_config('sshproxy')['pwdb_backend'] == 'mysql':
+    Config.register_handler('mysql', MySQLConfigSection)
 
 def Q(str):
     """Safe quote mysql values"""
@@ -41,11 +48,22 @@ def Q(str):
         return ''
     return str.replace("'", "\\'")
 
-class MySQLPwDB(simple.SimplePwDB):
+class MySQLBackend(backend.PasswordDatabase):
     """MySQL Password DataBase connector class"""
+    backend_id = 'mysql'
+
     def __init__(self):
-        self.db = db
         self.login = None
+        cfg = get_config('mysql')
+        self.db = MySQLdb.connect(
+                    host=cfg['host'],
+                    port=cfg['port'],
+                    db=cfg['db'],
+                    user=cfg['user'],
+                    passwd=cfg['password'])
+
+    def get_console(self):
+        return console.DBConsole(self)
 
 ################## miscellaneous functions ##############################
 
@@ -60,7 +78,7 @@ class MySQLPwDB(simple.SimplePwDB):
         q_setkey = """
             update login set `key` = '%s' where uid = '%s'
         """
-        setkey = db.cursor()
+        setkey = self.db.cursor()
         ret = setkey.execute(q_setkey % (Q(key), Q(user)))
         setkey.close()
         return ret
@@ -77,7 +95,7 @@ class MySQLPwDB(simple.SimplePwDB):
               and profile.admin = 1
         """
 
-        admin = db.cursor()
+        admin = self.db.cursor()
         admin.execute(q_admin % Q(user))
         admin = admin.fetchone()
         if not admin or not len(admin):
@@ -90,7 +108,7 @@ class MySQLPwDB(simple.SimplePwDB):
         q_getprofile = """
             select id, name from profile
         """
-        profile = db.cursor()
+        profile = self.db.cursor()
         profile.execute(q_getprofile)
         p = []
         for id, name in profile.fetchall():
@@ -102,7 +120,7 @@ class MySQLPwDB(simple.SimplePwDB):
         q_getprofile = """
             select id, name from profile where name = '%s'
         """
-        profile = db.cursor()
+        profile = self.db.cursor()
         profile.execute(q_getprofile % Q(name))
         p = profile.fetchone()
         if not p or not len(p):
@@ -116,7 +134,7 @@ class MySQLPwDB(simple.SimplePwDB):
         """
         if self.get_profile(name):
             return None
-        profile = db.cursor()
+        profile = self.db.cursor()
         profile.execute(q_addprofile % Q(name))
         profile.close()
         return 1
@@ -130,7 +148,7 @@ class MySQLPwDB(simple.SimplePwDB):
             return False
         self.unlink_login_profile(None, profile_id)
         self.unlink_profile_domain(profile_id, None)
-        profile = db.cursor()
+        profile = self.db.cursor()
         profile.execute(q % Q(name))
         profile.close()
         return True
@@ -150,7 +168,7 @@ class MySQLPwDB(simple.SimplePwDB):
                 where site.name = '%s' and
                       site.id = sgroup_site.site_id and
                       sgroup_site.sgroup_id = sgroup.id""" % Q(site)
-        domain = db.cursor()
+        domain = self.db.cursor()
         domain.execute(q_domain)
         p = []
         for id, name in domain.fetchall():
@@ -162,7 +180,7 @@ class MySQLPwDB(simple.SimplePwDB):
         q_domain = """
             select id, name from sgroup where name = '%s'
         """
-        domain = db.cursor()
+        domain = self.db.cursor()
         domain.execute(q_domain % Q(name))
         p = domain.fetchone()
         if not p or not len(p):
@@ -176,7 +194,7 @@ class MySQLPwDB(simple.SimplePwDB):
         """
         if self.get_group(name):
             return None
-        domain = db.cursor()
+        domain = self.db.cursor()
         domain.execute(q_domain % Q(name))
         domain.close()
         return 1
@@ -190,7 +208,7 @@ class MySQLPwDB(simple.SimplePwDB):
             return False
         self.unlink_profile_domain(None, group_id)
         self.unlink_domain_site(group_id, None)
-        domain = db.cursor()
+        domain = self.db.cursor()
         domain.execute(q % Q(name))
         domain.close()
         return True
@@ -213,7 +231,7 @@ class MySQLPwDB(simple.SimplePwDB):
                 where sgroup.name = '%s' and
                       sgroup_site.sgroup_id = sgroup.id and
                       sgroup_site.site_id = site.id""" % Q(domain)
-        site = db.cursor()
+        site = self.db.cursor()
         site.execute(q_listsite)
         p = []
         for id, name, ip_address, port, location in site.fetchall():
@@ -236,7 +254,7 @@ class MySQLPwDB(simple.SimplePwDB):
                 from site 
                 where name = '%s'
         """
-        site = db.cursor()
+        site = self.db.cursor()
         site.execute(q_getsite % Q(name))
         p = site.fetchone()
         if not p or not len(p):
@@ -259,7 +277,7 @@ class MySQLPwDB(simple.SimplePwDB):
         """
         if self.get_site(name):
             return None
-        site = db.cursor()
+        site = self.db.cursor()
         site.execute(q_addsite % (Q(name), Q(ip_address), port, Q(location)))
         site.close()
         return 1
@@ -272,7 +290,7 @@ class MySQLPwDB(simple.SimplePwDB):
         for u in self.list_users(site_id):
             self.remove_user(u['uid'], site_id)
         self.unlink_domain_site(None, site_id)
-        site = db.cursor()
+        site = self.db.cursor()
         site.execute(q % Q(name))
         site.close()
         return True
@@ -285,7 +303,7 @@ class MySQLPwDB(simple.SimplePwDB):
         """
         if site_id:
             q_listuser = q_listuser + " where site_id = %d" % site_id
-        site = db.cursor()
+        site = self.db.cursor()
         site.execute(q_listuser)
         p = []
         for site_id, uid, password, primary in site.fetchall():
@@ -306,7 +324,7 @@ class MySQLPwDB(simple.SimplePwDB):
         """
         if type(site_id) == type(""):
             site_id = self.get_id("site", site_id)
-        user = db.cursor()
+        user = self.db.cursor()
         user.execute(q_getuser % (Q(uid), site_id))
         p = user.fetchone()
         if not p or not len(p):
@@ -334,7 +352,7 @@ class MySQLPwDB(simple.SimplePwDB):
         """
         if self.get_users(uid, site_id):
             return None
-        user = db.cursor()
+        user = self.db.cursor()
         user.execute(q_adduser % (Q(uid), site_id, Q(password), primary))
         user.close()
         return True
@@ -347,7 +365,7 @@ class MySQLPwDB(simple.SimplePwDB):
         site_id = self.get_id('site', site)
         if not site_id:
             return False
-        update = db.cursor()
+        update = self.db.cursor()
         update.execute(q_setpassword % (Q(password), Q(uid), site_id))
         return True
 
@@ -365,7 +383,7 @@ class MySQLPwDB(simple.SimplePwDB):
             site_id = self.get_id("site", site_id)
         if not self.get_users(uid, site_id):
             return False
-        user = db.cursor()
+        user = self.db.cursor()
         user.execute(q % (Q(uid), site_id))
         user.close()
         return True
@@ -376,7 +394,7 @@ class MySQLPwDB(simple.SimplePwDB):
         q_listlogin = """
             select uid, password, `key` from login
         """
-        site = db.cursor()
+        site = self.db.cursor()
         site.execute(q_listlogin)
         p = []
         for login, password, key in site.fetchall():
@@ -388,7 +406,7 @@ class MySQLPwDB(simple.SimplePwDB):
         q_getlogin = """
             select uid, password, `key` from login where uid = '%s'
         """
-        login = db.cursor()
+        login = self.db.cursor()
         login.execute(q_getlogin % Q(uid))
         p = login.fetchone()
         if not p or not len(p):
@@ -403,7 +421,7 @@ class MySQLPwDB(simple.SimplePwDB):
         """
         if self.get_login(login):
             return None
-        addlogin = db.cursor()
+        addlogin = self.db.cursor()
         addlogin.execute(q_addlogin % (Q(login), Q(password), Q(key)))
         addlogin.close()
         return True
@@ -412,7 +430,7 @@ class MySQLPwDB(simple.SimplePwDB):
         q_setpassword = """
             update login set `password` = sha1('%s') where uid = '%s'
         """
-        update = db.cursor()
+        update = self.db.cursor()
         update.execute(q_setpassword % (Q(password), Q(uid)))
         return True
 
@@ -424,7 +442,7 @@ class MySQLPwDB(simple.SimplePwDB):
         if not login_id:
             return False
         self.unlink_login_profile(login_id, None)
-        removelogin = db.cursor()
+        removelogin = self.db.cursor()
         removelogin.execute(q % Q(login))
         removelogin.close()
         return True
@@ -435,7 +453,7 @@ class MySQLPwDB(simple.SimplePwDB):
         q_list = """
              select login_id, profile_id from login_profile
         """
-        lists = db.cursor()
+        lists = self.db.cursor()
         lists.execute(q_list)
         p = []
         for login_id,profile_id in lists.fetchall():
@@ -449,7 +467,7 @@ class MySQLPwDB(simple.SimplePwDB):
         q_addlogin = """
             replace into login_profile (login_id, profile_id) values (%d, %d)
         """
-        login = db.cursor()
+        login = self.db.cursor()
         login.execute(q_addlogin % (login_id, profile_id))
         login.close()
         return 1
@@ -466,7 +484,7 @@ class MySQLPwDB(simple.SimplePwDB):
         if not len(q_where):
             return False
 
-        login = db.cursor()
+        login = self.db.cursor()
         login.execute(q + ' and '.join(q_where))
         login.close()
         return True
@@ -478,7 +496,7 @@ class MySQLPwDB(simple.SimplePwDB):
         q_list = """
              select profile_id, sgroup_id from profile_sgroup
         """
-        lists = db.cursor()
+        lists = self.db.cursor()
         lists.execute(q_list)
         p = []
         for profile_id, domain_id in lists.fetchall():
@@ -492,7 +510,7 @@ class MySQLPwDB(simple.SimplePwDB):
         q_addlogin = """
             replace into profile_sgroup (profile_id, sgroup_id) values (%d, %d)
         """
-        login = db.cursor()
+        login = self.db.cursor()
         login.execute(q_addlogin % (profile_id, domain_id))
         login.close()
         return 1
@@ -508,7 +526,7 @@ class MySQLPwDB(simple.SimplePwDB):
             q_where.append("sgroup_id = %d" % domain_id)
         if not len(q_where):
             return False
-        login = db.cursor()
+        login = self.db.cursor()
         login.execute(q + ' and '.join(q_where))
         login.close()
         return True
@@ -520,7 +538,7 @@ class MySQLPwDB(simple.SimplePwDB):
         q_list = """
              select sgroup_id, site_id from sgroup_site
         """
-        lists = db.cursor()
+        lists = self.db.cursor()
         lists.execute(q_list)
         p = []
         for domain_id, site_id in lists.fetchall():
@@ -534,7 +552,7 @@ class MySQLPwDB(simple.SimplePwDB):
         q_addlogin = """
             replace into sgroup_site (sgroup_id, site_id) values (%d, %d)
         """
-        login = db.cursor()
+        login = self.db.cursor()
         login.execute(q_addlogin % (domain_id, site_id))
         login.close()
         return 1
@@ -551,7 +569,7 @@ class MySQLPwDB(simple.SimplePwDB):
         if not len(q_where):
             return False
 
-        login = db.cursor()
+        login = self.db.cursor()
         login.execute(q + ' and '.join(q_where))
         login.close()
         return True
@@ -564,7 +582,7 @@ class MySQLPwDB(simple.SimplePwDB):
         query = """
         select %s from `%s` where id = '%d'
         """
-        c= db.cursor()
+        c= self.db.cursor()
         c.execute(query % (name, Q(table), int(id)))
         name = c.fetchone()
         c.close()
@@ -583,7 +601,7 @@ class MySQLPwDB(simple.SimplePwDB):
             query = """
             select id from `%s` where name = '%s' 
             """
-        c = db.cursor()
+        c = self.db.cursor()
         c.execute(query % (Q(table), Q(name)))
         id = c.fetchone()
         c.close()
@@ -605,7 +623,7 @@ class MySQLPwDB(simple.SimplePwDB):
             q_access = """
                 select 1 from login where uid = '%s' and `key` = '%s'
             """ % (Q(username), Q(key))
-        logins = db.cursor()
+        logins = self.db.cursor()
         logins.execute(q_access)
         try:
             login = logins.fetchone()[0]
@@ -622,7 +640,7 @@ class MySQLPwDB(simple.SimplePwDB):
             user, sid = site_id.split('@')
         else:
             sid = site_id
-        users = db.cursor()
+        users = self.db.cursor()
         if not user:
             q_user = """
             select uid
@@ -660,15 +678,15 @@ class MySQLPwDB(simple.SimplePwDB):
             select id, site_id, uid, password, `primary`
                 from user where site_id = %d
             """
-        sites = db.cursor()
+        sites = self.db.cursor()
         sites.execute(q_sites % Q(sid))
         id, name, ip_address, port, location = sites.fetchone()
         user_list = []
-        users = db.cursor()
+        users = self.db.cursor()
         users.execute(q_users % id)
         for id, site_id, uid, password, primary in users.fetchall():
-            user_list.append(simple.UserEntry(uid, password, primary))
-        site = simple.SiteEntry(sid=name,
+            user_list.append(backend.UserEntry(uid, password, primary))
+        site = backend.SiteEntry(sid=name,
                                 ip_address=ip_address,
                                 port=port,
                                 location=location,
@@ -699,7 +717,7 @@ class MySQLPwDB(simple.SimplePwDB):
           and user.site_id = site.id
           and user.uid = '%s'  
         """
-        link = db.cursor()
+        link = self.db.cursor()
         link.execute(q_domain % (Q(self.login), Q(site), Q(user)))
         gr = link.fetchone()[0]
         link.close()
@@ -736,7 +754,7 @@ class MySQLPwDB(simple.SimplePwDB):
         q_domain += """ group by user.uid, site.name"""
         if not user:
             user = self.login
-        sites = db.cursor()
+        sites = self.db.cursor()
         sites.execute(q_domain % (Q(user)))
         p = []
         for id, name, ip_address, port, location, uid in sites.fetchall():
@@ -749,3 +767,5 @@ class MySQLPwDB(simple.SimplePwDB):
         sites.close()
         return p
 
+if get_config('sshproxy')['pwdb_backend'] == 'mysql':
+    MySQLBackend.register_backend()

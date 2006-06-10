@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: Tue May 30 12:05:55 2006 by david
+# Last modified: 2006 Jun 10, 23:56:28 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,11 +20,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-import simple
-
-SimplePwDB = simple.SimplePwDB
-
-import mysql
-
-MySQLPwDB = mysql.MySQLPwDB
+def __init_plugin__():
+    from backend import MySQLBackend
 

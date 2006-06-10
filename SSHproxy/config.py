@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 07, 23:26:38 by david
+# Last modified: 2006 Jun 11, 00:57:39 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -201,6 +201,7 @@ class SSHproxyConfigSection(ConfigSection):
         'max_connections': 0, # default is unlimited
         'auto_add_key': 'no', # do not auto add key when connecting
         'cipher_type': 'blowfish', # see cipher.py for available values
+        'pwdb_backend': 'mysql', # file or mysql
         }
     types = {
         'port': int,
@@ -208,19 +209,3 @@ class SSHproxyConfigSection(ConfigSection):
         }
 
 Config.register_handler('sshproxy', SSHproxyConfigSection)
-
-class MySQLConfigSection(ConfigSection):
-    section_defaults = {
-        'host': 'localhost',
-        'user': 'sshproxy',
-        'password': 'sshproxypw',
-        'db': 'sshproxy',
-        'port': 3306,
-        }
-    types = {
-        'port': int,
-        }
-
-Config.register_handler('mysql', MySQLConfigSection)
-        
-

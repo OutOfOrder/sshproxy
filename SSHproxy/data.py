@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 07, 23:25:50 by david
+# Last modified: 2006 Jun 11, 01:08:57 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,14 +20,14 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-from pwdb import MySQLPwDB
 from util import SSHProxyError, istrue
 from config import get_config
+from backend import get_backend
 
 # XXX: this class should be a singleton
 class UserData(object):
     def __init__(self):
-        self.pwdb = MySQLPwDB()
+        self.pwdb = get_backend()
         self.sitelist = []
         self.sitedict = {}
 

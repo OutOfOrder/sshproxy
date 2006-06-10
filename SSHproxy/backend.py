@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 mai 30, 19:19:43 by david
+# Last modified: 2006 Jun 11, 01:47:03 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -18,6 +18,34 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+
+from config import get_config
+
+class PasswordDatabase(object):
+    backend_id = ''
+    backends = {}
+    backend = None
+
+    @classmethod
+    def register_backend(cls):
+        if not cls.backend_id:
+            raise AttributeError('Backend error:'
+                    ' missing attribute backend_id for %s', cls)
+        if not cls.backends.has_key(cls.backend_id):
+            cls.backends[cls.backend_id] = cls
+        print "REGISTERING", str(cls)
+
+    def __call__(self):
+        if self.backend is None:
+            backend = get_config('sshproxy')['pwdb_backend']
+
+            self.backend = self.backends[backend]()
+        return self.backend
+
+    def get_console(self):
+        return None
+
+get_backend = PasswordDatabase()
 
 
 class UserEntry(object):
@@ -65,7 +93,9 @@ class SiteEntry(object):
                                                 self.location,
                                                 repr(self.users))
 
-class SimplePwDB(object):
+class FileBackend(PasswordDatabase):
+    backend_id = 'file'
+
     def __init__(self, site_list=None):
         self.sites = {}
 
@@ -94,3 +124,5 @@ class SimplePwDB(object):
 
     def can_connect(self, user, site):
         return true
+
+FileBackend.register_backend()

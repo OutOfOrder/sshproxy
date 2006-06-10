@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 09, 00:54:30 by david
+# Last modified: 2006 Jun 11, 01:41:45 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -27,11 +27,7 @@ import readline
 
 from SSHproxy.cipher import cipher
 
-from mysql import MySQLPwDB
 
-
-
-pwdb = MySQLPwDB()
 
 class CommandLine(object):
     def __init__(self, args):
@@ -59,7 +55,8 @@ class CommandLine(object):
 
 
 class DBConsole(cmd.Cmd):
-    def __init__(self):
+    def __init__(self, backend):
+        self.backend = backend
         self.current_site = None
         cmd.Cmd.__init__(self)
         self.prompt = '\npwdb> '
@@ -124,13 +121,13 @@ class DBConsole(cmd.Cmd):
 
     def _sites(self, domain=None):
         sites=[]
-        for site in pwdb.list_sites(domain=domain):
+        for site in self.backend.list_sites(domain=domain):
             sites.append((site['name'], site['ip'], site['location']))
         sites.sort(lambda x,y: x[0] < y[0])
         return sites
 
     def _domains(self, site=None):
-        domains = pwdb.list_domains(site=site)
+        domains = self.backend.list_domains(site=site)
         domain = []
         for g in domains:
             domain.append((g['id'], g['name']))
@@ -158,7 +155,7 @@ class DBConsole(cmd.Cmd):
             self.onecmd('help add_site')
             return
         else:
-            pwdb.add_site(arg[0], arg[1], int(arg[2]), arg[3])
+            self.backend.add_site(arg[0], arg[1], int(arg[2]), arg[3])
 
     def do_del_site(self, arg):
         """
@@ -172,7 +169,7 @@ class DBConsole(cmd.Cmd):
             self.onecmd('help del_site')
             return
         else:
-            if not pwdb.remove_site(arg[0]):
+            if not self.backend.remove_site(arg[0]):
                 print "No such site: %s\n" % arg[0]
 
     def do_list_sites(self, arg):
@@ -213,12 +210,12 @@ class DBConsole(cmd.Cmd):
         if (len(arg) != 3):
             self.onecmd('help add_rlogin')
             return
-        elif pwdb.get_users(arg[0], arg[1]):
+        elif self.backend.get_users(arg[0], arg[1]):
             print "Remote login %s@%s already exists" % (arg[0], arg[1])
         else:
             try:
                 password = self.set_password('%s@%s' % (arg[0], arg[1]))
-                pwdb.add_user_to_site(arg[0], arg[1], cipher(password),
+                self.backend.add_user_to_site(arg[0], arg[1], cipher(password),
                                                                 int(arg[2]))
             except KeyboardInterrupt:
                 return
@@ -233,13 +230,13 @@ class DBConsole(cmd.Cmd):
         if (len(arg) != 2):
             self.onecmd('help set_rlogin_password')
             return
-        elif not pwdb.get_users(arg[0], arg[1]):
+        elif not self.backend.get_users(arg[0], arg[1]):
             print "Remote login %s@%s does not exist" % (arg[0], arg[1])
             return
         else:
             try:
                 password = self.set_password('%s@%s' % (arg[0], arg[1]))
-                if not pwdb.set_user_password(arg[0], arg[1],
+                if not self.backend.set_user_password(arg[0], arg[1],
                                                         cipher(password)):
                     print "Could not update password"
             except KeyboardInterrupt:
@@ -256,7 +253,7 @@ class DBConsole(cmd.Cmd):
             self.onecmd('help del_rlogin')
             return
         else:
-            pwdb.remove_user_from_site(arg[0], arg[1])
+            self.backend.remove_user_from_site(arg[0], arg[1])
 
     def do_list_rlogins(self, arg):
         """
@@ -276,7 +273,7 @@ class DBConsole(cmd.Cmd):
         else:
             site = arg[0]
 
-        res = pwdb.get_site(site)
+        res = self.backend.get_site(site)
         if res:
             site_id = res['id']
         else:
@@ -284,7 +281,7 @@ class DBConsole(cmd.Cmd):
             return
  
         users=[]
-        for user in pwdb.list_users(site_id=site_id):
+        for user in self.backend.list_users(site_id=site_id):
             users.append((user['uid'],
                     ''.join([ '*' for i in user['password'] ])))
         users.sort()
@@ -310,7 +307,7 @@ class DBConsole(cmd.Cmd):
         if len(arg) not in (1, 2):
             self.onecmd('help add_login')
             return
-        elif pwdb.get_login(arg[0]):
+        elif self.backend.get_login(arg[0]):
             print "Login %s already exists"
             return
         else:
@@ -319,7 +316,7 @@ class DBConsole(cmd.Cmd):
                 key = arg[1]
             else:
                 key = None
-            pwdb.add_login (login=arg[0], password=password, key=key)
+            self.backend.add_login (login=arg[0], password=password, key=key)
 
     def do_set_login_password(self, arg):
         """
@@ -331,13 +328,13 @@ class DBConsole(cmd.Cmd):
         if (len(arg) != 1):
             self.onecmd('help set_login_password')
             return
-        elif not pwdb.get_login(arg[0]):
+        elif not self.backend.get_login(arg[0]):
             print "Login %s does not exist"
             return
         else:
             try:
                 password = self.set_password(arg[0])
-                if not pwdb.set_login_password(arg[0], password):
+                if not self.backend.set_login_password(arg[0], password):
                     print "Could not update password"
             except KeyboardInterrupt:
                 return
@@ -352,13 +349,13 @@ class DBConsole(cmd.Cmd):
         if (len(arg) != 1):
             self.onecmd('help set_login_key')
             return
-        elif not pwdb.get_login(arg[0]):
+        elif not self.backend.get_login(arg[0]):
             print "Login %s does not exist"
             return
         else:
             try:
                 key = raw_input("Paste public key: ")
-                if not pwdb.set_user_key(key, user=arg[0], force=True):
+                if not self.backend.set_user_key(key, user=arg[0], force=True):
                     print "Could not update key"
             except KeyboardInterrupt:
                 return
@@ -375,7 +372,7 @@ class DBConsole(cmd.Cmd):
             self.onecmd('help del_login')
             return
         else:
-            pwdb.remove_login(arg[0])
+            self.backend.remove_login(arg[0])
 
     def do_list_logins(self,arg):
         """
@@ -383,7 +380,7 @@ class DBConsole(cmd.Cmd):
         
             List all users allowed to connect to the proxy.
         """
-        lg_list = pwdb.list_logins()
+        lg_list = self.backend.list_logins()
         users = []
         for lg in lg_list :
             users.append((lg['login'], '*'*len(lg['password']), lg['key']))
@@ -410,9 +407,9 @@ class DBConsole(cmd.Cmd):
             self.onecmd('help link_login_to_profile')
             return
         else:
-            login_id = pwdb.get_id('login', arg[0])
-            profile_id = pwdb.get_id('profile', arg[1])
-            pwdb.add_login_profile(login_id, profile_id)
+            login_id = self.backend.get_id('login', arg[0])
+            profile_id = self.backend.get_id('profile', arg[1])
+            self.backend.add_login_profile(login_id, profile_id)
 
     def do_unlink_login_from_profile(self, arg):
         """
@@ -425,9 +422,9 @@ class DBConsole(cmd.Cmd):
             self.onecmd('help unlink_login_from_profile')
             return
         else:
-            login_id = pwdb.get_id('login', arg[0])
-            profile_id = pwdb.get_id('profile', arg[1])
-            pwdb.unlink_login_profile(login_id, profile_id)
+            login_id = self.backend.get_id('login', arg[0])
+            profile_id = self.backend.get_id('profile', arg[1])
+            self.backend.unlink_login_profile(login_id, profile_id)
 
     def do_list_logins_in_profile(self, arg):
         """
@@ -440,7 +437,7 @@ class DBConsole(cmd.Cmd):
             self.onecmd('help list_logins_in_profile')
             return
         else:
-            lp_list = pwdb.list_login_profile()
+            lp_list = self.backend.list_login_profile()
             for lp in lp_list:
                 if lp['profile'] == arg[0]:
                     print '%s' % (lp['login'])
@@ -457,7 +454,7 @@ class DBConsole(cmd.Cmd):
             return
         else:
             for name in arg:
-                pwdb.add_profile(name)
+                self.backend.add_profile(name)
 
     def do_del_profile(self, arg):
         """
@@ -471,7 +468,7 @@ class DBConsole(cmd.Cmd):
             return
         else:
             for name in arg:
-                pwdb.remove_profile(name)
+                self.backend.remove_profile(name)
 
     #FIXME: sort profile list
     def do_list_profiles(self,args):
@@ -480,7 +477,7 @@ class DBConsole(cmd.Cmd):
             
             List all profiles.
         """
-        p_list = pwdb.list_profiles()
+        p_list = self.backend.list_profiles()
         def sort_list(x,y):
             # special profile first
             if x['id'] == 0: return True
@@ -502,9 +499,9 @@ class DBConsole(cmd.Cmd):
             self.onecmd('help link_profile_to_domain')
             return
         else:
-            profile_id = pwdb.get_id('profile', arg[0])
-            domain_id = pwdb.get_id('domain', arg[1])
-            pwdb.add_profile_domain(profile_id, domain_id)
+            profile_id = self.backend.get_id('profile', arg[0])
+            domain_id = self.backend.get_id('domain', arg[1])
+            self.backend.add_profile_domain(profile_id, domain_id)
 
     def do_unlink_profile_from_domain(self, arg):
         """
@@ -517,9 +514,9 @@ class DBConsole(cmd.Cmd):
             self.onecmd('help unlink_profile_from_domain')
             return
         else:
-            profile_id = pwdb.get_id('profile', arg[0])
-            domain_id = pwdb.get_id('domain', arg[1])
-            pwdb.unlink_profile_domain(profile_id, domain_id)
+            profile_id = self.backend.get_id('profile', arg[0])
+            domain_id = self.backend.get_id('domain', arg[1])
+            self.backend.unlink_profile_domain(profile_id, domain_id)
 
     def do_list_profile_domain_links(self, arg):
         """
@@ -527,7 +524,7 @@ class DBConsole(cmd.Cmd):
         
             List existing links between profiles and domains.
         """
-        pg_list = pwdb.list_profile_domain()
+        pg_list = self.backend.list_profile_domain()
         for pg in pg_list:
             print 'profile: %s, domain: %s' % (pg['profile'], pg['domain'])
 
@@ -543,7 +540,7 @@ class DBConsole(cmd.Cmd):
             return
         else:
             for name in arg[:]:
-                pwdb.add_domain(name)
+                self.backend.add_domain(name)
 
     def do_del_domain(self, arg):
         """
@@ -557,7 +554,7 @@ class DBConsole(cmd.Cmd):
             return
         else:
             for name in arg[:]:
-                pwdb.remove_domain(name)
+                self.backend.remove_domain(name)
 
     def do_list_domains(self, arg):
         """
@@ -586,9 +583,9 @@ class DBConsole(cmd.Cmd):
             self.onecmd('help link_site_to_domain')
             return
         else:
-            site_id = pwdb.get_id('site', arg[0])
-            domain_id = pwdb.get_id('domain', arg[1])
-            pwdb.add_domain_site(domain_id, site_id)
+            site_id = self.backend.get_id('site', arg[0])
+            domain_id = self.backend.get_id('domain', arg[1])
+            self.backend.add_domain_site(domain_id, site_id)
 
     def do_unlink_site_from_domain(self, arg):
         """
@@ -601,9 +598,9 @@ class DBConsole(cmd.Cmd):
             self.onecmd('help unlink_site_from_domain')
             return
         else:
-            site_id = pwdb.get_id('site', arg[0])
-            domain_id = pwdb.get_id('domain', arg[1])
-            pwdb.unlink_domain_site(domain_id, site_id)
+            site_id = self.backend.get_id('site', arg[0])
+            domain_id = self.backend.get_id('domain', arg[1])
+            self.backend.unlink_domain_site(domain_id, site_id)
 
     def do_list_sites_from_domain(self, arg):
         """
@@ -616,7 +613,7 @@ class DBConsole(cmd.Cmd):
             self.onecmd('help list_sites_from_domain')
             return
         else:
-            sg_list = pwdb.list_domain_site()
+            sg_list = self.backend.list_domain_site()
             for sg in sg_list:
                 if sg['domain'] == arg[0]:
                     print '%s' % (sg['site'])
@@ -642,7 +639,8 @@ readline.set_completer_delims('''\n\r\t `~!@#$%^&*()=+[{]}\|;:'",<>/?''')
 
 if __name__ == '__main__':
     import sys
-    dbc = DBConsole()
+    import backend
+    dbc = backend.MySQLBackend().get_console()
     if len(sys.argv) > 1:
         dbc.onecmd(CommandLine(sys.argv[1:]).encode())
     else:
