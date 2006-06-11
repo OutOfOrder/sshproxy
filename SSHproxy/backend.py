@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 11, 02:41:38 by david
+# Last modified: 2006 Jun 11, 14:23:19 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,7 +19,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
-from config import get_config
+import os.path
+from ConfigParser import NoOptionError, SafeConfigParser as ConfigParser
+
+import log
+from config import get_config, inipath
 
 class PasswordDatabase(object):
     backend_id = ''
@@ -33,7 +37,7 @@ class PasswordDatabase(object):
                     ' missing attribute backend_id for %s', cls)
         if not cls.backends.has_key(cls.backend_id):
             cls.backends[cls.backend_id] = cls
-        print "REGISTERING", str(cls)
+        log.info("Registering backend %s" % cls.backend_id)
 
     def __call__(self):
         if self.backend is None:
@@ -93,43 +97,104 @@ class SiteEntry(object):
                                                 self.location,
                                                 repr(self.users))
 
+
+
 class FileBackend(PasswordDatabase):
     backend_id = 'file'
 
-    def __init__(self, site_list=None):
+    def __init__(self):
         self.sites = {}
         self.login = None
+        db_path = get_config('file')['db_path']
 
-        if site_list is None:
-            return
-        for site in site_list:
-            self.sites[site.sid] = site
+        if db_path[0] == '@':
+            db_path = os.path.join(inipath, db_path[1:])
+
+        self.db_path = db_path
+
 
     def get_console(self):
         return None
 
+
     def get_user_site(self, sid):
         user = None
+        site = None
         if sid.find('@') >= 0:
             user, sid = sid.split('@')
-        if self.sites.has_key(sid):
-            if user and self.sites[sid].get_user(user):
-                return user, self.sites[sid]
-            elif not user and self.sites[sid].default_user():
-                return self.sites[sid].default_user(), self.sites[sid]
-                
-        return None, None
 
-    def list_sites(self):
-        return self.sites.keys()
+        site_file = os.path.join(self.db_path, sid)
+        if not os.path.exists(site_file):
+            return None, None
+
+        file = ConfigParser()
+        file.read(site_file)
+
+        site_section = file.defaults()
+        if not len(site_section):
+            print "No site section"
+            return None, None
+
+        ip_address = site_section['ip_address']
+        port       = int(site_section['port'])
+        location   = site_section['location']
+
+        user_list = []
+        for sect in file.sections():
+            try:
+                primary = file.getint(sect, 'primary')
+            except NoOptionError:
+                primary = 0
+            user_list.append(UserEntry(
+                    sect,
+                    file.get(sect, 'password'),
+                    primary))
+
+        user_list.sort(cmp=lambda x,y: cmp(x.primary, y.primary), reverse=True)
+
+        if not user:
+            user = user_list[0].uid
+
+        site = SiteEntry(sid=sid,
+                         ip_address=ip_address,
+                         port=port,
+                         location=location,
+                         user_list=user_list)
+            
+        return user, site
+
+
+    def list_sites(self, domain=None):
+        sites = []
+        for sitename in os.listdir(self.db_path):
+            if sitename[0] == '.':
+                continue
+            user, sdata = self.get_user_site(sitename)
+            for uid in sdata.users.keys():
+                sites.append({
+                    'name': sdata.sid,
+                    'ip': sdata.ip_address,
+                    'port': sdata.port,
+                    'location': sdata.location,
+                    'uid': uid,
+                    })
+        return sites
+
+
+    def list_allowed_sites(self, user=None, domain=None):
+        return self.list_sites()
+
 
     def is_admin(self, user=None):
         return True
 
+
     def is_allowed(self, username, password=None, key=None):
         return True
 
+
     def can_connect(self, user, site):
         return True
+
 
 FileBackend.register_backend()

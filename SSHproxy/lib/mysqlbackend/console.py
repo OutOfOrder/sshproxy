@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 11, 01:41:45 by david
+# Last modified: 2006 Jun 11, 14:04:53 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,32 +26,7 @@ import cmd
 import readline
 
 from SSHproxy.cipher import cipher
-
-
-
-class CommandLine(object):
-    def __init__(self, args):
-        if type(args) == type(''):
-            self.args = self.decode(args)
-        else:
-            self.args = args
-
-    def __len__(self):
-        return len(self.args)
-
-    def __getitem__(self, item):
-        return self.args[item]
-
-    def decode(self, args):
-        l = [ e.strip() for e in args.split() ]
-        l = [ e for e in l if e ]
-        return l
-
-    def encode(self, args=None):
-        if not args:
-            args = self.args
-        return ' '.join(args)
-
+from SSHproxy.util import CommandLine
 
 
 class DBConsole(cmd.Cmd):

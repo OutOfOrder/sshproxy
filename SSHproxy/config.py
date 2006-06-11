@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 11, 02:14:55 by david
+# Last modified: 2006 Jun 11, 13:08:42 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -212,8 +212,8 @@ class Config(object):
 
 
 
-inidir = '%s/.sshproxy' % os.environ['HOME']
-inifile = '%s/sshproxy.ini' % inidir
+inipath = '%s/.sshproxy' % os.environ['HOME']
+inifile = '%s/sshproxy.ini' % inipath
 get_config = Config(inifile)
 
 

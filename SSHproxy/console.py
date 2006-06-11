@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 11, 02:41:22 by david
+# Last modified: 2006 Jun 11, 14:06:21 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -64,7 +64,8 @@ class Console(cmd.Cmd):
     #needed for do_show_sites
     # TODO: put this in daemon.py when the ctrlfd protocol is more robust
     def _sites(self, domain=None):
-        from pwdb.manage import pwdb
+        from backend import get_backend
+        pwdb = get_backend()
         sites=[]
         user = self._whoami().strip()
         for site in pwdb.list_allowed_sites(user=user, domain=domain):
@@ -111,7 +112,7 @@ class Console(cmd.Cmd):
 
     def do_sites(self, arg):
         """sites"""
-        from pwdb.manage import CommandLine
+        from util import CommandLine
         arg = CommandLine(arg)
         domain = None
         if len(arg) and arg[0] != '#':
