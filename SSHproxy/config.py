@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 11, 00:57:39 by david
+# Last modified: 2006 Jun 11, 02:14:55 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -96,30 +96,40 @@ class ConfigSection(object):
 class Config(object):
     section_handlers = {}
 
+
     @classmethod
     def register_handler(cls, name, handler):
         cls.section_handlers[name] = handler
+
 
     @classmethod
     def get_handler(cls, name):
         return cls.section_handlers.get(name, ConfigSection)
 
-    def __init__(self, inifile, ):
+
+    def __init__(self, inifile):
         self._inifile = inifile
         self._parser = None
         self._sections = {}
         self._dirty = False
+        self.check_mode()
+
+
+    def check_mode(self):
         try:
-            mode = os.stat(inifile)[0] & 0777
+            mode = os.stat(self._inifile)[0] & 0777
         except OSError:
             # file does not exist, this is ok
-            return
+            return False
 
         if mode & 0177:
             print ("File mode %o for %s is not enough restrictive and is a "
-                                "security threat." % (mode, inifile))
+                                "security threat." % (mode, self._inifile))
             print "Please chmod it to 600."
             sys.exit(1)
+
+        return True
+
 
     def __call__(self, section=None):
         if not self._parser:
@@ -132,10 +142,12 @@ class Config(object):
         else:
             return self[section]
 
+
     def __getitem__(self, section):
         if not self._sections.has_key(section):
             self._sections[section] = self.get_handler(section)(self, section)
         return self._sections[section]
+
 
     def __setitem__(self, section, options):
         if not self._parser.has_section(section):
@@ -149,25 +161,32 @@ class Config(object):
             sect[option] = value
         self.touch()
 
+
     def __delitem__(self, section):
         self.touch()
         return self._parser.remove_section(section)
+
 
     def pop(self, section):
         self.touch()
         return self._parser.remove_section(section)
 
+
     def keys(self):
         return self._parser.sections()
+
 
     def has_key(self, section):
         return self._parser.has_section(section)
 
+
     def defaults(self):
         return self._parser.defaults()
 
+
     def touch(self):
         self._dirty = True
+
 
     def write(self, inifile=None):
         if not self._dirty:
@@ -184,14 +203,19 @@ class Config(object):
             ini.close()
             os.chmod(self._inifile, 0600)
 
+
     def __str__(self):
         fp = StringIO()
         self._parser.write(fp)
         fp.seek(0L)
         return fp.read()
 
-inifile = '%s/.sshproxy/sshproxy.ini' % os.environ['HOME']
+
+
+inidir = '%s/.sshproxy' % os.environ['HOME']
+inifile = '%s/sshproxy.ini' % inidir
 get_config = Config(inifile)
+
 
 
 class SSHproxyConfigSection(ConfigSection):
@@ -201,6 +225,7 @@ class SSHproxyConfigSection(ConfigSection):
         'max_connections': 0, # default is unlimited
         'auto_add_key': 'no', # do not auto add key when connecting
         'cipher_type': 'blowfish', # see cipher.py for available values
+        'plugin_list': 'logusers mysqlbackend',
         'pwdb_backend': 'mysql', # file or mysql
         }
     types = {
