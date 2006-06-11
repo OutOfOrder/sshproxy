@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 05, 23:06:39 by david
+# Last modified: 2006 Jun 11, 20:52:49 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -32,6 +32,7 @@ from data import UserData, SiteData
 from sftp import ProxySFTPServer
 import proxy, util, pool, cipher
 import config
+from backend import get_backend
 
 #paramiko.util.log_to_file('paramiko.log')
 
@@ -77,6 +78,7 @@ class ProxyServer(paramiko.ServerInterface):
     def check_channel_exec_request(self, channel, command):
         log.devdebug('check_channel_exec_request %s %s', channel, command)
         argv = command.split(' ', 1)
+        print argv
         args = []
         if argv[0] == 'scp':
             while True:
@@ -99,6 +101,10 @@ class ProxyServer(paramiko.ServerInterface):
             sitedata.set_sftp_path(path)
             sitedata.set_sftp_args(' '.join(args))
             sitedata.set_type('scp')
+            self.event.set()
+            return True
+        elif argv[0][0] == '-':
+            self.userdata.set_actions(argv)
             self.event.set()
             return True
         else:
@@ -131,8 +137,6 @@ class ProxyServer(paramiko.ServerInterface):
 
 def service_client(client, addr, host_key_file):
 
-    conf = config.get_config('sshproxy')
-    maxcon = conf['max_connections']
 
     host_key = paramiko.DSSKey(filename=host_key_file)
 
@@ -211,9 +215,29 @@ def service_client(client, addr, host_key_file):
             return
         # else go to the console
     
-    msg = Message()
-    
+    if userdata.actions:
+        for action in userdata.actions:
+            if action in ('-l', '--list-sites'):
+                sites = get_backend().list_allowed_sites()
+                print sites
+                for site in sites:
+                    chan.send('%s@%s [%s]\r\n' % (
+                                                site['uid'],
+                                                site['name'],
+                                                site['location'])) 
+            else:
+                chan.send("Unknown option %s\r\n" % action)
 
+        chan.close()
+        return
+
+    return console_loop(cpool, chan, userdata)
+
+def console_loop(cpool, chan, userdata):
+    conf = config.get_config('sshproxy')
+    maxcon = conf['max_connections']
+
+    msg = Message()
 
     def PtyConsole(*args, **kwargs):
         Console(*args, **kwargs).cmdloop()

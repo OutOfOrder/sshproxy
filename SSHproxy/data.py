@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 11, 02:23:23 by david
+# Last modified: 2006 Jun 11, 15:11:17 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,6 +30,10 @@ class UserData(object):
         self.pwdb = get_backend()
         self.sitelist = []
         self.sitedict = {}
+        self.actions = None
+
+    def set_actions(self, actions):
+        self.actions = actions
 
     def valid_auth(self, username, password=None, key=None):
         if not self.pwdb.is_allowed(username=username,

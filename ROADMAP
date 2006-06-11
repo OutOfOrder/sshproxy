@@ -10,12 +10,12 @@ Please contact me (david@guerizec.net) if you need me to change the priorities.
 
 0.4
     - make plugin enabling in config file
+    - make a simple file backend
     + cleanup and refactoring of the pwdb module
-    + make a simple file backend
+    + options can be given on the ssh command line (before sites) to be able
+      to optionally get rid of the console
     * database more coherent (rename columns and tables)
     * admin password in the config file
-    * options can be given on the ssh command line (before sites) to be able
-      to optionally get rid of the console
 
 0.5
     * profiles gain more precise ACLs
