@@ -9,8 +9,10 @@ Please contact me (david@guerizec.net) if you need me to change the priorities.
     - make it possible to change the password (and key) for users and rlogins
 
 0.4
+    - make plugin enabling in config file
+    + cleanup and refactoring of the pwdb module
+    + make a simple file backend
     * database more coherent (rename columns and tables)
-    * cleanup and refactoring of the pwdb module
     * admin password in the config file
     * options can be given on the ssh command line (before sites) to be able
       to optionally get rid of the console

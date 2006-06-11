@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 11, 01:08:57 by david
+# Last modified: 2006 Jun 11, 02:23:23 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,7 +20,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-from util import SSHProxyError, istrue
+from util import SSHProxyError, SSHProxyAuthError, istrue
 from config import get_config
 from backend import get_backend
 

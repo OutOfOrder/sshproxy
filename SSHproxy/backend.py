@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 11, 01:47:03 by david
+# Last modified: 2006 Jun 11, 02:28:36 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -98,6 +98,7 @@ class FileBackend(PasswordDatabase):
 
     def __init__(self, site_list=None):
         self.sites = {}
+        self.login = None
 
         if site_list is None:
             return
@@ -119,10 +120,13 @@ class FileBackend(PasswordDatabase):
     def list_sites(self):
         return self.sites.keys()
 
-    def is_allowed(self, user, passwd):
-        return true
+    def is_admin(self, user=None):
+        return True
+
+    def is_allowed(self, username, password=None, key=None):
+        return True
 
     def can_connect(self, user, site):
-        return true
+        return True
 
 FileBackend.register_backend()
