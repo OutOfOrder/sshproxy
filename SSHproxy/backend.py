@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 11, 02:28:36 by david
+# Last modified: 2006 Jun 11, 02:41:38 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -104,6 +104,9 @@ class FileBackend(PasswordDatabase):
             return
         for site in site_list:
             self.sites[site.sid] = site
+
+    def get_console(self):
+        return None
 
     def get_user_site(self, sid):
         user = None

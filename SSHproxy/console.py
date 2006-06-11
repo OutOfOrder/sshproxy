@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 02, 00:19:02 by david
+# Last modified: 2006 Jun 11, 02:41:22 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -81,8 +81,12 @@ class Console(cmd.Cmd):
     def do_db(self, arg):
         """access to the sshproxy database management console"""
         if not self.need_admin(): return
-        from pwdb.manage import DBConsole
-        DBConsole().cmdloop()
+        from backend import get_backend
+        console = get_backend().get_console()
+        if console:
+            console.cmdloop()
+        else:
+            print 'Sorry, there is no database console on this backend.'
         
     def do_EOF(self, arg):
         """exit the console if there are no open connections left"""
