@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 11, 20:52:49 by david
+# Last modified: 2006 Jun 15, 03:03:16 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -182,7 +182,7 @@ def service_client(client, addr, host_key_file):
 
 
 
-    cpool = pool.get_connection_pool()
+    conn = None
     # is this a direct connection ?
     if len(userdata.list_sites()):
         if userdata.get_site().type == 'scp':
@@ -197,7 +197,6 @@ def service_client(client, addr, host_key_file):
             return
         conn = proxy.ProxyClient(userdata)
         log.info("Connecting to %s", userdata.get_site().sitename)
-        cid = cpool.add_connection(conn)
         try:
             ret = conn.loop()
         except:
@@ -208,7 +207,7 @@ def service_client(client, addr, host_key_file):
         
         if ret == util.CLOSE:
             # if the direct connection closed, then exit cleanly
-            cpool.del_connection(cid)
+            conn = None
             chan.close()
             transport.close()
             log.info("Exiting %s", userdata.get_site().sitename)
@@ -229,173 +228,196 @@ def service_client(client, addr, host_key_file):
                 chan.send("Unknown option %s\r\n" % action)
 
         chan.close()
+        transport.close()
         return
 
-    return console_loop(cpool, chan, userdata)
+    console = ConsoleBackend(conn, chan, userdata)
+    console.loop()
 
-def console_loop(cpool, chan, userdata):
-    conf = config.get_config('sshproxy')
-    maxcon = conf['max_connections']
+    transport.close()
 
-    msg = Message()
+class ConsoleBackend(object):
+    def __init__(self, conn, chan, userdata):
+        conf = config.get_config('sshproxy')
+        self.maxcon = conf['max_connections']
 
+        self.userdata = userdata
+        self.chan = chan
+
+        self.msg = Message()
+
+        self.main_console = PTYWrapper(chan, self.PtyConsole, self.msg,
+                                    userdata.is_admin())
+        self.status = self.msg.get_parent_fd()
+
+        self.cpool = pool.get_connection_pool()
+        self.cid = None
+        if conn is not None:
+            self.cid = self.cpool.add_connection(conn)
+
+    @staticmethod
     def PtyConsole(*args, **kwargs):
         Console(*args, **kwargs).cmdloop()
 
-    main_console = PTYWrapper(chan, PtyConsole, msg, userdata.is_admin())
-    status = msg.get_parent_fd()
-    
-    while True:
+    def loop(self):
+        while True:
 
-        status.reset()
-    
-        data = main_console.loop()
-        if data is None:
-            break
+            self.status.reset()
+        
+            data = self.main_console.loop()
+            if data is None:
+                break
+            try:
+                action, data = data.split(' ', 1)
+            except ValueError:
+                action = data.strip()
+                data = ''
+
+            method = 'cmd_'+action
+            if hasattr(self, method):
+                method = getattr(self, method)
+                if callable(method):
+                    response = method(data)
+                    if response is None:
+                        break
+            # status.response() absolutely NEEDS to be called once an action
+            # has been processed, otherwise you may experience hang ups.
+                    self.status.response(response)
+                    continue
+            # if inexistant or no callable
+            self.status.response('ERROR: Unknown action %s' % action)
+            log.error('ERROR: Unknown action %s' % action)
+
+        self.close()
+
+    def cmd_open(self, args):
+        if self.maxcon and len(self.cpool) >= self.maxcon:
+            return 'ERROR: Max connection count reached'
+        sitename = args.strip()
+        if sitename == "":
+            return 'ERROR: where to?'
         try:
-            action, data = data.split(' ', 1)
-        except ValueError:
-            action = data.strip()
-            data = ''
-        #==================================================
-        # FIXME: need to rewrite the actions routines (EM)
-        # better create an array of outputs and call status.response()
-        # once by action!! 
+            sitename = self.userdata.add_site(sitename)
+        except util.SSHProxyAuthError, msg:
+            log.error("ERROR(open): %s", msg)
+            return ("ERROR: site does not exist or you don't "
+                            "have sufficient rights")
 
-        # status.response() absolutely NEEDS to be called once an action
-        # has been processed, otherwise you may experience hang ups.
-        if action == 'open':
-            if maxcon and len(cpool) >= maxcon:
-                status.response("ERROR: Max connection count reached")
-                continue
-            sitename = data.strip()
-            if sitename == "":
-                status.response("ERROR: where to?")
-                continue
-            try:
-                sitename = userdata.add_site(sitename)
-            except util.SSHProxyAuthError, msg:
-                status.response("ERROR: site does not exist or you don't "
-                                "have sufficient rights")
-                log.error("ERROR(open): %s", msg)
-                continue
-            conn = proxy.ProxyClient(userdata, sitename)
+        conn = proxy.ProxyClient(self.userdata, sitename)
 
-            cid = cpool.add_connection(conn)
-            while True:
-                if not conn:
-                    ret = 'ERROR: no connection id %s' % cid
-                    break
-                try:
-                    ret = conn.loop()
-                except:
-                    chan.send("\r\n ERROR: seems you found a bug"
-                              "\r\n Please report it to david@guerizec.net\r\n")
-                    chan.close()
-                    raise
-                if ret == util.CLOSE:
-                    cpool.del_connection(cid)
-                elif ret >= 0:
-                    cid = ret
-                    conn = cpool.get_connection(cid)
-                    continue
-                ret = 'OK'
+        cid = self.cpool.add_connection(conn)
+        while True:
+            if not conn:
+                ret = 'ERROR: no connection id %s' % cid
                 break
-            if not ret:
-                ret = 'OK'
-            status.response(ret)
-        #=========================================================
-        # switch between one connection to the other
-        elif action == 'switch':
             try:
-                cid 
-            except UnboundLocalError:
-                status.response('ERROR: no opened connection')
-                continue
-            data = data.strip()
-            if action == 'switch' and data:
-                cid = int(data)
-            while True:
-                conn = cpool.get_connection(cid)
-                if not conn:
-                    ret = 'ERROR: no id %d found' % cid
-                    break
                 ret = conn.loop()
-                if ret == util.CLOSE:
-                    cpool.del_connection(cid)
-                elif ret >= 0:
-                    cid = ret
-                    continue
-                ret = 'OK'
+            except:
+                self.chan.send("\r\n ERROR: seems you found a bug"
+                          "\r\n Please report it to david@guerizec.net\r\n")
+                self.chan.close()
+                raise
+            if ret == util.CLOSE:
+                self.cpool.del_connection(cid)
+            elif ret >= 0:
+                self.cid = cid = ret
+                conn = self.cpool.get_connection(cid)
+                continue
+            ret = 'OK'
+            break
+        if not ret:
+            ret = 'OK'
+        return ret
+
+    def cmd_switch(self, args):
+        # switch between one connection to the other
+        if not self.cpool:
+            return 'ERROR: no opened connection'
+        args = args.strip()
+        if args:
+            cid = int(args)
+        else:
+            if self.cid is not None:
+                cid = self.cid
+            else:
+                cid = 0
+        while True:
+            conn = self.cpool.get_connection(cid)
+            if not conn:
+                ret = 'ERROR: no id %d found' % cid
                 break
-            status.response(ret)
-        #=====================================================
+            ret = conn.loop()
+            if ret == util.CLOSE:
+                self.cpool.del_connection(cid)
+            elif ret >= 0:
+                self.cid = cid = ret
+                continue
+            ret = 'OK'
+            break
+        return ret
+
+    def cmd_close(self, args):
         # close connections
-        elif action == 'close':
-            data = data.strip()
+        args = args.strip()
 
-            # there must exist open connections
-            if len(cpool):
-                # close all connections
-                if data == "all":
-                    l = len(cpool)
-                    while len(cpool):
-                        cpool.del_connection(0)
-                    status.response("%d connections closed" % l)
-                # argument must be a digit
-                elif data != "":
-                    if data.isdigit():
-                        try:
-                            cid = int(data)
-                            cpool.del_connection(cid)
-                            msg="connection %d closed" % cid
-                        except UnboundLocalError:
-                            msg = 'ERROR: unknown connection %s' % data
-                        status.response('%s' % msg )
-                    else:
-                        status.response('ERROR: argument must be a digit')
+        # there must exist open connections
+        if self.cpool:
+            # close all connections
+            if args == 'all':
+                l = len(self.cpool)
+                while len(self.cpool):
+                    self.cpool.del_connection(0)
+                return '%d connections closed' % l
+            # argument must be a digit
+            elif args != "":
+                if args.isdigit():
+                    try:
+                        cid = int(args)
+                        self.cpool.del_connection(cid)
+                        msg="connection %d closed" % cid
+                    except UnboundLocalError:
+                        msg = 'ERROR: unknown connection %s' % args
+                    return msg
                 else:
-                    status.response('ERROR: give an argument')
+                    return 'ERROR: argument must be a digit'
             else:
-                status.response('ERROR: no open connection')
+                return 'ERROR: give an argument'
+        else:
+            return 'ERROR: no open connection'
 
-        #==============================================
+    def cmd_list_conn(self, args):
         # show opened connections
-        elif action == 'list_conn':
-            l = []
-            i = 0
-            # list the open connections
-            for c in cpool.list_connections():
-                l.append('%d %s\n' % (i, c.name))
-                i = i + 1
-            if not len(l):
-                status.response('ERROR: no opened connections')
-            else:
-                # send the connection list
-                status.response(''.join(l))
-        #==================================================
+        l = []
+        i = 0
+        # list the open connections
+        for c in self.cpool.list_connections():
+            l.append('%d %s\n' % (i, c.name))
+            i = i + 1
+        if not len(l):
+            return 'ERROR: no opened connections'
+        else:
+            # send the connection list
+            return ''.join(l)
+
+    def cmd_whoami(self, args):
         # whoami command
-        elif action == 'whoami':
-            status.response('%s' % (userdata.username) )
-        #==================================================
+        return '%s' % (self.userdata.username)
+
+    def cmd_exit_verify(self, args):
         # check open connections for exit
-        elif action == 'exit_verify':
-            if cpool:
-                status.response('ERROR: close all connections first!')
-            else:
-                break
-        #========================================================
+        if self.cpool:
+            return 'ERROR: close all connections first!'
+        else:
+            return None
+
+    def cmd_sites(self, args):
         # dump the listing of all sites we're allowed to connect to
-        elif action == 'sites':
-            # TODO: see console.py : Console._sites()
-            status.response('OK') 
-        #==================================================
+        # TODO: see console.py : Console._sites()
+        return 'OK'
 
-    chan.close()
-    transport.close()
-    log.info('Client exits now!')
-
-
+    def close(self):
+        self.chan.close()
+        log.info('Client exits now!')
 
 
 servers = []
