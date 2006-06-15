@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: Tue May 30 13:07:53 2006 by david
+# Last modified: 2006 Jun 15, 13:06:49 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,6 +22,6 @@
 
 from SSHproxy.daemon import run_server
 
-__VERSION__ = (0, 3, 0)
+__VERSION__ = (0, 4, 0)
 
 run_server()
