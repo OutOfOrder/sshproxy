@@ -15,7 +15,11 @@ Please contact me (david@guerizec.net) if you need me to change the priorities.
     + options can be given on the ssh command line (before sites) to be able
       to optionally get rid of the console
     * database more coherent (rename columns and tables)
+    * make Message protocole more robust
+    * plugin path (defaults to /usr/lib/sshproxy) in the config file
     * admin password in the config file
+    * clean installation with setup.py
+    * rename sshproxy program to sshproxyd and SSHproxy module to sshproxy
 
 0.5
     * profiles gain more precise ACLs
