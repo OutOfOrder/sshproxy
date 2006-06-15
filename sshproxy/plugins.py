@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 11, 02:18:01 by david
+# Last modified: 2006 Jun 15, 13:55:36 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,12 +25,13 @@ import os, sys
 import log
 import config
 
-plugindir = os.path.join(os.path.dirname(sys.modules[__name__].__file__), 'lib')
+#plugindir = os.path.join(os.path.dirname(sys.modules[__name__].__file__), 'lib')
+conf = config.get_config('sshproxy')
+plugindir = conf['plugin_dir']
 pluginInfo = []
 
 sys.path.append(plugindir)
 
-conf = config.get_config('sshproxy')
 
 if os.path.exists(plugindir+'/disabled'):
     disabled = open(plugindir+'/disabled').readlines()

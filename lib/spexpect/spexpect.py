@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: Tue May 30 12:05:55 2006 by david
+# Last modified: 2006 Jun 15, 14:09:29 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,8 +21,8 @@
 
 
 import os.path, re, StringIO, time, select, socket
-from SSHproxy.util import SSHProxyPluginError
-from SSHproxy.ptywrap import PTYWrapper
+from sshproxy.util import SSHProxyPluginError
+from sshproxy.ptywrap import PTYWrapper
 import pexpect
 
 class spawn(pexpect.spawn):

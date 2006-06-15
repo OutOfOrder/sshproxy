@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 05, 23:27:58 by david
+# Last modified: 2006 Jun 15, 14:00:01 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,8 +22,8 @@
 
 import os.path
 
-from SSHproxy.config import get_config, Config, ConfigSection
-from SSHproxy import keys
+from sshproxy.config import get_config, Config, ConfigSection
+from sshproxy import keys
 
 class LogUsersConfigSection(ConfigSection):
     section_defaults = {

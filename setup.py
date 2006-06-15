@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 15, 11:45:56 by david
+# Last modified: 2006 Jun 15, 14:04:37 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -28,6 +28,6 @@ setup(name='SSHproxy',
       author='David Guerizec',
       author_email='david@guerizec.net',
       url='http://www.nongnu.org/sshproxy/',
-      packages=['SSHproxy'],
-      scripts=['sshproxy'],
+      packages=['sshproxy'],
+      scripts=['bin/sshproxyd'],
       )

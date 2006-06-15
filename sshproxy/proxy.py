@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 10, 00:35:21 by david
+# Last modified: 2006 Jun 15, 13:57:34 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,7 +26,7 @@ import threading
 import paramiko
 from paramiko.transport import SSHException, DEBUG
 
-import SSHproxy, keys, cipher, util, log
+import hooks, keys, cipher, util, log
 
 
 
@@ -199,7 +199,7 @@ class ProxyClient(object):
                         break
                     if x == keys.CTRL_X:
                         return util.SUSPEND
-                    SSHproxy.call_hooks('filter-proxy', fd, chan,
+                    hooks.call_hooks('filter-proxy', fd, chan,
                                                           sitedata, x)
                     # XXX: debuging code following
                     #if ord(x[0]) < 0x20 or ord(x[0]) > 126:
@@ -212,7 +212,7 @@ class ProxyClient(object):
                         fd.send('\r\nEnter script name: ')
                         name = fd.makefile('rU').readline().strip()
                         client.settimeout(0.0)
-                        SSHproxy.call_hooks('console', fd, chan,
+                        hooks.call_hooks('console', fd, chan,
                                                        name, sitedata)
                         continue
                     chan.send(x)

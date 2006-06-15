@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 06, 00:43:56 by david
+# Last modified: 2006 Jun 15, 14:03:44 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,9 +22,9 @@
 #raise 'use util classes !'
 import sys, base64, getpass
 
-from SSHproxy import config
-from SSHproxy.cipher import cipher, decipher
-from SSHproxy.pwdb.mysql import db, Q
+from sshproxy import config
+from sshproxy.cipher import cipher, decipher
+from sshproxy.pwdb.mysql import db, Q
 
 conf = config.get_config()
 

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 07, 00:42:20 by david
+# Last modified: 2006 Jun 15, 14:05:19 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,7 +25,7 @@ import MySQLdb
 from MySQLdb import MySQLError
 from MySQLdb.constants import CLIENT
 
-from SSHproxy import config, cipher
+from sshproxy import config, cipher
 
 cfg = config.get_config('sshproxy')
 

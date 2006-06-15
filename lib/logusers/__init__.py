@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 01, 23:29:18 by david
+# Last modified: 2006 Jun 15, 14:00:37 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,7 +21,7 @@
 
 
 def __init_plugin__():
-    import logusers, SSHproxy
+    import logusers, sshproxy
     lu = logusers.PluginLogUsers()
-    SSHproxy.register_hook('filter-proxy', lu.logusers)
+    sshproxy.register_hook('filter-proxy', lu.logusers)
 

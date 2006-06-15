@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 11, 01:35:33 by david
+# Last modified: 2006 Jun 15, 14:01:43 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,9 +21,9 @@
 
 import MySQLdb
 
-from SSHproxy import backend
-from SSHproxy.config import get_config, Config, ConfigSection
-from SSHproxy.util import SSHProxyAuthError
+from sshproxy import backend
+from sshproxy.config import get_config, Config, ConfigSection
+from sshproxy.util import SSHProxyAuthError
 
 import console
 

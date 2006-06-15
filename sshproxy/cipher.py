@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 07, 00:41:28 by david
+# Last modified: 2006 Jun 15, 13:58:16 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,7 +23,7 @@
 from Crypto.Cipher import Blowfish
 import base64
 
-from SSHproxy.config import Config, ConfigSection, get_config
+from config import Config, ConfigSection, get_config
 
 _engine_registry = {}
 

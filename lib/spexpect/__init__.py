@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: Tue May 30 12:05:55 2006 by david
+# Last modified: 2006 Jun 15, 14:09:05 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,6 +21,6 @@
 
 
 def __init_plugin__():
-    import spexpect, SSHproxy
-    SSHproxy.register_hook('console', spexpect.PluginSPexpect)
+    import spexpect, sshproxy
+    sshproxy.register_hook('console', spexpect.PluginSPexpect)
 
