@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 19, 00:15:03 by david
+# Last modified: 2006 Jun 19, 00:23:24 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -225,7 +225,7 @@ class SSHproxyConfigSection(ConfigSection):
         'max_connections': 0, # default is unlimited
         'auto_add_key': 'no', # do not auto add key when connecting
         'cipher_type': 'blowfish', # see cipher.py for available values
-        'logger_conf': '/usr/share/sshproxy/logger.conf'
+        'logger_conf': '/usr/share/sshproxy/logger.conf',
         'plugin_dir': '/usr/lib/sshproxy',
         'plugin_list': 'logusers mysqlbackend',
         'pwdb_backend': 'mysql', # file or mysql
