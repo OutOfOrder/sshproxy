@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 19, 00:13:51 by david
+# Last modified: 2006 Jun 19, 01:35:33 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,20 +30,33 @@ from logging.config import fileConfig
 from config import get_config, inipath
 
 cfg = get_config('sshproxy')
-if cfg.has_key('logger_conf') and os.path.exists(cfg['logger_conf']):
+if os.path.exists(cfg['logger_conf']):
     logfile = cfg['logger_conf']
 else:
     logfile = os.path.join(inipath, 'logger.conf')
-    if not os.path.exists(logfile):
-        raise 'Log configuration file %s does not exist' % logfile
-fileConfig(logfile)
 
+if not os.path.exists(logfile):
+    raise 'Log configuration file %s does not exist' % logfile
+
+if cfg['log_dir'][0] != '/':
+    log_dir = os.path.join(inipath, cfg['log_dir'])
+else:
+    log_dir = cfg['log_dir']
+
+try:
+    os.chdir(log_dir)
+except OSError, msg:
+    print "No such directory: '%s'" % log_dir
+    sys.exit(1)
+
+fileConfig(logfile)
 
 class PFilter (logging.Filter):
     def filter(self, record):
 #        record._threadid = get_thread_id()
         record._pid = os.getpid()
         return True
+
 _pfilter = PFilter('sshproxy')
 
 def get_logger(name):

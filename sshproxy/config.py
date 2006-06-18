@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 19, 00:23:24 by david
+# Last modified: 2006 Jun 19, 01:29:13 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -217,7 +217,6 @@ inifile = '%s/sshproxy.ini' % inipath
 get_config = Config(inifile)
 
 
-
 class SSHproxyConfigSection(ConfigSection):
     section_defaults = {
         'port': 2242,
@@ -226,6 +225,7 @@ class SSHproxyConfigSection(ConfigSection):
         'auto_add_key': 'no', # do not auto add key when connecting
         'cipher_type': 'blowfish', # see cipher.py for available values
         'logger_conf': '/usr/share/sshproxy/logger.conf',
+        'log_dir': 'log', # defaults in %(inipath)s/log
         'plugin_dir': '/usr/lib/sshproxy',
         'plugin_list': 'logusers mysqlbackend',
         'pwdb_backend': 'mysql', # file or mysql
@@ -236,3 +236,5 @@ class SSHproxyConfigSection(ConfigSection):
         }
 
 Config.register_handler('sshproxy', SSHproxyConfigSection)
+
+
