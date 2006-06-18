@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: Tue May 30 12:05:55 2006 by david
+# Last modified: 2006 Jun 19, 00:13:51 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,14 +20,23 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-import os, sys, logging, logging.handlers
+import os, os.path, sys, logging, logging.handlers
 #from paramiko.util import get_thread_id
 
 __all__ = [ 'debug', 'info', 'warning', 'error', 'critical', 'exception' ]
 
 from logging.config import fileConfig
 
-fileConfig('logger.conf')
+from config import get_config, inipath
+
+cfg = get_config('sshproxy')
+if cfg.has_key('logger_conf') and os.path.exists(cfg['logger_conf']):
+    logfile = cfg['logger_conf']
+else:
+    logfile = os.path.join(inipath, 'logger.conf')
+    if not os.path.exists(logfile):
+        raise 'Log configuration file %s does not exist' % logfile
+fileConfig(logfile)
 
 
 class PFilter (logging.Filter):
