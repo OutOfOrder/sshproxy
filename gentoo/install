@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# this is a helper script to test a new ebuild
+# of course, this works only if you change the SRC_URI in
+# the ebuild and the following lines:
+SRC_URI_UPLOAD=penguin:sshproxy/download
+UPLOAD_METHOD=pscp  # change to scp if you don't run sshproxyd
+TMP_DIR=/tmp
+
+
+# start real work
+version=$1
+
+if [ -z "$version" ]; then
+    echo "Usage: $0 <version>"
+    exit 1
+fi
+
+tarball="$TMP_DIR"/sshproxy-${version}.tar.gz
+gentoo="$(dirname $0)"
+
+
+# cleanup old files
+sudo rm -f /usr/portage/distfiles/sshproxy-${version}.tar.gz
+rm -f "$tarball"
+rm -rf "$gentoo"/net-proxy/sshproxy/{Manifest,files}
+
+# generate the new tarball
+cg-export "$tarball"
+
+# upload it
+$UPLOAD_METHOD "$tarball" $SRC_URI_UPLOAD
+
+# generate the new digest
+ebuild "$gentoo"/net-proxy/sshproxy/sshproxy-${version}.ebuild digest
+
+# remove the tarball to make sure it does corrspond to the digest at install
+sudo rm -f /usr/portage/distfiles/sshproxy-${version}.tar.gz
+
+# let's install!
+sudo emerge -av =net-proxy/sshproxy-${version}
