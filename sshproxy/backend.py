@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 11, 14:23:19 by david
+# Last modified: 2006 Jun 19, 02:48:36 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,7 +23,7 @@ import os.path
 from ConfigParser import NoOptionError, SafeConfigParser as ConfigParser
 
 import log
-from config import get_config, inipath
+from config import get_config, ConfigSection, path
 
 class PasswordDatabase(object):
     backend_id = ''
@@ -98,6 +98,13 @@ class SiteEntry(object):
                                                 repr(self.users))
 
 
+class FileBackendConfig(ConfigSection):
+    section_defaults = {
+        'db_path': '@pwdb',
+        }
+    types = {
+        'db_path': path,
+    }
 
 class FileBackend(PasswordDatabase):
     backend_id = 'file'
@@ -105,12 +112,9 @@ class FileBackend(PasswordDatabase):
     def __init__(self):
         self.sites = {}
         self.login = None
-        db_path = get_config('file')['db_path']
 
-        if db_path[0] == '@':
-            db_path = os.path.join(inipath, db_path[1:])
-
-        self.db_path = db_path
+        Config.register_handler('file', FileBackendConfig)
+        self.db_path = get_config('file')['db_path']
 
 
     def get_console(self):

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 19, 01:29:13 by david
+# Last modified: 2006 Jun 19, 03:04:20 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -104,7 +104,8 @@ class Config(object):
 
     @classmethod
     def get_handler(cls, name):
-        return cls.section_handlers.get(name, ConfigSection)
+        #return cls.section_handlers.get(name, ConfigSection)
+        return cls.section_handlers[name]
 
 
     def __init__(self, inifile):
@@ -196,6 +197,11 @@ class Config(object):
 
         try:
             ini = open(inifile, 'w')
+        except IOError:
+            print "Could not write configuration file: %s" % inifile
+            print "Make sure %s is writable" % inifile
+            sys.exit(1)
+        try:
             #print 'writing', inifile
             return self._parser.write(ini)
         finally:
@@ -216,6 +222,10 @@ inipath = '%s/.sshproxy' % os.environ['HOME']
 inifile = '%s/sshproxy.ini' % inipath
 get_config = Config(inifile)
 
+def path(path):
+    if path[0] == '@':
+        path = os.path.join(inipath, path[1:])
+    return path
 
 class SSHproxyConfigSection(ConfigSection):
     section_defaults = {
@@ -225,7 +235,7 @@ class SSHproxyConfigSection(ConfigSection):
         'auto_add_key': 'no', # do not auto add key when connecting
         'cipher_type': 'blowfish', # see cipher.py for available values
         'logger_conf': '/usr/share/sshproxy/logger.conf',
-        'log_dir': 'log', # defaults in %(inipath)s/log
+        'log_dir': '@log', # defaults in %(inipath)s/log
         'plugin_dir': '/usr/lib/sshproxy',
         'plugin_list': 'logusers mysqlbackend',
         'pwdb_backend': 'mysql', # file or mysql
@@ -233,8 +243,13 @@ class SSHproxyConfigSection(ConfigSection):
     types = {
         'port': int,
         'max_connections': int,
+        'log_dir': path,
+        'plugin_dir': path,
+        'logger_conf': path,
         }
 
 Config.register_handler('sshproxy', SSHproxyConfigSection)
 
+# make sure we catch errors early
+get_config('sshproxy')
 
