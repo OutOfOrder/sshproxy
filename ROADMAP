@@ -11,15 +11,17 @@ Please contact me (david@guerizec.net) if you need me to change the priorities.
 0.4
     - make plugin enabling in config file
     - make a simple file backend
+    - rename sshproxy program to sshproxyd and SSHproxy module to sshproxy
+    - plugin path (defaults to /usr/lib/sshproxy) in the config file
+    - clean installation with setup.py
+    - write an ebuild
     + cleanup and refactoring of the pwdb module
-    + options can be given on the ssh command line (before sites) to be able
+    + options can be given on the pssh command line (before sites) to be able
       to optionally get rid of the console
     * database more coherent (rename columns and tables)
     * make Message protocole more robust
-    * plugin path (defaults to /usr/lib/sshproxy) in the config file
     * admin password in the config file
-    * clean installation with setup.py
-    * rename sshproxy program to sshproxyd and SSHproxy module to sshproxy
+    * write an init.d script
 
 0.5
     * profiles gain more precise ACLs
