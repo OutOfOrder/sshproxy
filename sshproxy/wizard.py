@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 20, 02:23:54 by david
+# Last modified: 2006 Jun 21, 00:44:11 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -80,12 +80,18 @@ def setup():
     
     cfg.write()
 
-
     be = get_backend()
+    wizard = be.get_wizard()
+    if wizard:
+        a = raw_input("Do you want to run the %s backend "
+                        "configuration wizard ? (yes/no)" % be.backend_id)
+        if a == "yes":
+            try:
+                wizard.run()
+            except KeyboardInterrupt:
+                print " ...Aborted."
 
-    be.wizard()
 
-    cfg.write()
     print 'Setup done.'
     print 'You can now run the following command:'
     print sys.argv[0], '-c', configdir

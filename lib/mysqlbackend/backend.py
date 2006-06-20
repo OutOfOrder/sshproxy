@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 20, 01:54:58 by david
+# Last modified: 2006 Jun 21, 00:38:44 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -69,7 +69,7 @@ class MySQLBackend(backend.PasswordDatabase):
     def get_console(self):
         return console.DBConsole(self)
 
-    def wizard(self):
+    def get_wizard(self):
         from wizard import Wizard
         return Wizard(self)
 
@@ -100,7 +100,7 @@ class MySQLBackend(backend.PasswordDatabase):
             where login.uid = '%s'
               and login.id = login_profile.login_id 
               and login_profile.profile_id = profile.id
-              and profile.admin = 1
+              and (profile.id = 0 or profile.admin = 1)
         """
 
         admin = self.db.cursor()
@@ -144,6 +144,20 @@ class MySQLBackend(backend.PasswordDatabase):
             return None
         profile = self.db.cursor()
         profile.execute(q_addprofile % Q(name))
+        profile.close()
+        return 1
+
+    def _add_profile_id(self, name, id):
+        q_addprofile = """
+            insert into profile values (%d, '%s', 0)
+        """
+        if self.get_profile(name):
+            return None
+        profile = self.db.cursor()
+        profile.execute(q_addprofile % (id, Q(name)))
+        if id == 0:
+            profile.execute("update profile set id=0 where name='%s'"
+                                                            % Q(name))
         profile.close()
         return 1
 
@@ -594,7 +608,10 @@ class MySQLBackend(backend.PasswordDatabase):
         c.execute(query % (name, Q(table), int(id)))
         name = c.fetchone()
         c.close()
-        return name[0]
+        if name:
+            return name[0]
+        else:
+            return None
 
 
     def get_id(self, table, name):

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 20, 00:30:08 by david
+# Last modified: 2006 Jun 21, 00:32:16 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,6 +30,8 @@ parser.add_option("-c", "--config-dir", dest="config", default=None,
                     help="configuration directory", metavar="CFGDIR")
 parser.add_option("-w", "--wizard", dest="wizard", default=False,
                     help="run setup wizard", action="store_true")
+parser.add_option("-b", "--backend", dest="backend", default=False,
+                    help="run backend console", action="store_true")
 
 (options, args) = parser.parse_args()
 
@@ -42,6 +44,17 @@ os.environ['SSHPROXY_CONFIG'] = (options.config
 if options.wizard:
     from sshproxy import wizard
     wizard.setup()
+elif options.backend:
+    from sshproxy.plugins import init_plugins
+    init_plugins()
+    from sshproxy.backend import get_backend
+    backend = get_backend()
+    console = backend.get_console()
+    if not console:
+        print ("Sorry, but the %s backend has no administration console." % 
+                                                            backend.backend_id)
+    else:
+        console.cmdloop()
 else:
     from sshproxy.daemon import run_server
     run_server()

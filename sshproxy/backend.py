@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 20, 01:46:55 by david
+# Last modified: 2006 Jun 21, 00:40:40 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -120,7 +120,8 @@ class FileBackend(PasswordDatabase):
     def get_console(self):
         return None
 
-    def wizard(self):
+    def get_wizard(self):
+        # XXX: put this in the wizard when available
         if not os.path.isdir(self.db_path):
             os.mkdir(self.db_path)
 
