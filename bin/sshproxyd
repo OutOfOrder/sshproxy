@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 15, 13:50:04 by david
+# Last modified: 2006 Jun 20, 00:30:08 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,9 +19,30 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
+import os
+from optparse import OptionParser
 
-from sshproxy.daemon import run_server
 
 __VERSION__ = (0, 4, 0)
 
-run_server()
+parser = OptionParser()
+parser.add_option("-c", "--config-dir", dest="config", default=None,
+                    help="configuration directory", metavar="CFGDIR")
+parser.add_option("-w", "--wizard", dest="wizard", default=False,
+                    help="run setup wizard", action="store_true")
+
+(options, args) = parser.parse_args()
+
+#configdir = os.path.join(os.getcwd(), (options.config
+#                                or os.environ.get('SSHPROXY_CONFIG', '')))
+#os.environ['SSHPROXY_CONFIG'] = configdir
+os.environ['SSHPROXY_CONFIG'] = (options.config
+                                or os.environ.get('SSHPROXY_CONFIG', ''))
+
+if options.wizard:
+    from sshproxy import wizard
+    wizard.setup()
+else:
+    from sshproxy.daemon import run_server
+    run_server()
+

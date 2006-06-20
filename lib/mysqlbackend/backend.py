@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 15, 14:01:43 by david
+# Last modified: 2006 Jun 20, 01:54:58 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,6 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
+import os
 import MySQLdb
 
 from sshproxy import backend
@@ -39,8 +40,6 @@ class MySQLConfigSection(ConfigSection):
         'port': int,
         }
 
-if get_config('sshproxy')['pwdb_backend'] == 'mysql':
-    Config.register_handler('mysql', MySQLConfigSection)
 
 def Q(str):
     """Safe quote mysql values"""
@@ -54,16 +53,25 @@ class MySQLBackend(backend.PasswordDatabase):
 
     def __init__(self):
         self.login = None
+        Config.register_handler('mysql', MySQLConfigSection)
         cfg = get_config('mysql')
-        self.db = MySQLdb.connect(
+        try:
+            self.db = MySQLdb.connect(
                     host=cfg['host'],
                     port=cfg['port'],
                     db=cfg['db'],
                     user=cfg['user'],
                     passwd=cfg['password'])
+        except:
+            if not os.environ.has_key('SSHPROXY_WIZARD'):
+                raise
 
     def get_console(self):
         return console.DBConsole(self)
+
+    def wizard(self):
+        from wizard import Wizard
+        return Wizard(self)
 
 ################## miscellaneous functions ##############################
 
@@ -767,5 +775,6 @@ class MySQLBackend(backend.PasswordDatabase):
         sites.close()
         return p
 
-if get_config('sshproxy')['pwdb_backend'] == 'mysql':
-    MySQLBackend.register_backend()
+#if get_config('sshproxy')['pwdb_backend'] == 'mysql':
+#    MySQLBackend.register_backend()
+MySQLBackend.register_backend()

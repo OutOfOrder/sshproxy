@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 10, 23:51:43 by david
+# Last modified: 2006 Jun 20, 00:08:23 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,6 +20,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-from hooks import *
-from config import get_config
-from backend import get_backend
+#from hooks import *
+#from config import get_config
+#from backend import get_backend

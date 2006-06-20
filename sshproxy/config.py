@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 19, 03:04:20 by david
+# Last modified: 2006 Jun 20, 01:21:27 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -104,8 +104,7 @@ class Config(object):
 
     @classmethod
     def get_handler(cls, name):
-        #return cls.section_handlers.get(name, ConfigSection)
-        return cls.section_handlers[name]
+        return cls.section_handlers.get(name, ConfigSection)
 
 
     def __init__(self, inifile):
@@ -200,6 +199,9 @@ class Config(object):
         except IOError:
             print "Could not write configuration file: %s" % inifile
             print "Make sure %s is writable" % inifile
+            print "If this is the first time you're running the program, try"
+            print "the following command:"
+            print ' '.join(sys.argv), '--wizard'
             sys.exit(1)
         try:
             #print 'writing', inifile
@@ -217,10 +219,6 @@ class Config(object):
         return fp.read()
 
 
-
-inipath = '%s/.sshproxy' % os.environ['HOME']
-inifile = '%s/sshproxy.ini' % inipath
-get_config = Config(inifile)
 
 def path(path):
     if path[0] == '@':
@@ -250,6 +248,14 @@ class SSHproxyConfigSection(ConfigSection):
 
 Config.register_handler('sshproxy', SSHproxyConfigSection)
 
-# make sure we catch errors early
-get_config('sshproxy')
+inipath = os.environ.get('SSHPROXY_CONFIG', '')
+if not inipath:
+    inipath = '%s/.sshproxy' % os.environ['HOME']
+inipath = os.path.join(os.getcwd(), inipath)
+inifile = '%s/sshproxy.ini' % inipath
+if not os.environ.has_key('SSHPROXY_WIZARD'):
+    get_config = Config(inifile)
+
+    # make sure we catch errors early
+    get_config('sshproxy')
 

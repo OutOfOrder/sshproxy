@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 15, 13:55:36 by david
+# Last modified: 2006 Jun 20, 01:24:39 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -47,7 +47,7 @@ for module in os.listdir(plugindir):
         if module not in enabled or module in disabled:
             pluginInfo.append((module, module, module, "", 1))
         else:
-            m=__import__(module, globals(), locals(), [])
+            m = __import__(module, globals(), locals(), [])
             if hasattr(m, "__pluginname__"):
                 name = m.__pluginname__
             else:

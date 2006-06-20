@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 19, 02:48:36 by david
+# Last modified: 2006 Jun 20, 01:46:55 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,7 +23,7 @@ import os.path
 from ConfigParser import NoOptionError, SafeConfigParser as ConfigParser
 
 import log
-from config import get_config, ConfigSection, path
+from config import get_config, Config, ConfigSection, path
 
 class PasswordDatabase(object):
     backend_id = ''
@@ -35,8 +35,8 @@ class PasswordDatabase(object):
         if not cls.backend_id:
             raise AttributeError('Backend error:'
                     ' missing attribute backend_id for %s', cls)
-        if not cls.backends.has_key(cls.backend_id):
-            cls.backends[cls.backend_id] = cls
+        if not PasswordDatabase.backends.has_key(cls.backend_id):
+            PasswordDatabase.backends[cls.backend_id] = cls
         log.info("Registering backend %s" % cls.backend_id)
 
     def __call__(self):
@@ -120,6 +120,9 @@ class FileBackend(PasswordDatabase):
     def get_console(self):
         return None
 
+    def wizard(self):
+        if not os.path.isdir(self.db_path):
+            os.mkdir(self.db_path)
 
     def get_user_site(self, sid):
         user = None
