@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 11, 15:11:17 by david
+# Last modified: 2006 Jun 22, 00:28:57 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -45,7 +45,7 @@ class UserData(object):
         else:
             if key is None and hasattr(self, 'unauth_key'):
                 if istrue(get_config('sshproxy')['auto_add_key']):
-                    self.pwdb.set_user_key(self.unauth_key)
+                    self.pwdb.set_login_key(self.unauth_key)
             self.username = username
             return True
 
@@ -84,14 +84,14 @@ class SiteData(object):
     def __init__(self, userdata, sitename):
         self.userdata = userdata
 
-        user, site = userdata.pwdb.get_user_site(sitename)
+        rlogin, site = userdata.pwdb.get_rlogin_site(sitename)
 
         if not site:
             raise SSHProxyAuthError("ERROR: %s does not exist in the database"
                                                                 % sitename)
         self.sid = site.sid
-        self.username = user
-        self.sitename = '%s@%s' % (user, site.sid)
+        self.username = rlogin
+        self.sitename = '%s@%s' % (rlogin, site.sid)
 
         self.hostname = site.ip_address
         self.port = site.port
@@ -99,7 +99,7 @@ class SiteData(object):
         self.hostkey = None
 
         self.sitedata = site
-        self.password = site.users[user].password
+        self.password = site.rlogins[rlogin].password
 
         self.type = 'shell'
         self.cmdline = None

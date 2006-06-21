@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 15, 14:02:18 by david
+# Last modified: 2006 Jun 22, 00:40:37 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -61,7 +61,7 @@ class DBConsole(cmd.Cmd):
                 l.append(name+' ')
         return l
 
-    def complete_list_users(self, text, line, begidx, endidx):
+    def complete_list_rlogins(self, text, line, begidx, endidx):
         return self._complete_sites(text, line, begidx, endidx)
 
     def complete_list_domains(self, text, line, begidx, endidx):
@@ -137,7 +137,7 @@ class DBConsole(cmd.Cmd):
             del_site name
 
             Remove a site from the database.
-            All remote users belonging to that site will be deleted !
+            All rlogins belonging to that site will be deleted !
         """
         arg = CommandLine(arg)
         if len(arg) != 1:
@@ -173,25 +173,25 @@ class DBConsole(cmd.Cmd):
 
     def do_add_rlogin(self, arg):
         """
-            add_rlogin uid site primary
+            add_rlogin uid site priority
         
-            Add a remote user in a site.
+            Add a rlogin in a site.
             uid is the username or user id.
-            primary is a boolean value (0 or 1) to specify the default username
-            for that site.
+            priority is an integer to specify the default username
+            for that site (the higher is the default).
             The password will be prompted.
         """
         arg = CommandLine (arg)
         if (len(arg) != 3):
             self.onecmd('help add_rlogin')
             return
-        elif self.backend.get_users(arg[0], arg[1]):
+        elif self.backend.get_rlogins(arg[0], arg[1]):
             print "Remote login %s@%s already exists" % (arg[0], arg[1])
         else:
             try:
                 password = self.set_password('%s@%s' % (arg[0], arg[1]))
-                self.backend.add_user_to_site(arg[0], arg[1], cipher(password),
-                                                                int(arg[2]))
+                self.backend.add_rlogin_to_site(arg[0], arg[1],
+                                            cipher(password), int(arg[2]))
             except KeyboardInterrupt:
                 return
 
@@ -199,19 +199,19 @@ class DBConsole(cmd.Cmd):
         """
             set_rlogin_password uid site
         
-            Change the password of a remote user.
+            Change the password of a rlogin.
         """
         arg = CommandLine (arg)
         if (len(arg) != 2):
             self.onecmd('help set_rlogin_password')
             return
-        elif not self.backend.get_users(arg[0], arg[1]):
+        elif not self.backend.get_rlogins(arg[0], arg[1]):
             print "Remote login %s@%s does not exist" % (arg[0], arg[1])
             return
         else:
             try:
                 password = self.set_password('%s@%s' % (arg[0], arg[1]))
-                if not self.backend.set_user_password(arg[0], arg[1],
+                if not self.backend.set_rlogin_password(arg[0], arg[1],
                                                         cipher(password)):
                     print "Could not update password"
             except KeyboardInterrupt:
@@ -221,14 +221,14 @@ class DBConsole(cmd.Cmd):
         """
             del_rlogin uid site
         
-            Remove a remote user from the site.
+            Remove a rlogin from the site.
         """
         arg = CommandLine (arg)
         if (len(arg) != 2):
             self.onecmd('help del_rlogin')
             return
         else:
-            self.backend.remove_user_from_site(arg[0], arg[1])
+            self.backend.remove_rlogin_from_site(arg[0], arg[1])
 
     def do_list_rlogins(self, arg):
         """
@@ -255,17 +255,17 @@ class DBConsole(cmd.Cmd):
             self.onecmd('help list_rlogins')
             return
  
-        users=[]
-        for user in self.backend.list_users(site_id=site_id):
-            users.append((user['uid'],
-                    ''.join([ '*' for i in user['password'] ])))
-        users.sort()
-        if len(users):
-            uid_width = max([ len(e[0]) for e in users ])
+        rlogins=[]
+        for rlogin in self.backend.list_rlogins(site_id=site_id):
+            rlogins.append((rlogin['uid'],
+                    ''.join([ '*' for i in rlogin['password'] ])))
+        rlogins.sort()
+        if len(rlogins):
+            uid_width = max([ len(e[0]) for e in rlogins ])
         else:
             print 'No remote logins for site %s' % site
             return
-        for uid, passwd in users:
+        for uid, passwd in rlogins:
             print uid + ' '*(uid_width - len(uid)), passwd
 
     def do_add_login(self, arg):
@@ -330,7 +330,8 @@ class DBConsole(cmd.Cmd):
         else:
             try:
                 key = raw_input("Paste public key: ")
-                if not self.backend.set_user_key(key, user=arg[0], force=True):
+                if not self.backend.set_login_key(key, login=arg[0],
+                                                        force=True):
                     print "Could not update key"
             except KeyboardInterrupt:
                 return
@@ -356,17 +357,17 @@ class DBConsole(cmd.Cmd):
             List all users allowed to connect to the proxy.
         """
         lg_list = self.backend.list_logins()
-        users = []
+        logins = []
         for lg in lg_list :
-            users.append((lg['login'], '*'*len(lg['password']), lg['key']))
-        users.sort()
-        if len(users):
-            uid_width = max([ len(e[0]) for e in users ])
-            pwd_width = max([ len(e[1]) for e in users ])
+            logins.append((lg['login'], '*'*len(lg['password']), lg['key']))
+        logins.sort()
+        if len(logins):
+            uid_width = max([ len(e[0]) for e in logins ])
+            pwd_width = max([ len(e[1]) for e in logins ])
         else:
             print 'No local users in the database'
             return
-        for uid, passwd, key in users:
+        for uid, passwd, key in logins:
             print uid + ' '*(uid_width - len(uid)),
             print passwd + ' '*(pwd_width - len(passwd)),
             print key
@@ -461,7 +462,11 @@ class DBConsole(cmd.Cmd):
             return x['name'] < y['name']
         p_list.sort(sort_list)
         for pl in p_list:
-            print 'id: %d, name: %s' % (pl['id'], pl['name'])
+            if pl['admin'] or not pl['id']:
+                admin = '(admin)'
+            else:
+                admin = ''
+            print '%s %s' % (pl['name'], admin)
 
     def do_link_profile_to_domain(self, arg):
         """

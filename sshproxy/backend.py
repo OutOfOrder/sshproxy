@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 21, 00:40:40 by david
+# Last modified: 2006 Jun 22, 01:02:08 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -65,28 +65,28 @@ class UserEntry(object):
 
 class SiteEntry(object):
     def __init__(self, sid, ip_address=None, port=22, location=None,
-                       user_list=None):
+                       rlogin_list=None):
         self.sid = sid
         self.ip_address = ip_address
         self.port = port
         self.location = location
         
-        self.users = {}
+        self.rlogins = {}
         
-        if user_list is None:
+        if rlogin_list is None:
             return
-        for user in user_list:
-            self.users[user.uid] = user
+        for rlogin in rlogin_list:
+            self.rlogins[rlogin.uid] = rlogin
 
-    def default_user(self):
-        for u in self.users.keys():
-            if self.users[u].primary:
+    def default_rlogin(self):
+        for u in self.rlogins.keys():
+            if self.rlogins[u].primary:
                 return u
         return None
 
-    def get_user(self, uid):
-        if self.users.has_key(uid):
-            return self.users[uid]
+    def get_rlogin(self, uid):
+        if self.rlogins.has_key(uid):
+            return self.rlogins[uid]
         else:
             return None
 
@@ -95,7 +95,7 @@ class SiteEntry(object):
                                                 self.ip_address,
                                                 self.port,
                                                 self.location,
-                                                repr(self.users))
+                                                repr(self.rlogins))
 
 
 class FileBackendConfig(ConfigSection):
@@ -125,11 +125,11 @@ class FileBackend(PasswordDatabase):
         if not os.path.isdir(self.db_path):
             os.mkdir(self.db_path)
 
-    def get_user_site(self, sid):
-        user = None
+    def get_rlogin_site(self, sid):
+        rlogin = None
         site = None
         if sid.find('@') >= 0:
-            user, sid = sid.split('@')
+            rlogin, sid = sid.split('@')
 
         site_file = os.path.join(self.db_path, sid)
         if not os.path.exists(site_file):
@@ -147,29 +147,30 @@ class FileBackend(PasswordDatabase):
         port       = int(site_section['port'])
         location   = site_section['location']
 
-        user_list = []
+        rlogin_list = []
         for sect in file.sections():
             try:
                 primary = file.getint(sect, 'primary')
             except NoOptionError:
                 primary = 0
-            user_list.append(UserEntry(
+            rlogin_list.append(UserEntry(
                     sect,
                     file.get(sect, 'password'),
                     primary))
 
-        user_list.sort(cmp=lambda x,y: cmp(x.primary, y.primary), reverse=True)
+        rlogin_list.sort(cmp=lambda x,y: cmp(x.primary, y.primary),
+                                                    reverse=True)
 
-        if not user:
-            user = user_list[0].uid
+        if not rlogin:
+            rlogin = rlogin_list[0].uid
 
         site = SiteEntry(sid=sid,
                          ip_address=ip_address,
                          port=port,
                          location=location,
-                         user_list=user_list)
+                         rlogin_list=rlogin_list)
             
-        return user, site
+        return rlogin, site
 
 
     def list_sites(self, domain=None):
@@ -177,8 +178,8 @@ class FileBackend(PasswordDatabase):
         for sitename in os.listdir(self.db_path):
             if sitename[0] == '.':
                 continue
-            user, sdata = self.get_user_site(sitename)
-            for uid in sdata.users.keys():
+            rlogin, sdata = self.get_rlogin_site(sitename)
+            for uid in sdata.rlogins.keys():
                 sites.append({
                     'name': sdata.sid,
                     'ip': sdata.ip_address,
@@ -189,11 +190,11 @@ class FileBackend(PasswordDatabase):
         return sites
 
 
-    def list_allowed_sites(self, user=None, domain=None):
-        return self.list_sites()
+    def list_allowed_sites(self, domain=None, login=None):
+        return self.list_sites(domain)
 
 
-    def is_admin(self, user=None):
+    def is_admin(self, login=None):
         return True
 
 
@@ -201,7 +202,7 @@ class FileBackend(PasswordDatabase):
         return True
 
 
-    def can_connect(self, user, site):
+    def can_connect(self, rlogin, site):
         return True
 
 

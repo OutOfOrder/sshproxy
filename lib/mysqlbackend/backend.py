@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 21, 00:38:44 by david
+# Last modified: 2006 Jun 22, 01:09:17 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -75,25 +75,25 @@ class MySQLBackend(backend.PasswordDatabase):
 
 ################## miscellaneous functions ##############################
 
-    def set_user_key(self, key, user=None, force=0):
-        if not user:
-            user = self.login
-        if not user:
-            raise SSHProxyAuthError("Missing user and not authenticated")
-        if not force and len(self.get_login(user)['key']):
+    def set_login_key(self, key, login=None, force=0):
+        if not login:
+            login = self.login
+        if not login:
+            raise SSHProxyAuthError("Missing login and not authenticated")
+        if not force and len(self.get_login(login)['key']):
             # Don't overwrite an existing key
             return True
         q_setkey = """
             update login set `key` = '%s' where uid = '%s'
         """
         setkey = self.db.cursor()
-        ret = setkey.execute(q_setkey % (Q(key), Q(user)))
+        ret = setkey.execute(q_setkey % (Q(key), Q(login)))
         setkey.close()
         return ret
 
-    def is_admin(self, user=None):
-        if user is None:
-            user = self.login
+    def is_admin(self, login=None):
+        if login is None:
+            login = self.login
 
         q_admin = """
             select 1 from login, login_profile, profile
@@ -104,7 +104,7 @@ class MySQLBackend(backend.PasswordDatabase):
         """
 
         admin = self.db.cursor()
-        admin.execute(q_admin % Q(user))
+        admin.execute(q_admin % Q(login))
         admin = admin.fetchone()
         if not admin or not len(admin):
             return False
@@ -114,13 +114,13 @@ class MySQLBackend(backend.PasswordDatabase):
 
     def list_profiles(self):
         q_getprofile = """
-            select id, name from profile
+            select id, name, admin from profile
         """
         profile = self.db.cursor()
         profile.execute(q_getprofile)
         p = []
-        for id, name in profile.fetchall():
-            p.append({ 'id': id, 'name': name })
+        for id, name, admin in profile.fetchall():
+            p.append({ 'id': id, 'name': name, 'admin': admin })
         profile.close()
         return p
 
@@ -179,17 +179,17 @@ class MySQLBackend(backend.PasswordDatabase):
 
     def list_domains(self, site=None):
         q_domain = """
-            select sgroup.id,
-                   sgroup.name
-                from sgroup
+            select domain.id,
+                   domain.name
+                from domain
         """
         if site:
             q_domain = q_domain.strip() + """,
-                     sgroup_site,
+                     domain_site,
                      site
                 where site.name = '%s' and
-                      site.id = sgroup_site.site_id and
-                      sgroup_site.sgroup_id = sgroup.id""" % Q(site)
+                      site.id = domain_site.site_id and
+                      domain_site.domain_id = domain.id""" % Q(site)
         domain = self.db.cursor()
         domain.execute(q_domain)
         p = []
@@ -200,7 +200,7 @@ class MySQLBackend(backend.PasswordDatabase):
 
     def get_domain(self, name):
         q_domain = """
-            select id, name from sgroup where name = '%s'
+            select id, name from domain where name = '%s'
         """
         domain = self.db.cursor()
         domain.execute(q_domain % Q(name))
@@ -212,7 +212,7 @@ class MySQLBackend(backend.PasswordDatabase):
 
     def add_domain(self, name):
         q_domain = """
-            insert into sgroup (name) values ('%s')
+            insert into domain (name) values ('%s')
         """
         if self.get_group(name):
             return None
@@ -223,7 +223,7 @@ class MySQLBackend(backend.PasswordDatabase):
 
     def remove_domain(self, name):
         q = """
-            delete from sgroup where name = '%s'
+            delete from domain where name = '%s'
         """
         group_id = self.get_id('domain', name)
         if not group_id:
@@ -248,11 +248,11 @@ class MySQLBackend(backend.PasswordDatabase):
         """
         if domain:
             q_listsite = q_listsite.strip() + """,
-                     sgroup_site,
-                     sgroup
-                where sgroup.name = '%s' and
-                      sgroup_site.sgroup_id = sgroup.id and
-                      sgroup_site.site_id = site.id""" % Q(domain)
+                     domain_site,
+                     domain
+                where domain.name = '%s' and
+                      domain_site.domain_id = domain.id and
+                      domain_site.site_id = site.id""" % Q(domain)
         site = self.db.cursor()
         site.execute(q_listsite)
         p = []
@@ -309,79 +309,79 @@ class MySQLBackend(backend.PasswordDatabase):
         site_id = self.get_id('site', name)
         if not site_id:
             return False
-        for u in self.list_users(site_id):
-            self.remove_user(u['uid'], site_id)
+        for u in self.list_rlogins(site_id):
+            self.remove_rlogin(u['uid'], site_id)
         self.unlink_domain_site(None, site_id)
         site = self.db.cursor()
         site.execute(q % Q(name))
         site.close()
         return True
 
-################## functions for scripts/add_user #####################
+################## functions for scripts/add_rlogin #####################
 
-    def list_users(self, site_id=None):
-        q_listuser = """
-            select site_id, uid, password, `primary` from user
+    def list_rlogins(self, site_id=None):
+        q_listrlogin = """
+            select site_id, uid, password, priority from rlogin
         """
         if site_id:
-            q_listuser = q_listuser + " where site_id = %d" % site_id
+            q_listrlogin = q_listrlogin + " where site_id = %d" % site_id
         site = self.db.cursor()
-        site.execute(q_listuser)
+        site.execute(q_listrlogin)
         p = []
-        for site_id, uid, password, primary in site.fetchall():
+        for site_id, uid, password, priority in site.fetchall():
             p.append({ 'uid': uid,
                        'site_id': site_id,
                        'password': password,
-                       'primary': primary })
+                       'priority': priority })
         site.close()
         return p
 
-    def get_users(self, uid, site_id):
-        q_getuser = """
+    def get_rlogins(self, uid, site_id):
+        q_getrlogin = """
             select site_id,
                    uid,
                    password,
-                   `primary`
-                from user where uid = '%s' and site_id = %d
+                   priority
+                from rlogin where uid = '%s' and site_id = %d
         """
         if type(site_id) == type(""):
             site_id = self.get_id("site", site_id)
-        user = self.db.cursor()
-        user.execute(q_getuser % (Q(uid), site_id))
-        p = user.fetchone()
+        rlogin = self.db.cursor()
+        rlogin.execute(q_getrlogin % (Q(uid), site_id))
+        p = rlogin.fetchone()
         if not p or not len(p):
             return None
-        user.close()
+        rlogin.close()
         return { 'site_id': p[0],
                  'uid': p[1],
                  'password': p[2],
-                 'primary': p[3] }
+                 'priority': p[3] }
 
-    def add_user_to_site(self, uid, site, password, primary):
+    def add_rlogin_to_site(self, uid, site, password, priority):
         site_id = self.get_id('site', site)
         if not site_id:
             return False
-        return self.add_user(uid, site_id, password, primary)
+        return self.add_rlogin(uid, site_id, password, priority)
 
-    def add_user(self, uid, site_id, password, primary):
-        q_adduser = """
-            insert into user (
+    def add_rlogin(self, uid, site_id, password, priority):
+        q_addrlogin = """
+            insert into rlogin (
                     uid,
                     site_id,
                     password,
-                    `primary`)
+                    priority)
                 values ('%s',%d,'%s',%d)
         """
-        if self.get_users(uid, site_id):
+        if self.get_rlogins(uid, site_id):
             return None
-        user = self.db.cursor()
-        user.execute(q_adduser % (Q(uid), site_id, Q(password), primary))
-        user.close()
+        rlogin = self.db.cursor()
+        rlogin.execute(q_addrlogin % (Q(uid), site_id, Q(password), priority))
+        rlogin.close()
         return True
 
-    def set_user_password(self, uid, site, password):
+    def set_rlogin_password(self, uid, site, password):
         q_setpassword = """
-            update user set `password` = '%s'
+            update rlogin set `password` = '%s'
                 where uid = '%s' and site_id = %d
         """
         site_id = self.get_id('site', site)
@@ -391,23 +391,23 @@ class MySQLBackend(backend.PasswordDatabase):
         update.execute(q_setpassword % (Q(password), Q(uid), site_id))
         return True
 
-    def remove_user_from_site(self, uid, site):
+    def remove_rlogin_from_site(self, uid, site):
         site_id = self.get_id('site', site)
         if not site_id:
             return False
-        return self.remove_user(uid, site_id)
+        return self.remove_rlogin(uid, site_id)
 
-    def remove_user(self, uid, site_id):
+    def remove_rlogin(self, uid, site_id):
         q = """
-            delete from user where uid = '%s' and site_id = %d
+            delete from rlogin where uid = '%s' and site_id = %d
         """
         if type(site_id) == type(""):
             site_id = self.get_id("site", site_id)
-        if not self.get_users(uid, site_id):
+        if not self.get_rlogins(uid, site_id):
             return False
-        user = self.db.cursor()
-        user.execute(q % (Q(uid), site_id))
-        user.close()
+        rlogin = self.db.cursor()
+        rlogin.execute(q % (Q(uid), site_id))
+        rlogin.close()
         return True
 
 ################### functions for scripts/add_login   #############
@@ -516,7 +516,7 @@ class MySQLBackend(backend.PasswordDatabase):
 
     def list_profile_domain(self):
         q_list = """
-             select profile_id, sgroup_id from profile_sgroup
+             select profile_id, domain_id from profile_domain
         """
         lists = self.db.cursor()
         lists.execute(q_list)
@@ -530,7 +530,7 @@ class MySQLBackend(backend.PasswordDatabase):
 
     def add_profile_domain(self, profile_id, domain_id):
         q_addlogin = """
-            replace into profile_sgroup (profile_id, sgroup_id) values (%d, %d)
+            replace into profile_domain (profile_id, domain_id) values (%d, %d)
         """
         login = self.db.cursor()
         login.execute(q_addlogin % (profile_id, domain_id))
@@ -539,13 +539,13 @@ class MySQLBackend(backend.PasswordDatabase):
 
     def unlink_profile_domain(self, profile_id, domain_id):
         q = """
-            delete from profile_sgroup where 
+            delete from profile_domain where 
         """
         q_where = []
         if profile_id is not None:
             q_where.append("profile_id = %d" % profile_id)
         if domain_id is not None:
-            q_where.append("sgroup_id = %d" % domain_id)
+            q_where.append("domain_id = %d" % domain_id)
         if not len(q_where):
             return False
         login = self.db.cursor()
@@ -558,7 +558,7 @@ class MySQLBackend(backend.PasswordDatabase):
 
     def list_domain_site(self):
         q_list = """
-             select sgroup_id, site_id from sgroup_site
+             select domain_id, site_id from domain_site
         """
         lists = self.db.cursor()
         lists.execute(q_list)
@@ -572,7 +572,7 @@ class MySQLBackend(backend.PasswordDatabase):
 
     def add_domain_site(self, domain_id, site_id):
         q_addlogin = """
-            replace into sgroup_site (sgroup_id, site_id) values (%d, %d)
+            replace into domain_site (domain_id, site_id) values (%d, %d)
         """
         login = self.db.cursor()
         login.execute(q_addlogin % (domain_id, site_id))
@@ -581,11 +581,11 @@ class MySQLBackend(backend.PasswordDatabase):
 
     def unlink_domain_site(self, domain_id, site_id):
         q = """
-            delete from sgroup_site where 
+            delete from domain_site where 
         """
         q_where = []
         if domain_id is not None:
-            q_where.append("sgroup_id = %d" % domain_id)
+            q_where.append("domain_id = %d" % domain_id)
         if site_id is not None:
             q_where.append("site_id = %d" % site_id)
         if not len(q_where):
@@ -599,8 +599,6 @@ class MySQLBackend(backend.PasswordDatabase):
 ######################################################################
 
     def get_name(self, table, id, name='name'):
-        if table in ('group', 'domain'): # alias group/domain to sgroup
-            table = 'sgroup'
         query = """
         select %s from `%s` where id = '%d'
         """
@@ -616,8 +614,6 @@ class MySQLBackend(backend.PasswordDatabase):
 
     def get_id(self, table, name):
         id = None
-        if table in ('group', 'domain'): # alias group/domain to sgroup
-            table = 'sgroup'
         if table == 'login':
             query = """
             select id from `%s` where uid = '%s' 
@@ -659,128 +655,128 @@ class MySQLBackend(backend.PasswordDatabase):
             self.login = username
         return login
 
-    def get_user_site(self, site_id):
-        user = None
+    def get_rlogin_site(self, site_id):
+        rlogin = None
         if site_id.find('@') >= 0:
-            user, sid = site_id.split('@')
+            rlogin, sid = site_id.split('@')
         else:
             sid = site_id
-        users = self.db.cursor()
-        if not user:
-            q_user = """
+        rlogins = self.db.cursor()
+        if not rlogin:
+            q_rlogin = """
             select uid
-                from site, user
-                where site.id = user.site_id and site.name = '%s'
-                order by `primary` desc            
+                from site, rlogin
+                where site.id = rlogin.site_id and site.name = '%s'
+                order by priority desc            
             """
-            users.execute(q_user % Q(sid))
+            rlogins.execute(q_rlogin % Q(sid))
         else:
-            q_user = """
+            q_rlogin = """
             select uid
-                from site, user
-                where site.id = user.site_id and site.name = '%s'
-                  and user.uid = '%s'
-                order by `primary` desc            
+                from site, rlogin
+                where site.id = rlogin.site_id and site.name = '%s'
+                  and rlogin.uid = '%s'
+                order by priority desc            
             """
 
-            users.execute(q_user % (Q(sid), user))
-        user = users.fetchone()
-        if not user or not len(user):
-            raise SSHProxyAuthError("No such user: %s" % site_id)
-        user = user[0]
-        users.close()
-        if not self.can_connect(user, sid):
+            rlogins.execute(q_rlogin % (Q(sid), rlogin))
+        rlogin = rlogins.fetchone()
+        if not rlogin or not len(rlogin):
+            raise SSHProxyAuthError("No such rlogin: %s" % site_id)
+        rlogin = rlogin[0]
+        rlogins.close()
+        if not self.can_connect(rlogin, sid):
             raise SSHProxyAuthError(
                 "User %s is not allowed to connect to %s@%s" % (self.login, 
-                                                                user, sid))
+                                                                rlogin, sid))
         q_sites = """
             select id, name, ip_address, port, location
                 from site
                 where site.name = '%s'
                 order by name limit 1
             """
-        q_users = """
-            select id, site_id, uid, password, `primary`
-                from user where site_id = %d
+        q_rlogins = """
+            select id, site_id, uid, password, priority
+                from rlogin where site_id = %d
             """
         sites = self.db.cursor()
         sites.execute(q_sites % Q(sid))
         id, name, ip_address, port, location = sites.fetchone()
-        user_list = []
-        users = self.db.cursor()
-        users.execute(q_users % id)
-        for id, site_id, uid, password, primary in users.fetchall():
-            user_list.append(backend.UserEntry(uid, password, primary))
+        rlogin_list = []
+        rlogins = self.db.cursor()
+        rlogins.execute(q_rlogins % id)
+        for id, site_id, uid, password, priority in rlogins.fetchall():
+            rlogin_list.append(backend.UserEntry(uid, password, priority))
         site = backend.SiteEntry(sid=name,
                                 ip_address=ip_address,
                                 port=port,
                                 location=location,
-                                user_list=user_list)
+                                rlogin_list=rlogin_list)
 
-        return user, site
+        return rlogin, site
 
-    def can_connect(self, user, site):
+    def can_connect(self, rlogin, site):
         q_domain = """
         select count(*) 
         from
             login,
             login_profile,
             profile,
-            profile_sgroup,
-            sgroup,
-            sgroup_site,
+            profile_domain,
+            domain,
+            domain_site,
             site,
-            user 
+            rlogin 
         where login.uid = '%s' 
           and login.id = login_profile.login_id 
           and login_profile.profile_id = profile.id 
-          and profile.id = profile_sgroup.profile_id 
-          and profile_sgroup.sgroup_id = sgroup.id
-          and sgroup.id = sgroup_site.sgroup_id
-          and sgroup_site.site_id = site.id
+          and profile.id = profile_domain.profile_id 
+          and profile_domain.domain_id = domain.id
+          and domain.id = domain_site.domain_id
+          and domain_site.site_id = site.id
           and site.name = '%s'
-          and user.site_id = site.id
-          and user.uid = '%s'  
+          and rlogin.site_id = site.id
+          and rlogin.uid = '%s'  
         """
         link = self.db.cursor()
-        link.execute(q_domain % (Q(self.login), Q(site), Q(user)))
+        link.execute(q_domain % (Q(self.login), Q(site), Q(rlogin)))
         gr = link.fetchone()[0]
         link.close()
         return gr
 
-    def list_allowed_sites(self, domain=None, user=None):
+    def list_allowed_sites(self, domain=None, login=None):
         q_domain = """
         select site.id,
                site.name,
                site.ip_address,
                site.port,
                site.location,
-               user.uid
+               rlogin.uid
         from
             login,
             login_profile,
             profile,
-            profile_sgroup,
-            sgroup,
-            sgroup_site,
+            profile_domain,
+            domain,
+            domain_site,
             site,
-            user 
+            rlogin 
         where login.uid = '%s' 
           and login.id = login_profile.login_id 
           and login_profile.profile_id = profile.id 
-          and profile.id = profile_sgroup.profile_id 
-          and profile_sgroup.sgroup_id = sgroup.id
-          and sgroup.id = sgroup_site.sgroup_id
-          and sgroup_site.site_id = site.id
-          and user.site_id = site.id
+          and profile.id = profile_domain.profile_id 
+          and profile_domain.domain_id = domain.id
+          and domain.id = domain_site.domain_id
+          and domain_site.site_id = site.id
+          and rlogin.site_id = site.id
         """
         if domain:
-            q_domain += """ and sgroup.name = '%s'""" % Q(domain)
-        q_domain += """ group by user.uid, site.name"""
-        if not user:
-            user = self.login
+            q_domain += """ and domain.name = '%s'""" % Q(domain)
+        q_domain += """ group by rlogin.uid, site.name"""
+        if not login:
+            login = self.login
         sites = self.db.cursor()
-        sites.execute(q_domain % (Q(user)))
+        sites.execute(q_domain % (Q(login)))
         p = []
         for id, name, ip_address, port, location, uid in sites.fetchall():
             p.append({ 'id': id,
