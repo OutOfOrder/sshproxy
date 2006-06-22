@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 21, 00:44:11 by david
+# Last modified: 2006 Jun 22, 22:54:54 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -63,7 +63,7 @@ def setup():
             if (len(secret1) + len(secret2)) < 20:
                 print "You must enter at least 10 characters"
             elif secret1 == secret2:
-                cfg['secret'] = secret
+                cfg['secret'] = secret1
                 break
             else:
                 print "Passphrases don't match"

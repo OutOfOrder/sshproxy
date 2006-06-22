@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 22, 01:08:31 by david
+# Last modified: 2006 Jun 22, 23:01:18 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -164,7 +164,6 @@ CREATE TABLE `site` (
     """
 
     def __init__(self, mysql):
-        
         self.mysql = mysql
         
     def run(self):
@@ -212,6 +211,7 @@ CREATE TABLE `site` (
             print "Please contact the maintainer on sshproxy-dev@penguin.fr"
             sys.exit(1)
 
+        self.mysql.db = db
         self.dbc = db.cursor()
 
 
