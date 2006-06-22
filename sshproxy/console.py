@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 11, 14:06:21 by david
+# Last modified: 2006 Jun 22, 02:18:05 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -67,8 +67,8 @@ class Console(cmd.Cmd):
         from backend import get_backend
         pwdb = get_backend()
         sites=[]
-        user = self._whoami().strip()
-        for site in pwdb.list_allowed_sites(user=user, domain=domain):
+        login = self._whoami().strip()
+        for site in pwdb.list_allowed_sites(login=login, domain=domain):
             sites.append((site['name'], site['uid'],
                           site['ip'], site['location']))
         sites.sort(lambda x, y: x[1] < y[1])
@@ -119,9 +119,10 @@ class Console(cmd.Cmd):
             domain = arg[0]
         sites = self._sites(domain=domain)
         if len(sites):
-            name_width = max([ len(e[0]) for e in sites ])
+            name_width = max([ len(e[0]) + len(e[1]) for e in sites ])
             for name, uid, ip, location in sites:
-                print '%s@%s [%s]' % (uid, name, location)
+                sid = '%s@%s' % (uid, name)
+                print sid, ' '*(name_width + 1 - len(sid)), '[ %s ]' % location
         print '\nTOTAL: %d ' % len(sites)
 
     def do_open(self, arg):

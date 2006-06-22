@@ -22,14 +22,13 @@ Legend of pictograms:
     - plugin path (defaults to /usr/lib/sshproxy) in the config file
     - clean installation with setup.py
     - write an ebuild
-    + cleanup and refactoring of the pwdb module
+    - database more coherent (rename columns and tables)
     + options can be given on the pssh command line (before sites) to be able
-      to optionally get rid of the console
+      to optionally get rid of the console (list-sites, add-key, get-pssh)
     + replace installdb with an option of sshproxyd
     + replace managedb with an option of sshproxyd
     * replace cipherdb with an option of sshproxyd (change passphrase / 
       cipher type)
-    * database more coherent (rename columns and tables)
     * write an init.d script
     ? admin password in the config file
     * update the web site with acks, docs
@@ -38,7 +37,8 @@ Legend of pictograms:
     * split ebuild in server, client and plugins
     * make Message protocole more robust
     * profiles gain more precise ACLs (access based on IP, hour... plugin ?)
-    * profiles will be optionally linked to rlogins
+    + profiles will be optionally linked to rlogins
+    + cleanup and refactoring of the pwdb module
     * remote sites will be reachable with keys instead of just password
     ? make the admin password the cipher key for the solo mode
 

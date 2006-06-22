@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 21, 01:00:26 by david
+# Last modified: 2006 Jun 22, 02:25:53 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -78,7 +78,6 @@ class ProxyServer(paramiko.ServerInterface):
     def check_channel_exec_request(self, channel, command):
         log.devdebug('check_channel_exec_request %s %s', channel, command)
         argv = command.split(' ', 1)
-        print argv
         args = []
         if argv[0] == 'scp':
             while True:
@@ -218,12 +217,14 @@ def service_client(client, addr, host_key_file):
         for action in userdata.actions:
             if action in ('-l', '--list-sites'):
                 sites = get_backend().list_allowed_sites()
-                print sites
+                name_width = max([ len(e['uid']) + len(e['name'])
+                                                    for e in sites ])
                 for site in sites:
-                    chan.send('%s@%s [%s]\r\n' % (
-                                                site['uid'],
-                                                site['name'],
-                                                site['location'])) 
+                    sid = '%s@%s' % (site['uid'], site['name'])
+                    chan.send('%s %s [%s]\r\n' % (sid,
+                                            ' '*(name_width + 1 - len(sid)),
+                                            site['location'])) 
+                chan.send('\r\nTOTAL: %d\r\n' % len(sites))
             else:
                 chan.send("Unknown option %s\r\n" % action)
 
