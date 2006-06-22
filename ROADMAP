@@ -26,8 +26,8 @@ Legend of pictograms:
     + options can be given on the pssh command line (before sites) to be able
       to optionally get rid of the console (list-sites, add-key, get-pssh)
     + replace installdb with an option of sshproxyd
-    + replace managedb with an option of sshproxyd
-    * replace cipherdb with an option of sshproxyd (change passphrase / 
+    - replace managedb with an option of sshproxyd
+    - replace cipherdb with an option of sshproxyd (change passphrase / 
       cipher type)
     * write an init.d script
     ? admin password in the config file

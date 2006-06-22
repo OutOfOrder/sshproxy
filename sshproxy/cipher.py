@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 15, 13:58:16 by david
+# Last modified: 2006 Jun 23, 01:48:04 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -167,3 +167,96 @@ def _init_cipher():
 _init_cipher()
 
 reload = _init_cipher
+
+
+#######################################################################
+### Recipher database
+#######################################################################
+
+
+def recipher(cipher_type, password_fd, dry_run=False):
+    import sys, getpass
+    from sshproxy.backend import get_backend
+
+    conf = get_config()
+
+    newsecret = ''
+    if cipher_type == 'blowfish':
+        if conf['sshproxy']['cipher_type'] == 'blowfish':
+            print("Recipher from blowfish to blowfish does not work"
+                  "at the moment.\nPlease recipher to base64 first, "
+                  "then recipher to blowfish.")
+            print "Sorry for the inconvenience."
+            sys.exit(0)
+        try:
+            if password_fd == True:
+                newsecret = conf['blowfish']['secret']
+            elif not password_fd:
+                sec1 = 1
+                sec2 = 2
+                while not sec1 or sec1 != sec2:
+                    sec1 = getpass.getpass("Enter secret (1/2) ")
+                    sec2 = getpass.getpass("Enter secret (2/2) ")
+                newsecret = sec1
+            else:
+                try:
+                    newsecret = password_fd.readlines()[0].strip()
+                except IndexError:
+                    newsecret = ''
+        except (KeyboardInterrupt, EOFError):
+            print 'Aborted...'
+            sys.exit(0)
+        if len(newsecret) < 10:
+            print 'Secret must be at least 10 characters long.'
+            sys.exit(0)
+    elif cipher_type not in ('plain', 'base64'):
+        print "unknown cipher_type", cipher_type
+        sys.exit(1)
+    
+    
+    if cipher_type == 'blowfish':
+        conf['blowfish']['newsecret'] = newsecret
+        dry_run or conf.write() # just in case it goes wrong in the middle
+    
+    pwdb = get_backend()
+    c = pwdb.db.cursor()
+    
+    users = c.execute("""
+        select  rlogin.id,
+                rlogin.uid,
+                site.name,
+                rlogin.password
+            from rlogin, site
+            where rlogin.site_id = site.id
+        """)
+    
+    n = 0
+    total = 0
+    for id, uid, site, password in c.fetchall():
+        # decipher with old secret
+        oldpass = decipher(password)
+        # cipher with new secret
+        newpass = cipher(oldpass, type=cipher_type, secret=newsecret)
+        if oldpass != decipher(newpass, secret=newsecret):
+            raise KeyError('Problem with %s cipher on user %s@%s (%d)!' %
+                                                (cipher_type, uid, site, id))
+        if dry_run:
+            print '-- %s@%s [ %s / %s / %s ]' % (uid, site,
+                                               password, oldpass, newpass)
+            print 
+        if password != newpass:
+            dry_run or pwdb.set_rlogin_password(uid, site, newpass)
+            n += 1
+        total += 1
+    
+    c.close()
+    
+    if cipher_type == 'blowfish':
+        del conf['blowfish']['newsecret']
+        # update secret
+        conf['blowfish']['secret'] = newsecret
+    conf['sshproxy']['cipher_type'] = cipher_type
+    dry_run or conf.write()
+    print 'Reciphered %d on %d passwords' % (n, total)
+
+
