@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 22, 01:09:17 by david
+# Last modified: 2006 Jun 23, 21:16:23 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -214,7 +214,7 @@ class MySQLBackend(backend.PasswordDatabase):
         q_domain = """
             insert into domain (name) values ('%s')
         """
-        if self.get_group(name):
+        if self.get_domain(name):
             return None
         domain = self.db.cursor()
         domain.execute(q_domain % Q(name))
@@ -225,11 +225,11 @@ class MySQLBackend(backend.PasswordDatabase):
         q = """
             delete from domain where name = '%s'
         """
-        group_id = self.get_id('domain', name)
-        if not group_id:
+        domain_id = self.get_id('domain', name)
+        if not domain_id:
             return False
-        self.unlink_profile_domain(None, group_id)
-        self.unlink_domain_site(group_id, None)
+        self.unlink_profile_domain(None, domain_id)
+        self.unlink_domain_site(domain_id, None)
         domain = self.db.cursor()
         domain.execute(q % Q(name))
         domain.close()
