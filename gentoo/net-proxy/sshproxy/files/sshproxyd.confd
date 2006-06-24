@@ -1,0 +1,5 @@
+
+# put here any options you want sshproxyd to be run with
+SSHPROXYD_OPTS="-c /home/sshproxy/.sshproxy"
+
+SSHPROXYD_USER="sshproxy"

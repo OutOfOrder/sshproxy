@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 22, 02:25:53 by david
+# Last modified: 2006 Jun 24, 17:39:59 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -441,7 +441,7 @@ def _run_server():
     init_plugins()
 
     # get host key
-    host_key_file = os.path.join(os.environ['HOME'], '.sshproxy/id_dsa')
+    host_key_file = os.path.join(config.inipath, 'id_dsa')
     if not os.path.isfile(host_key_file):
         # XXX: paramiko knows how to do that now, IIRC
         # generate host key

@@ -18,3 +18,18 @@ DEPEND=">=dev-lang/python-2.4.0
 		mysql? ( >=dev-python/mysql-python-1.2.0 )"
 RDEPEND=""
 
+src_install () {
+	distutils_src_install
+
+	# init/conf files for sshproxy daemon
+	newinitd ${FILESDIR}/sshproxy.initd sshproxyd
+	newconfd ${FILESDIR}/sshproxy.confd sshproxyd
+}
+
+pkg_postinst () {
+	einfo "If this is your first installation, run sshproxyd --wizard to"
+	einfo "initialize the backend"
+	distutils_pkg_postinst
+}
+
+

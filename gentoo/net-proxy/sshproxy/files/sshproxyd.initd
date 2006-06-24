@@ -1,0 +1,19 @@
+#!/sbin/runscript
+
+opts="depend start stop"
+
+depend() {
+	use logger
+}
+
+start() {
+	ebegin "Starting SshProxy daemon"
+	start-stop-daemon --start --background --pidfile /var/run/sshproxyd.pid --make-pidfile --chuid ${SSHPROXYD_USER:-sshproxy} --exec /usr/bin/sshproxyd -- ${SSHPROXYD_OPTS}
+	eend $?
+}
+
+stop() {
+	ebegin "Stopping SshProxy daemon"
+	start-stop-daemon --quiet --stop --pidfile /var/run/sshproxyd.pid
+	eend $?
+}
