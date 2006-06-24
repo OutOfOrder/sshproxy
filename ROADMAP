@@ -37,6 +37,7 @@ Legend of pictograms:
     * split ebuild in server, client and plugins
     * make Message protocole more robust
     * profiles gain more precise ACLs (access based on IP, hour... plugin ?)
+    * make sshproxyd accept two more options: --daemon and --user
     + profiles will be optionally linked to rlogins
     + cleanup and refactoring of the pwdb module
     * remote sites will be reachable with keys instead of just password

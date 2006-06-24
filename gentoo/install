@@ -23,7 +23,7 @@ gentoo="$(dirname $0)"
 # cleanup old files
 sudo rm -f /usr/portage/distfiles/sshproxy-${version}.tar.gz
 rm -f "$tarball"
-rm -rf "$gentoo"/net-proxy/sshproxy/{Manifest,files}
+rm -rf "$gentoo"/net-proxy/sshproxy/Manifest
 
 # generate the new tarball
 cg-export "$tarball"
