@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 23, 21:16:23 by david
+# Last modified: 2006 Jun 25, 01:21:39 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -685,7 +685,7 @@ class MySQLBackend(backend.PasswordDatabase):
             raise SSHProxyAuthError("No such rlogin: %s" % site_id)
         rlogin = rlogin[0]
         rlogins.close()
-        if not self.can_connect(rlogin, sid):
+        if self.login and not self.can_connect(rlogin, sid):
             raise SSHProxyAuthError(
                 "User %s is not allowed to connect to %s@%s" % (self.login, 
                                                                 rlogin, sid))

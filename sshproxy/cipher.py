@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 23, 01:48:04 by david
+# Last modified: 2006 Jun 25, 01:44:06 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -183,7 +183,7 @@ def recipher(cipher_type, password_fd, dry_run=False):
     newsecret = ''
     if cipher_type == 'blowfish':
         if conf['sshproxy']['cipher_type'] == 'blowfish':
-            print("Recipher from blowfish to blowfish does not work"
+            print("Recipher from blowfish to blowfish does not work "
                   "at the moment.\nPlease recipher to base64 first, "
                   "then recipher to blowfish.")
             print "Sorry for the inconvenience."
@@ -219,37 +219,37 @@ def recipher(cipher_type, password_fd, dry_run=False):
         dry_run or conf.write() # just in case it goes wrong in the middle
     
     pwdb = get_backend()
-    c = pwdb.db.cursor()
-    
-    users = c.execute("""
-        select  rlogin.id,
-                rlogin.uid,
-                site.name,
-                rlogin.password
-            from rlogin, site
-            where rlogin.site_id = site.id
-        """)
     
     n = 0
     total = 0
-    for id, uid, site, password in c.fetchall():
-        # decipher with old secret
-        oldpass = decipher(password)
-        # cipher with new secret
-        newpass = cipher(oldpass, type=cipher_type, secret=newsecret)
-        if oldpass != decipher(newpass, secret=newsecret):
-            raise KeyError('Problem with %s cipher on user %s@%s (%d)!' %
-                                                (cipher_type, uid, site, id))
-        if dry_run:
-            print '-- %s@%s [ %s / %s / %s ]' % (uid, site,
-                                               password, oldpass, newpass)
-            print 
-        if password != newpass:
-            dry_run or pwdb.set_rlogin_password(uid, site, newpass)
-            n += 1
-        total += 1
+    sites = [ pwdb.get_rlogin_site(site['name'])[1]
+                                            for site in pwdb.list_sites() ]
+    site_done = []
+    for siteentry in sites:
+        site = siteentry.sid
+        if site in site_done:
+            continue
+        site_done.append(site)
+        for rlogin in siteentry.rlogins.values():
+            uid = rlogin.uid
+            password = rlogin.password
+        
+            # decipher with old secret
+            oldpass = decipher(password)
+            # cipher with new secret
+            newpass = cipher(oldpass, type=cipher_type, secret=newsecret)
+            if oldpass != decipher(newpass, secret=newsecret):
+                raise KeyError('Problem with %s cipher on user %s@%s!' %
+                                                    (cipher_type, uid, site))
+            if dry_run:
+                print '-- %s@%s [ %s / %s / %s ]' % (uid, site,
+                                                   password, oldpass, newpass)
+                print 
+            if password != newpass:
+                dry_run or pwdb.set_rlogin_password(uid, site, newpass)
+                n += 1
+            total += 1
     
-    c.close()
     
     if cipher_type == 'blowfish':
         del conf['blowfish']['newsecret']

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 22, 01:02:08 by david
+# Last modified: 2006 Jun 25, 01:36:28 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -204,6 +204,23 @@ class FileBackend(PasswordDatabase):
 
     def can_connect(self, rlogin, site):
         return True
+
+    def set_rlogin_password(self, rlogin, site, password):
+        site_file = os.path.join(self.db_path, site)
+        if not os.path.exists(site_file):
+            return None, None
+
+        file = ConfigParser()
+        file.read(site_file)
+
+        if not file.has_section(rlogin):
+            return False
+
+        file.set(rlogin, 'password', password)
+
+        file.write(open(site_file, 'w'))
+        return True
+
 
 
 FileBackend.register_backend()
