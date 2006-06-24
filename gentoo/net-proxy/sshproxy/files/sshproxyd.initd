@@ -8,12 +8,20 @@ depend() {
 
 start() {
 	ebegin "Starting SshProxy daemon"
-	start-stop-daemon --start --background --pidfile /var/run/sshproxyd.pid --make-pidfile --chuid ${SSHPROXYD_USER:-sshproxy} --exec /usr/bin/sshproxyd -- ${SSHPROXYD_OPTS}
+    if [ -z "$SSHPROXYD_PID" ]; then
+        SSHPROXYD_PID=/var/run/sshproxyd.pid
+    fi
+    if [ -z "$SSHPROXYD_USER" ]; then
+        echo "I'm not going to run as root."
+        eend 1
+        exit
+    fi
+	start-stop-daemon --start --pidfile "${SSHPROXYD_PID}" --exec /usr/bin/sshproxyd -- --daemon --user "${SSHPROXYD_USER}" --pid "${SSHPROXYD_PID}"
 	eend $?
 }
 
 stop() {
 	ebegin "Stopping SshProxy daemon"
-	start-stop-daemon --quiet --stop --pidfile /var/run/sshproxyd.pid
+	start-stop-daemon --quiet --stop --pidfile "${SSHPROXYD_PID}"
 	eend $?
 }

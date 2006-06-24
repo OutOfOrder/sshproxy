@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 15, 13:56:00 by david
+# Last modified: 2006 Jun 24, 23:51:22 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+
+import pwd
 
 import log
 
@@ -63,8 +65,28 @@ class CommandLine(object):
             args = self.args
         return ' '.join(args)
 
-
-
-
 SUSPEND, SWITCH, CLOSE = range(-4, -1)
+
+
+def getgid(username): # Credits: TMDA
+    """Return username's numerical group ID."""
+    return pwd.getpwnam(username)[3]
+
+def getgrouplist(username): # Credits: TMDA
+    """Read through the group file and calculate the group access
+    list for the specified user.  Return a list of group ids."""
+    import grp
+    # calculate the group access list
+    gids = [ i[2] for i in grp.getgrall() if username in i[-1] ]
+    # include the base gid
+    gids.insert(0, getgid(username))
+    return gids
+
+def getuid(username): # Credits: TMDA
+    """Return username's numerical user ID."""
+    return pwd.getpwnam(username)[2]
+
+def gethomedir(username): # Credits: TMDA
+    """Return the home directory of username."""
+    return pwd.getpwnam(username)[5]
 

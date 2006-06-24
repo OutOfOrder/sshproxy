@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 23, 00:24:07 by david
+# Last modified: 2006 Jun 25, 00:22:12 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,17 +19,26 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
-import sys, os
+import sys, os, pwd
 from optparse import OptionParser
 
 
 __VERSION__ = (0, 4, 0)
 
 parser = OptionParser()
+parser.add_option("-d", "--daemon", dest="daemon", default=False,
+                    help="start in background.", action="store_true")
+parser.add_option("-p", "--pid", dest="pid", default='/var/run/sshproxyd.pid',
+                    help="set pid file (default: /var/run/sshproxyd.pid). "
+                         "This option is only effective with --daemon.",
+                    metavar="PIDFILE")
+parser.add_option("-u", "--user", dest="user", default=None,
+                    help="start as user USER, usefull with --daemon.",
+                    metavar="USER")
 parser.add_option("-c", "--config-dir", dest="config", default=None,
-                    help="configuration directory", metavar="CFGDIR")
+                    help="configuration directory.", metavar="CFGDIR")
 parser.add_option("-w", "--wizard", dest="wizard", default=False,
-                    help="run setup wizard", action="store_true")
+                    help="run setup wizard.", action="store_true")
 parser.add_option("", "--cipher", dest="cipher", default=None,
                     help="cipher rlogin passwords with ENGINE. "
                          "ENGINE can be one of plain, base64 or blowfish. "
@@ -39,7 +48,7 @@ parser.add_option("", "--cipher", dest="cipher", default=None,
                     metavar="ENGINE")
 parser.add_option("-k", "--keep", dest="keep", default=False,
                     help="Along with --cipher, keep the old secret "
-                         "(do not ask for a new secret)."
+                         "(do not ask for a new secret). "
                          "This option has no effect with other options.",
                     action="store_true")
 parser.add_option("-n", "--dry-run", dest="dry_run", default=False,
@@ -47,7 +56,7 @@ parser.add_option("-n", "--dry-run", dest="dry_run", default=False,
                          "This option has no effect with other options.",
                     action="store_true")
 parser.add_option("-b", "--backend", dest="backend", default=False,
-                    help="run backend console", action="store_true")
+                    help="run backend console.", action="store_true")
 
 (options, args) = parser.parse_args()
 
@@ -56,6 +65,9 @@ parser.add_option("-b", "--backend", dest="backend", default=False,
 #os.environ['SSHPROXY_CONFIG'] = configdir
 os.environ['SSHPROXY_CONFIG'] = (options.config
                                 or os.environ.get('SSHPROXY_CONFIG', ''))
+if not os.environ['SSHPROXY_CONFIG'] and options.user:
+    os.environ['SSHPROXY_CONFIG'] = os.path.join(pwd.getpwnam(options.user)[5],
+                                                    '.sshproxy')
 
 if options.wizard:
     from sshproxy import wizard
@@ -86,6 +98,15 @@ elif options.cipher:
 
 
 else: # normal run
-    from sshproxy.daemon import run_server
-    run_server()
+    from sshproxy.daemon import run_daemon
+    if os.getuid() == 0:
+        if not options.user:
+            print "Could not run as root."
+            print "Please give an unpriviledged username with --user."
+            sys.exit(1)
+    else:
+        if options.user:
+            print "Warning: the --user option has no effect is not run as root."
+
+    run_daemon(options.daemon, options.user, options.pid)
 

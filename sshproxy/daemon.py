@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 24, 17:39:59 by david
+# Last modified: 2006 Jun 25, 00:32:33 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -432,12 +432,7 @@ def kill_zombies(signum, frame):
         
 
 
-def _run_server():
-    conf = config.get_config('sshproxy')
-    ip = conf['bindip']
-    port = conf['port']
-
-
+def _run_server(sock):
     init_plugins()
 
     # get host key
@@ -451,17 +446,6 @@ def _run_server():
     # set up the child killer handler
     signal.signal(signal.SIGCHLD, kill_zombies)
 
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((ip, port))
-        sock.listen(100)
-        print "Server ready, clients may login now ..."
-        log.debug('Listening for connection ...')
-    except Exception, e:
-        log.exception("ERROR: Couldn't bind on port %s" % port)
-        print "ERROR: Couldn't bind on port %s" % port
-        sys.exit(0)
 
     try:
         while True:
@@ -496,13 +480,34 @@ def _run_server():
             pass
             
 
+def bind_server():
+    conf = config.get_config('sshproxy')
+    ip = conf['bindip']
+    port = conf['port']
+
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((ip, port))
+        sock.listen(100)
+        print "Server ready, clients may login now ..."
+        log.debug('Listening for connection ...')
+    except Exception, e:
+        log.exception("ERROR: Couldn't bind on port %s" % port)
+        print "ERROR: Couldn't bind on port %s" % port
+        sys.exit(0)
+
+    return sock
 
 
-def run_server():
+def run_server(sock=None):
     log.info("sshproxy starting")
+
     try:
         try:
-            _run_server()
+            if sock is None:
+                sock = bind_server()
+            _run_server(sock)
         except KeyboardInterrupt:
             return
         except:
@@ -510,6 +515,35 @@ def run_server():
                                                     " AUTORESTARTING...")
     finally:
         log.info("sshproxy ending")
+
+
+def run_daemon(daemonize, user, pidfile): # Credits: portions of code from TMDA
+    sock = bind_server()
+
+    try:
+        pidfd = open(pidfile, 'w')
+    except IOError:
+        print "Warning: could not open %s for writing" % pidfile
+        pidfd = None
+
+    if os.getuid() == 0:
+        uid = util.getuid(user)
+        os.setegid(util.getgid(user))
+        os.setgroups(util.getgrouplist(user))
+        os.seteuid(uid)
+
+    if daemonize:
+        signal.signal(signal.SIGHUP, signal.SIG_IGN)
+        if os.fork() != 0:
+            sys.exit(0)
+
+    if pidfd:
+        pidfd.write('%d\n' % os.getpid())
+        pidfd.close()
+
+    run_server(sock)
+
+
 
 if __name__ == '__main__':
     run_server()

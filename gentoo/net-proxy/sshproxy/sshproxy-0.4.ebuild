@@ -18,6 +18,12 @@ DEPEND=">=dev-lang/python-2.4.0
 		mysql? ( >=dev-python/mysql-python-1.2.0 )"
 RDEPEND=""
 
+pkg_setup() {
+	enewgroup ${PN}
+	enewuser ${PN} -1 -1 /var/lib/sshproxy ${PN}
+}
+
+
 src_install () {
 	distutils_src_install
 

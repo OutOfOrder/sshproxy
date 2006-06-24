@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 20, 01:21:27 by david
+# Last modified: 2006 Jun 25, 00:01:48 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -250,7 +250,7 @@ Config.register_handler('sshproxy', SSHproxyConfigSection)
 
 inipath = os.environ.get('SSHPROXY_CONFIG', '')
 if not inipath:
-    inipath = '%s/.sshproxy' % os.environ['HOME']
+    inipath = os.path.join(os.environ['HOME'], '.sshproxy')
 inipath = os.path.join(os.getcwd(), inipath)
 inifile = '%s/sshproxy.ini' % inipath
 if not os.environ.has_key('SSHPROXY_WIZARD'):

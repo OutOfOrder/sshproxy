@@ -25,11 +25,12 @@ Legend of pictograms:
     - database more coherent (rename columns and tables)
     + options can be given on the pssh command line (before sites) to be able
       to optionally get rid of the console (list-sites, add-key, get-pssh)
-    + replace installdb with an option of sshproxyd
-    - replace managedb with an option of sshproxyd
+    + replace installdb with an option of sshproxyd (--wizard)
+    - replace managedb with an option of sshproxyd (--backend)
     - replace cipherdb with an option of sshproxyd (change passphrase / 
-      cipher type)
-    + write an init.d script
+      cipher type) (--cipher)
+    - write an init.d script
+    - make sshproxyd accept three more options: --daemon, --pid and --user
     ? admin password in the config file
     * update the web site with acks, docs
 
@@ -37,10 +38,10 @@ Legend of pictograms:
     * split ebuild in server, client and plugins
     * make Message protocole more robust
     * profiles gain more precise ACLs (access based on IP, hour... plugin ?)
-    * make sshproxyd accept two more options: --daemon and --user
     + profiles will be optionally linked to rlogins
     + cleanup and refactoring of the pwdb module
     * remote sites will be reachable with keys instead of just password
+    * make it simpler in mysqlbackend to add user in bulk mode
     ? make the admin password the cipher key for the solo mode
 
 0.6
