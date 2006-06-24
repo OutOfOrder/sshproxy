@@ -22,8 +22,8 @@ src_install () {
 	distutils_src_install
 
 	# init/conf files for sshproxy daemon
-	newinitd ${FILESDIR}/sshproxy.initd sshproxyd
-	newconfd ${FILESDIR}/sshproxy.confd sshproxyd
+	newinitd ${FILESDIR}/sshproxyd.initd sshproxyd
+	newconfd ${FILESDIR}/sshproxyd.confd sshproxyd
 }
 
 pkg_postinst () {
