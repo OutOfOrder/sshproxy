@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 25, 00:32:33 by david
+# Last modified: 2006 Jun 25, 00:51:29 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -495,7 +495,7 @@ def bind_server():
     except Exception, e:
         log.exception("ERROR: Couldn't bind on port %s" % port)
         print "ERROR: Couldn't bind on port %s" % port
-        sys.exit(0)
+        sys.exit(1)
 
     return sock
 
