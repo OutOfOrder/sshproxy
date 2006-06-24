@@ -22,6 +22,9 @@ start() {
 
 stop() {
 	ebegin "Stopping SshProxy daemon"
+    if [ -z "$SSHPROXYD_PID" ]; then
+        SSHPROXYD_PID=/var/run/sshproxyd.pid
+    fi
 	start-stop-daemon --quiet --stop --pidfile "${SSHPROXYD_PID}"
 	eend $?
 }
