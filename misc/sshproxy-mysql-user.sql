@@ -1,4 +1,4 @@
 GRANT USAGE ON * . * TO 'sshproxy'@'localhost' IDENTIFIED BY 'sshproxypw' WITH MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 ;
 
-GRANT SELECT , INSERT , UPDATE , DELETE ON `sshproxy` . * TO 'sshproxy'@'localhost';
+GRANT ALL ON `sshproxy` . * TO 'sshproxy'@'localhost';
 
