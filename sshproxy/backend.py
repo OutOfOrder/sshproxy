@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 25, 01:36:28 by david
+# Last modified: 2006 Jun 25, 22:57:45 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -53,15 +53,15 @@ get_backend = PasswordDatabase()
 
 
 class UserEntry(object):
-    def __init__(self, uid, password, primary=0):
+    def __init__(self, uid, password, priority=0):
         self.uid = uid
         self.password = password
-        self.primary = primary
+        self.priority = priority
 
     def __repr__(self):
         return str({'uid': self.uid,
                     'password': '*'*len(self.password),
-                    'primary': self.primary})
+                    'priority': self.priority})
 
 class SiteEntry(object):
     def __init__(self, sid, ip_address=None, port=22, location=None,
@@ -80,7 +80,7 @@ class SiteEntry(object):
 
     def default_rlogin(self):
         for u in self.rlogins.keys():
-            if self.rlogins[u].primary:
+            if self.rlogins[u].priority:
                 return u
         return None
 
@@ -150,15 +150,15 @@ class FileBackend(PasswordDatabase):
         rlogin_list = []
         for sect in file.sections():
             try:
-                primary = file.getint(sect, 'primary')
+                priority = file.getint(sect, 'priority')
             except NoOptionError:
-                primary = 0
+                priority = 0
             rlogin_list.append(UserEntry(
                     sect,
                     file.get(sect, 'password'),
-                    primary))
+                    priority))
 
-        rlogin_list.sort(cmp=lambda x,y: cmp(x.primary, y.primary),
+        rlogin_list.sort(cmp=lambda x,y: cmp(x.priority, y.priority),
                                                     reverse=True)
 
         if not rlogin:
