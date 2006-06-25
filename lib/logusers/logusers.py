@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 15, 14:00:01 by david
+# Last modified: 2006 Jun 25, 22:04:22 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,12 +22,15 @@
 
 import os.path
 
-from sshproxy.config import get_config, Config, ConfigSection
+from sshproxy.config import get_config, Config, ConfigSection, path
 from sshproxy import keys
 
 class LogUsersConfigSection(ConfigSection):
     section_defaults = {
-        'logdir': '/tmp/sshproxy_logusers',
+        'logdir': '@logusers',
+        }
+    types = {
+        'logdir': path,
         }
 
 Config.register_handler('logusers', LogUsersConfigSection)
