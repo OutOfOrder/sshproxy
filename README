@@ -1,5 +1,5 @@
 ==============
-About SSHproxy
+About sshproxy
 ==============
 
     Author:         David Guerizec <david@guerizec.net>
@@ -7,10 +7,10 @@ About SSHproxy
     Contributor:    Erick Michau <emichau@wallix.com>
 
 
-About SSHproxy
+About sshproxy
 ==============
 
-SSHproxy is a pure python implementation of an ssh proxy.
+sshproxy is a pure python implementation of an ssh proxy.
 
 It allows users to connect to remote sites without having to remember the
 password or key of the remote sites.
@@ -19,11 +19,24 @@ password or key of the remote sites.
 Why would I need it ?
 =====================
 
+There are three possible scenarios which could possibly interest you.
+
+If you have other scenarios, please send them to me (david@guerizec.net)
+or to the list (sshproxy@penguin.fr).
+
+
+Scenario 1: Solo mode
+---------------------
+
 If you have a lot of remote servers to administrate, this will relieve you
 from doing the boring task of opening your password database, copy-paste the
 IP address, copy-paste the password to connect to a remote site. You only have
-to know one password (to connect to the proxy) and SSHproxy will do the rest
-for you.
+to know one password (to connect to the proxy) and sshproxy will do the rest
+for you. You can also connect to the proxy with a public key, thus allowing
+yourself to forgot about any password.
+
+Scenario 2: Team mode
+---------------------
 
 Another, more interresting, example: if you're in charge of a lot of remote
 sites, and your company has several administrators to do some remote
@@ -32,10 +45,20 @@ of the servers he administrates. When an employee quit your company, you just
 have to delete his entry in the proxy database, and he will never be able to
 connect to the remote site. This will protect your business against turn-over.
 
+Scenario 3: Forwarding mode
+---------------------------
+
+You want to allow some people to connect through your firewall to a range of
+server inside your DMZ or LAN, but you don't want to open one port for each
+server. What you can do is open the sshproxy port (default 2242), and setup
+the password database to proxy each external user to it's own desktop, or
+create groups of users allowed to connect to your DMZ servers.
+
+
 How does it work ?
 ==================
 
-SSHproxy is a daemon sitting on one of your server in your LAN or DMZ.
+sshproxy is a daemon sitting on one of your server in your LAN or DMZ.
 
 The user connect to it with an ssh client, and the proxy will authenticate
 her and check if she's allowed to connect to the remote site.
@@ -50,7 +73,7 @@ and/or scp tranfers almost transparently.
 What else do I need to make it work?
 ====================================
 
-SSHproxy requires:
+sshproxy requires:
   - python >=2.3
   - paramiko >=1.5.3
   - pycrypto (needed for paramiko)
@@ -59,89 +82,48 @@ SSHproxy requires:
 How do I install it ?
 =====================
 
-See the file INSTALL at the root directory of the SSHproxy package.
-
-For a fast installation path, just run the installdb script and answer all
-the questions. The database will be created for you. Then run ./sshproxy to
-launch the daemon.
+See the file INSTALL at the root directory of the sshproxy package.
 
 How do I use it ?
 =================
 
-Here is an overview of a normal ssh session:
+Here is an overview of a normal ssh session::
 
- me@myhost $ ssh -tp 2242 me@proxy remote-site
- root@remote-site #
- ... doing some administration commands ...
- root@remote-site # exit
- me@myhost $
+    me@myhost $ ssh -tp 2242 me@proxy remote-site
+    root@remote-site #
+    ... doing some administration commands ...
+    root@remote-site # exit
+    me@myhost $
 
-Here is an example of an scp transfert:
+Here is the same with the pssh shell wrapper::
 
- me@myhost $ scp /etc/issue me@proxy:root@remote-site:/etc/issue.new
- me@myhost $
+    me@myhost $ pssh remote-site
+    root@remote-site #
+    ... doing some administration commands ...
+    root@remote-site # exit
+    me@myhost $
 
-Here is an overview of multiple connections:
+You can also execute remote commands::
 
- me@myhost $ ssh -tp 2242 me@proxy
- [proxy::ssh proxy] connect nova
- Last login: Sat Jan 21 17:18:20 2006 from 10.10.4.2
- supernova ~ # ^X
- [proxy::ssh proxy] connect pundit@pundit
- Last login: Mon Jan 23 04:56:24 2006 from 192.168.1.7
- pundit@pundit ~ $ ^X
- [proxy::ssh proxy] list_connections
- 0 root@nova
- 1 pundit@pundit
- [proxy::ssh proxy] switch 0
- supernova ~ # ^D
- [proxy::ssh proxy] list_connections
- 0 pundit@pundit
- [proxy::ssh proxy] back
- pundit@pundit ~ $ ^D
- [proxy::ssh proxy] ^D
- me@myhost $
+    me@myhost $ pssh remote-site uname -a
+    nova.wallix.com
+    me@myhost $
 
+Here is an example of an scp transfert::
 
-Here is an overview of the SSHproxy console commands:
+    me@myhost $ scp /etc/issue me@proxy:root@remote-site:/etc/issue.new
+    me@myhost $
 
- me@myhost $ ssh -tp admin@proxy
- admin@proxy's password: 
- [proxy::ssh proxy] help
+And the same with the pscp shell wrapper::
+
+    me@myhost $ pscp /etc/issue remote-site:/etc/issue.new
+    me@myhost $
  
- Documented commands (type help <topic>):
- ========================================
- back  connect  list_connections  manage_pwdb  shell  switch
- 
- Undocumented commands:
- ======================
- EOF  help
- 
- [proxy::ssh proxy] manage_pwdb
- [pwdb manager] help
- 
- Documented commands (type help <topic>):
- ========================================
- add_group             add_site            list_logins            list_users
- add_login             add_site_to_group   list_profile_group     select_site
- add_login_to_profile  add_user            list_profiles
- add_profile           list_groups         list_sites
- add_profile_to_group  list_login_profile  list_sites_from_group
- 
- Undocumented commands:
- ======================
- EOF  exit  help
- 
- [pwdb manager] ^D
- [proxy::ssh proxy] ^D
- me@myhost $
-
-See the documentation for more information about the consoles' commands.
 
 How much does it cost ?
 =======================
 
-SSHproxy is a free software licenced under the GPL v2.0. As such it's free,
+sshproxy is a free software licenced under the GPL v2.0. As such it's free,
 and you can use it as long as you want for free.
 
 -- 

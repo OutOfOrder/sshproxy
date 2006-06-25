@@ -23,14 +23,13 @@ Legend of pictograms:
     - clean installation with setup.py
     - write an ebuild
     - database more coherent (rename columns and tables)
-    + replace installdb with an option of sshproxyd (--wizard)
+    - replace installdb with an option of sshproxyd (--wizard)
     - replace managedb with an option of sshproxyd (--backend)
     - replace cipherdb with an option of sshproxyd (change passphrase / 
       cipher type) (--cipher)
     - write an init.d script
     - make sshproxyd accept three more options: --daemon, --pid and --user
-    ? admin password in the config file
-    * update the web site with acks, docs
+    - update the web site with acks, docs
 
 0.5
     * split ebuild in server, client and plugins
@@ -41,8 +40,10 @@ Legend of pictograms:
     + profiles will be optionally linked to rlogins
     + cleanup and refactoring of the pwdb module
     * remote sites will be reachable with keys instead of just password
-    * make it simpler in mysqlbackend to add user in bulk mode
+    * make it simpler in mysqlbackend to add users in bulk mode
+    * make a wizard and a console for the file backend
     ? make the admin password the cipher key for the solo mode
+    ? admin account in the config file
 
 0.6
     * http access to manage the database
