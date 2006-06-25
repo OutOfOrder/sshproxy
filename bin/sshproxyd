@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 25, 00:22:12 by david
+# Last modified: 2006 Jun 25, 02:18:08 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -98,7 +98,6 @@ elif options.cipher:
 
 
 else: # normal run
-    from sshproxy.daemon import run_daemon
     if os.getuid() == 0:
         if not options.user:
             print "Could not run as root."
@@ -108,5 +107,6 @@ else: # normal run
         if options.user:
             print "Warning: the --user option has no effect is not run as root."
 
+    from sshproxy.daemon import run_daemon
     run_daemon(options.daemon, options.user, options.pid)
 

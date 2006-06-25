@@ -31,9 +31,9 @@ cg-export "$tarball"
 
 # upload it
 $UPLOAD_METHOD "$tarball" $SRC_URI_UPLOAD
-
-if [ $? -ne 0 ]; then
-    echo "Problem uploading $tarball to $SRC_URI_UPLOAD"
+ret=$?
+if [ $ret -ne 1 ]; then
+    echo "Problem($ret) uploading $tarball to $SRC_URI_UPLOAD"
     echo "Did you start sshproxyd ?"
     exit 1
 fi
