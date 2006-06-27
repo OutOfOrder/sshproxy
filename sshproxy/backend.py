@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 25, 22:57:45 by david
+# Last modified: 2006 Jun 26, 23:26:39 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -53,14 +53,16 @@ get_backend = PasswordDatabase()
 
 
 class UserEntry(object):
-    def __init__(self, uid, password, priority=0):
+    def __init__(self, uid, password, pkey='', priority=0):
         self.uid = uid
         self.password = password
+        self.pkey = pkey
         self.priority = priority
 
     def __repr__(self):
         return str({'uid': self.uid,
                     'password': '*'*len(self.password),
+                    'pkey': ['no', 'yes'][bool(self.pkey)],
                     'priority': self.priority})
 
 class SiteEntry(object):
@@ -154,9 +156,10 @@ class FileBackend(PasswordDatabase):
             except NoOptionError:
                 priority = 0
             rlogin_list.append(UserEntry(
-                    sect,
-                    file.get(sect, 'password'),
-                    priority))
+                    uid=sect,
+                    password=file.get(sect, 'password'),
+                    pkey=file.get(sect, 'pkey'),
+                    priority=priority))
 
         rlogin_list.sort(cmp=lambda x,y: cmp(x.priority, y.priority),
                                                     reverse=True)

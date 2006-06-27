@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 25, 00:51:29 by david
+# Last modified: 2006 Jun 27, 01:08:08 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -430,18 +430,21 @@ def kill_zombies(signum, frame):
     except OSError:
         pass
         
-
-
 def _run_server(sock):
     init_plugins()
 
     # get host key
     host_key_file = os.path.join(config.inipath, 'id_dsa')
     if not os.path.isfile(host_key_file):
-        # XXX: paramiko knows how to do that now, IIRC
         # generate host key
-        cmd =  "ssh-keygen -f %s -t dsa -C 'SSH proxy host key' -N '' -q"
-        r = os.system(cmd % host_key_file)
+        dsskey = util.gen_dss_key(verbose=True)
+        #dsskey.write_private_key_file(host_key_file)
+        priv = open(host_key_file, 'w')
+        priv.write(util.get_dss_key_as_string(dsskey))
+        priv.close()
+        pub = open(host_key_file+'.pub', 'w')
+        pub.write(dsskey.get_base64())
+        pub.close()
 
     # set up the child killer handler
     signal.signal(signal.SIGCHLD, kill_zombies)

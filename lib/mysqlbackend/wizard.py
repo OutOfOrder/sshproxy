@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 22, 23:01:18 by david
+# Last modified: 2006 Jun 27, 01:58:56 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -135,6 +135,7 @@ CREATE TABLE `rlogin` (
   `site_id` int(10) unsigned NOT NULL default '0',
   `uid` varchar(255) NOT NULL default '',
   `password` varchar(255) NOT NULL default '',
+  `pkey` text NOT NULL,
   `priority` tinyint(1) unsigned NOT NULL default '0',
   PRIMARY KEY  (`id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;

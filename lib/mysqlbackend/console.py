@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 22, 00:40:37 by david
+# Last modified: 2006 Jun 27, 01:14:53 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -190,8 +190,11 @@ class DBConsole(cmd.Cmd):
         else:
             try:
                 password = self.set_password('%s@%s' % (arg[0], arg[1]))
-                self.backend.add_rlogin_to_site(arg[0], arg[1],
-                                            cipher(password), int(arg[2]))
+                pkey = util.get_dss_key_as_string()
+                self.backend.add_rlogin_to_site(uid=arg[0], site=arg[1],
+                                                password=cipher(password),
+                                                pkey=cipher(pkey),
+                                                priority=int(arg[2]))
             except KeyboardInterrupt:
                 return
 

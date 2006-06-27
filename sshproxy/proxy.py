@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 15, 13:57:34 by david
+# Last modified: 2006 Jun 27, 01:47:50 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -141,10 +141,15 @@ class ProxyClient(object):
                                                  sitedata.port))
             # XXX: debugging code follows
             #self.transport.set_hexdump(1)
+            from pprint import pprint
+            pkey = cipher.decipher(sitedata.pkey)
+            print pkey
+            pprint(util.get_dss_key_from_string(pkey))
 
             self.transport.connect(username=sitedata.username,
-                                   password=cipher.decipher(sitedata.password),
-                                   hostkey=sitedata.hostkey) 
+                                   password=None, #cipher.decipher(sitedata.password),
+                                   hostkey=sitedata.hostkey,
+                                   pkey=util.get_dss_key_from_string(cipher.decipher(sitedata.pkey)))
             self.chan = self.transport.open_session()
 
             self.chan.get_pty(userdata.term, userdata.width, userdata.height)

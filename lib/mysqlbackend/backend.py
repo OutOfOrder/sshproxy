@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 25, 01:21:39 by david
+# Last modified: 2006 Jun 26, 23:31:45 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -357,25 +357,27 @@ class MySQLBackend(backend.PasswordDatabase):
                  'password': p[2],
                  'priority': p[3] }
 
-    def add_rlogin_to_site(self, uid, site, password, priority):
+    def add_rlogin_to_site(self, uid, site, password, pkey, priority):
         site_id = self.get_id('site', site)
         if not site_id:
             return False
-        return self.add_rlogin(uid, site_id, password, priority)
+        return self.add_rlogin(uid, site_id, password, pkey, priority)
 
-    def add_rlogin(self, uid, site_id, password, priority):
+    def add_rlogin(self, uid, site_id, password, pkey, priority):
         q_addrlogin = """
             insert into rlogin (
                     uid,
                     site_id,
                     password,
+                    pkey,
                     priority)
-                values ('%s',%d,'%s',%d)
+                values ('%s', %d, '%s', '%s', %d)
         """
         if self.get_rlogins(uid, site_id):
             return None
         rlogin = self.db.cursor()
-        rlogin.execute(q_addrlogin % (Q(uid), site_id, Q(password), priority))
+        rlogin.execute(q_addrlogin % (Q(uid), site_id, Q(password),
+                                                       Q(pkey), priority))
         rlogin.close()
         return True
 
@@ -696,7 +698,7 @@ class MySQLBackend(backend.PasswordDatabase):
                 order by name limit 1
             """
         q_rlogins = """
-            select id, site_id, uid, password, priority
+            select id, site_id, uid, password, pkey, priority
                 from rlogin where site_id = %d
             """
         sites = self.db.cursor()
@@ -705,8 +707,12 @@ class MySQLBackend(backend.PasswordDatabase):
         rlogin_list = []
         rlogins = self.db.cursor()
         rlogins.execute(q_rlogins % id)
-        for id, site_id, uid, password, priority in rlogins.fetchall():
-            rlogin_list.append(backend.UserEntry(uid, password, priority))
+        for id, site_id, uid, password, pkey, priority in rlogins.fetchall():
+            rlogin_list.append(backend.UserEntry(
+                                        uid=uid,
+                                        password=password,
+                                        pkey=pkey,
+                                        priority=priority))
         site = backend.SiteEntry(sid=name,
                                 ip_address=ip_address,
                                 port=port,

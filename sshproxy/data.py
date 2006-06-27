@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 22, 00:28:57 by david
+# Last modified: 2006 Jun 26, 23:20:15 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -100,6 +100,7 @@ class SiteData(object):
 
         self.sitedata = site
         self.password = site.rlogins[rlogin].password
+        self.pkey = site.rlogins[rlogin].pkey
 
         self.type = 'shell'
         self.cmdline = None
