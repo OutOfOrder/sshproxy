@@ -39,7 +39,8 @@ Legend of pictograms:
       to optionally get rid of the console (list-sites, add-key, get-pssh)
     + profiles will be optionally linked to rlogins
     + cleanup and refactoring of the pwdb module
-    * remote sites will be reachable with keys instead of just password
+    + remote sites will be reachable with keys instead of just password
+    * --cipher ciphers private keys in the database
     * make it simpler in mysqlbackend to add users in bulk mode
     * make a wizard and a console for the file backend
     ? make the admin password the cipher key for the solo mode
