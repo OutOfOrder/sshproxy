@@ -1,0 +1,12 @@
+0.4 (stable)
+* there is still a dependency on ssh for dss key generation (fixed in 0.5).
+
+0.5 (dev)
+* If the proxy's public key in known_host does not correspond to what the
+  proxy sends, the client exits without a message, and the server thread
+  crashes.
+
+* If the public key in the database is not authorized by the server, it
+  does not try password authentication.
+
+
