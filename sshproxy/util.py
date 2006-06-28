@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 27, 01:54:27 by david
+# Last modified: 2006 Jun 28, 01:24:58 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,6 +20,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 import sys, pwd
+import StringIO
 
 import paramiko
 
@@ -128,6 +129,18 @@ def gen_dss_key(verbose=False):
 def get_dss_key_as_string(dsskey=None, password=None):
     if dsskey is None:
         dsskey = gen_dss_key()
+    #if hasattr(dsskey, 'write_private_key'):
+    if hasattr(paramiko.DSSKey, 'write_private_key'):
+        fd = StringIO.StringIO()
+        dsskey.write_private_key(fd, password)
+        fd.seek(0L)
+        return fd.read()
+    # if paramiko <= 1.6 
+    else:
+        return _get_dss_key_as_string(dsskey, password)
+        
+
+def _get_dss_key_as_string(dsskey=None, password=None):
     
     # patching paramiko to get a string instead of a file
     self = dsskey
@@ -179,6 +192,16 @@ def get_dss_key_as_string(dsskey=None, password=None):
     return ''.join(f)
 
 def get_dss_key_from_string(dsskeystr=None, password=None):
+    if hasattr(paramiko.DSSKey, 'write_private_key'):
+        fd = StringIO.StringIO()
+        fd.write(dsskeystr)
+        fd.seek(0L)
+        return paramiko.DSSKey(file_obj=fd, password=password)
+    # if paramiko <= 1.6 
+    else:
+        return _get_dss_key_from_string(dsskeystr, password)
+
+def _get_dss_key_from_string(dsskeystr=None, password=None):
     from paramiko.dsskey import DSSKey, SSHException, BER, BERException, randpool, util
     from paramiko.pkey import base64, PasswordRequiredException
 

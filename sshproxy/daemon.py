@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 27, 01:08:08 by david
+# Last modified: 2006 Jun 27, 02:27:04 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,7 +20,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-import sys, os.path, socket, threading, traceback, signal
+import sys, os, os.path, socket, threading, traceback, signal
 
 import paramiko
 
@@ -430,6 +430,8 @@ def kill_zombies(signum, frame):
     except OSError:
         pass
         
+
+
 def _run_server(sock):
     init_plugins()
 
@@ -438,13 +440,7 @@ def _run_server(sock):
     if not os.path.isfile(host_key_file):
         # generate host key
         dsskey = util.gen_dss_key(verbose=True)
-        #dsskey.write_private_key_file(host_key_file)
-        priv = open(host_key_file, 'w')
-        priv.write(util.get_dss_key_as_string(dsskey))
-        priv.close()
-        pub = open(host_key_file+'.pub', 'w')
-        pub.write(dsskey.get_base64())
-        pub.close()
+        dsskey.write_private_key_file(host_key_file)
 
     # set up the child killer handler
     signal.signal(signal.SIGCHLD, kill_zombies)

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 27, 01:47:50 by david
+# Last modified: 2006 Jun 28, 02:37:40 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,33 +30,63 @@ import hooks, keys, cipher, util, log
 
 
 
-class ProxyScp(object):
-    def __init__(self, userdata):
+class Proxy(object):
+    def __init__(self, userdata, sitename=None):
         self.client = userdata.channel
-        self.sitedata = sitedata = userdata.get_site(0)
+        self.sitedata = sitedata = userdata.get_site(sitename)
         self.userdata = userdata
+        self.name = '%s@%s' % (self.sitedata.username, self.sitedata.sid)
+        now = time.ctime()
+        print ("\nConnecting to %s by %s on %s" %
+                                    (self.name, userdata.username, now))
+        log.info("Connecting to %s by %s on %s" %
+                                    (self.name, userdata.username, now))
         try:
             self.transport = paramiko.Transport((sitedata.hostname,
                                                  sitedata.port))
-#            self.transport.set_hexdump(1)
+            # XXX: debugging code follows
+            #self.transport.set_hexdump(1)
+            if sitedata.pkey:
+                pkey = cipher.decipher(sitedata.pkey)
+                password, pkey = None, util.get_dss_key_from_string(pkey)
+            else:
+                password, pkey = cipher.decipher(sitedata.password), None
             self.transport.connect(username=sitedata.username,
-                                   password=cipher.decipher(sitedata.password),
-                                   hostkey=sitedata.hostkey)
+                                   password=password,
+                                   hostkey=sitedata.hostkey,
+                                   pkey=pkey)
+            del password
+            del pkey
+
             self.chan = self.transport.open_session()
+            self.open_connection()
+
         except Exception, e:
             log.exception("Unable to set up SSH connection to server")
             try:
                 self.transport.close()
             except:
                 pass
+        now = time.ctime()
+        print ("Connected to %s by %s the %s" %
+                                    (sitename, userdata.username, now))
+        log.info("Connected to %s by %s the %s\n" %
+                                    (sitename, userdata.username, now))
+
+
+
+class ProxyScp(Proxy):
+    def open_connection(self):
+        log.info('Executing: scp %s %s' % (self.sitedata.args, 
+                                           self.sitedata.path))
+        self.chan.exec_command('scp %s %s' % (self.sitedata.args,
+                                              self.sitedata.path))
 
     def loop(self):
         t = self.transport
         chan = self.chan
         client = self.client
         sitedata = self.sitedata
-        log.info('Executing: scp %s %s' % (sitedata.args, sitedata.path))
-        chan.exec_command('scp %s %s' % (sitedata.args, sitedata.path))
         try:
             chan.settimeout(0.0)
             client.settimeout(0.0)
@@ -85,16 +115,20 @@ class ProxyScp(object):
         return util.CLOSE
 
 
-class ProxyCmd(ProxyScp):
+class ProxyCmd(Proxy):
+    def open_connection(self):
+        log.info('Executing: %s' % (self.sitedata.cmdline))
+        self.chan.get_pty(self.userdata.term,
+                          self.userdata.width,
+                          self.userdata.height)
+        self.chan.exec_command(self.sitedata.cmdline)
+
     def loop(self):
         t = self.transport
         chan = self.chan
         client = self.client
         sitedata = self.sitedata
         userdata = self.userdata
-        log.info('Executing: %s' % (sitedata.cmdline))
-        self.chan.get_pty(userdata.term, userdata.width, userdata.height)
-        chan.exec_command(sitedata.cmdline)
         try:
             chan.settimeout(0.0)
             client.settimeout(0.0)
@@ -124,51 +158,12 @@ class ProxyCmd(ProxyScp):
 
 
 
-class ProxyClient(object):
-    def __init__(self, userdata, sitename=None):
-        self.client = userdata.channel
-        self.sitedata = sitedata = userdata.get_site(sitename)
-        self.name = '%s@%s' % (self.sitedata.username, self.sitedata.sid)
-
-        now = time.ctime()
-        print ("\nConnecting to %s by %s the %s" %
-                                    (sitename, userdata.username, now))
-        log.info("Connecting to %s by %s the %s" %
-                                    (sitename, userdata.username, now))
-
-        try:
-            self.transport = paramiko.Transport((sitedata.hostname,
-                                                 sitedata.port))
-            # XXX: debugging code follows
-            #self.transport.set_hexdump(1)
-            from pprint import pprint
-            pkey = cipher.decipher(sitedata.pkey)
-            print pkey
-            pprint(util.get_dss_key_from_string(pkey))
-
-            self.transport.connect(username=sitedata.username,
-                                   password=None, #cipher.decipher(sitedata.password),
-                                   hostkey=sitedata.hostkey,
-                                   pkey=util.get_dss_key_from_string(cipher.decipher(sitedata.pkey)))
-            self.chan = self.transport.open_session()
-
-            self.chan.get_pty(userdata.term, userdata.width, userdata.height)
-            self.chan.invoke_shell()
-
-        except Exception, e:
-            log.exception("Unable to set up SSH connection"
-                          " to the remote server")
-            try:
-                self.transport.close()
-            except:
-                pass
-        
-        now = time.ctime()
-        print ("Connected to %s by %s the %s" %
-                                    (sitename, userdata.username, now))
-        log.info("Connected to %s by %s the %s\n" %
-                                    (sitename, userdata.username, now))
-
+class ProxyClient(Proxy):
+    def open_connection(self):
+        self.chan.get_pty(self.userdata.term,
+                          self.userdata.width,
+                          self.userdata.height)
+        self.chan.invoke_shell()
 
 
     def loop(self):
