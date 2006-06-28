@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 19, 00:11:23 by david
+# Last modified: 2006 Jun 27, 17:20:34 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,7 +22,7 @@
 import os, os.path
 from distutils.core import setup
 
-version = '0.4.0'
+version = '0.4'
 url = 'http://penguin.fr/sshproxy/'
 
 def get_data_files(target, root, path=''):
@@ -35,11 +35,35 @@ def get_data_files(target, root, path=''):
                         [ os.path.join(root, path, item) ]))
     return l
 
-#from pprint import pprint
-#pprint(get_data_files('lib/sshproxy', 'lib'))
-#raise 'stop'
+long_description = '''
+sshproxy is an ACL proxy to allow (or deny) users to connect to remote
+sites.
 
-setup(name='SSHproxy',
+It contains a password database which relieve the users from having to
+know the password or key of the remote sites.
+
+`Read more...`_
+
+.. _`Read more...`: http://penguin.fr/sshproxy/
+'''
+
+classifiers = """Development Status :: 4 - Beta
+Environment :: Console
+Environment :: No Input/Output (Daemon)
+Intended Audience :: System Administrators
+License :: OSI Approved :: GNU General Public License (GPL)
+Operating System :: POSIX
+Programming Language :: Python
+Topic :: Internet :: Proxy Servers
+Topic :: Security
+Topic :: System :: Networking
+Topic :: System :: Systems Administration""".split('\n')
+
+
+data_files = ( get_data_files('lib/sshproxy', 'lib')
+                 + get_data_files('share/sshproxy', 'share') )
+
+setup(name='sshproxy',
       version=version,
       description='pure python implementation of an ssh proxy',
       author='David Guerizec',
@@ -48,6 +72,7 @@ setup(name='SSHproxy',
       download_url='%sdownload/sshproxy-%s.tar.gz' % (url, version),
       packages=['sshproxy'],
       scripts=['bin/sshproxyd', 'bin/pssh', 'bin/pscp'],
-      data_files=( get_data_files('lib/sshproxy', 'lib')
-                 + get_data_files('share/sshproxy', 'share') ),
+      long_description=long_description,
+      data_files=data_files,
+      classifiers=classifiers,
       )
