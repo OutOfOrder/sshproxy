@@ -2,6 +2,13 @@
 
 PROXY_PORT=${SSHPROXY_PORT:-2242}
 PROXY_HOST=${SSHPROXY_HOST:-localhost}
-PROXY_USER=${SSHPROXY_USER:-admin}
+PROXY_USER=${SSHPROXY_USER}
+if [[ -z "${PROXY_USER}" ]]; then
+   if [[ -n "${USER}" ]]; then
+      PROXY_USER=${USER}
+   else
+      PROXY_USER=${admin}
+   fi
+fi
 
 ssh -tp $PROXY_PORT $PROXY_USER@$PROXY_HOST "$@"
