@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 30, 00:59:13 by david
+# Last modified: 2006 Jun 30, 01:05:51 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -79,7 +79,7 @@ def setup():
                             "you prefer to use (file/mysql) [%s]: " % 
                                     cfg['pwdb_backend']) or cfg['pwdb_backend']
         if cfg['pwdb_backend'] == 'file':
-            print("WARNING: The file backend is insecure for now, "
+            print ("WARNING: The file backend is insecure for now, "
                   "because it will let any user to connect to the "
                   "proxy, and thus to any remote site you "
                   "configured. This will change in the future, but "
@@ -129,9 +129,13 @@ users to your database:
 http://penguin.fr/sshproxy/documentation.html#file-backend-add-sites-and-users
         """
     elif cfg['pwdb_backend'] == 'mysql':
+        print """
+http://penguin.fr/sshproxy/documentation.html#mysql-backend-add-sites-and-users
+        """
 
     print 'Setup done.'
     print 'You can now run the following command:'
-    print os.environ.get('INITD_STARTUP', '%s -c %s' % (sys.argv[0], configdir)
+    print os.environ.get('INITD_STARTUP',
+                            '%s -c %s' % (sys.argv[0], configdir))
 
 
