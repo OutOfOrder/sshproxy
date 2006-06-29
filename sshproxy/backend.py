@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 25, 22:57:45 by david
+# Last modified: 2006 Jun 30, 00:20:38 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -145,7 +145,10 @@ class FileBackend(PasswordDatabase):
 
         ip_address = site_section['ip_address']
         port       = int(site_section['port'])
-        location   = site_section['location']
+        if site_section.has_key('location'):
+            location = site_section['location']
+        else:
+            location = ''
 
         rlogin_list = []
         for sect in file.sections():
