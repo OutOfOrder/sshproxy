@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 22, 22:54:54 by david
+# Last modified: 2006 Jun 30, 00:26:45 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -74,11 +74,38 @@ def setup():
     from backend import get_backend
 
     cfg = maincfg
-    cfg['pwdb_backend'] = raw_input("Enter the password database backend you"
-                            " prefer to use (file/mysql) [%s]: " % 
+    while True:
+        cfg['pwdb_backend'] = raw_input("Enter the password database backend "
+                            "you prefer to use (file/mysql) [%s]: " % 
                                     cfg['pwdb_backend']) or cfg['pwdb_backend']
-    
+        if cfg['pwdb_backend'] == 'file':
+                    "WARNING: The file backend is insecure for now, "
+                            "because it will let any user to connect to the "
+                            "proxy, and thus to any remote site you "
+                            "configured. This will change in the future, but "
+                            " this backend is for testing purpose until then. "
+            ans = raw_input("Do you really want to continue ? (yes I have "
+                                                        "read the warning)")
+            if ans.lower() == "yes i have read the warning":
+                break
+
+
     cfg.write()
+
+    host_key_file = os.path.join(config.inipath, 'id_dsa')
+    sshd_key_file = "/etc/ssh/ssh_host_dsa_key"
+    if not os.path.exists(host_key_file) and os.path.exists(sshd_key_file):
+        ans = raw_input("Do you want to use the sshd host key with sshproxy ?"
+                                                                    " (y/N) ")
+        if ans.lower() in ("y", "yes"):
+            hkfile = open(host_key_file, "w")
+            hkfile.write(open(sshd_key_file).read())
+            hkfile.close()
+            # change the mode to a reasonable value
+            os.chmod(host_key_file, 0400)
+            # set the same uid/gid as the config directory
+            st = os.stat(config.inipath)
+            os.chown(host_key_file, st.st_uid, st.st_gid)
 
     be = get_backend()
     wizard = be.get_wizard()
@@ -92,10 +119,19 @@ def setup():
                 print " ...Aborted."
 
 
+        
+    print """
+Please check the documentation at the following address to add sites and
+users to your database:
+    """
+    if cfg['pwdb_backend'] == 'file':
+        print """
+http://penguin.fr/sshproxy/documentation.html#file-backend-add-sites-and-users
+        """
+    elif cfg['pwdb_backend'] == 'mysql':
+
     print 'Setup done.'
     print 'You can now run the following command:'
-    print sys.argv[0], '-c', configdir
-        
-
+    print os.environ.get('INITD_STARTUP', '%s -c %s' % (sys.argv[0], configdir)
 
 
