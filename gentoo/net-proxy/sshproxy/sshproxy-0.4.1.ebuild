@@ -45,6 +45,8 @@ pkg_postinst () {
 }
 
 pkg_config() {
-	HOME=/var/lib/sshproxy chroot "${ROOT}" \
-		INITD_STARTUP="/etc/init.d/sshproxyd start" /usr/bin/sshproxyd --wizard
+	HOME=/var/lib/sshproxy INITD_STARTUP="/etc/init.d/sshproxyd start" \
+			chroot "${ROOT}" /usr/bin/sshproxyd --wizard
+
+	chown -R sshproxy:sshproxy "${ROOT}/var/lib/sshproxy"
 }
