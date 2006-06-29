@@ -10,7 +10,7 @@ SRC_URI="http://penguin.fr/sshproxy/download/${P}.tar.gz"
 
 LICENSE="GPL"
 SLOT="0"
-KEYWORDS="~x86"
+KEYWORDS="~x86 ~amd64"
 IUSE="mysql"
 
 DEPEND=">=dev-lang/python-2.4.0
