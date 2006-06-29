@@ -30,7 +30,7 @@ src_install () {
 	keepdir /var/lib/sshproxy
 
 	# init/conf files for sshproxy daemon
-	newinitd "${FILESDIR}/sshproxy.initd" sshproxyd
+	newinitd "${FILESDIR}/sshproxyd.initd" sshproxyd
 }
 
 pkg_postinst () {
