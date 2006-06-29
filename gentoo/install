@@ -4,7 +4,7 @@
 # of course, this works only if you change the SRC_URI in
 # the ebuild and the following lines:
 SRC_URI_UPLOAD=penguin:sshproxy/download
-UPLOAD_METHOD=pscp  # change to scp if you don't run sshproxyd
+UPLOAD_METHOD=scp  # change to scp if you don't run sshproxyd
 TMP_DIR=/tmp
 
 
@@ -32,7 +32,7 @@ cg-export "$tarball"
 # upload it
 $UPLOAD_METHOD "$tarball" $SRC_URI_UPLOAD
 ret=$?
-if [ $ret -ne 1 ]; then
+if [ $ret -ne 0 ]; then
     echo "Problem($ret) uploading $tarball to $SRC_URI_UPLOAD"
     echo "Did you start sshproxyd ?"
     exit 1
