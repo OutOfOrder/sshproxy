@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 25, 08:05:55 by david
+# Last modified: 2006 Jun 30, 00:33:00 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,7 +23,7 @@ import sys, os, pwd
 from optparse import OptionParser
 
 
-__VERSION__ = (0, 4, 0)
+__VERSION__ = (0, 4, 1)
 
 parser = OptionParser()
 parser.add_option("-d", "--daemon", dest="daemon", default=False,

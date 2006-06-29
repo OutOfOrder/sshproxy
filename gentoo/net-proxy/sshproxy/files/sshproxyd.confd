@@ -1,6 +1,0 @@
-# the user to run as
-SSHPROXYD_USER="sshproxy"
-
-# the pid file, defaults to /var/run/sshproxyd.pid
-#SSHPROXYD_PID="/var/run/sshproxyd.pid"
-

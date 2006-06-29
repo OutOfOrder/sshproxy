@@ -1,30 +1,20 @@
 #!/sbin/runscript
 
-opts="depend start stop"
-
 depend() {
+	need net
 	use logger
 }
 
 start() {
-	ebegin "Starting SshProxy daemon"
-    if [ -z "$SSHPROXYD_PID" ]; then
-        SSHPROXYD_PID=/var/run/sshproxyd.pid
-    fi
-    if [ -z "$SSHPROXYD_USER" ]; then
-        echo "I'm not going to run as root."
-        eend 1
-        exit
-    fi
-	start-stop-daemon --start --pidfile "${SSHPROXYD_PID}" --exec /usr/bin/sshproxyd -- --daemon --user "${SSHPROXYD_USER}" --pid "${SSHPROXYD_PID}"
+	ebegin "Starting SSH Proxy daemon"
+	start-stop-daemon --start --exec /usr/bin/sshproxyd -- \
+		--daemon --user sshproxy --pid /var/run/sshproxyd.pid
 	eend $?
 }
 
 stop() {
-	ebegin "Stopping SshProxy daemon"
-    if [ -z "$SSHPROXYD_PID" ]; then
-        SSHPROXYD_PID=/var/run/sshproxyd.pid
-    fi
-	start-stop-daemon --quiet --stop --pidfile "${SSHPROXYD_PID}"
+	ebegin "Stopping SSH Proxy daemon"
+	start-stop-daemon --quiet --stop --pidfile /var/run/sshproxyd.pid
 	eend $?
 }
+
