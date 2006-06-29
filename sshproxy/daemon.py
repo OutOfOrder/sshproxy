@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 25, 00:51:29 by david
+# Last modified: 2006 Jun 27, 02:27:04 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,7 +20,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-import sys, os.path, socket, threading, traceback, signal
+import sys, os, os.path, socket, threading, traceback, signal
 
 import paramiko
 
@@ -438,10 +438,9 @@ def _run_server(sock):
     # get host key
     host_key_file = os.path.join(config.inipath, 'id_dsa')
     if not os.path.isfile(host_key_file):
-        # XXX: paramiko knows how to do that now, IIRC
         # generate host key
-        cmd =  "ssh-keygen -f %s -t dsa -C 'SSH proxy host key' -N '' -q"
-        r = os.system(cmd % host_key_file)
+        dsskey = util.gen_dss_key(verbose=True)
+        dsskey.write_private_key_file(host_key_file)
 
     # set up the child killer handler
     signal.signal(signal.SIGCHLD, kill_zombies)
