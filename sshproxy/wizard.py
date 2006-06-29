@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 30, 00:39:25 by david
+# Last modified: 2006 Jun 30, 00:59:13 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -79,11 +79,11 @@ def setup():
                             "you prefer to use (file/mysql) [%s]: " % 
                                     cfg['pwdb_backend']) or cfg['pwdb_backend']
         if cfg['pwdb_backend'] == 'file':
-            print "WARNING: The file backend is insecure for now, "
+            print("WARNING: The file backend is insecure for now, "
                   "because it will let any user to connect to the "
                   "proxy, and thus to any remote site you "
                   "configured. This will change in the future, but "
-                  " this backend is for testing purpose until then. "
+                  " this backend is for testing purpose until then.")
             ans = raw_input("Do you really want to continue ? (yes I have "
                                                         "read the warning)")
             if ans.lower() == "yes i have read the warning":
