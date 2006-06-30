@@ -32,15 +32,15 @@ Legend of pictograms:
     - update the web site with acks, docs
 
 0.5
-    * split ebuild in server, client and plugins
-    * make Message protocole more robust
-    * profiles gain more precise ACLs (access based on IP, hour... plugin ?)
+    - remote sites will be reachable with keys instead of just password
+    - --cipher ciphers private keys in the database
     + options can be given on the pssh command line (before sites) to be able
       to optionally get rid of the console (list-sites, add-key, get-pssh)
     + profiles will be optionally linked to rlogins
     + cleanup and refactoring of the pwdb module
-    + remote sites will be reachable with keys instead of just password
-    * --cipher ciphers private keys in the database
+    * split ebuild in server, client and plugins
+    * make Message protocole more robust
+    * profiles gain more precise ACLs (access based on IP, hour... plugin ?)
     * make it simpler in mysqlbackend to add users in bulk mode
     * make a wizard and a console for the file backend
     ? make the admin password the cipher key for the solo mode
