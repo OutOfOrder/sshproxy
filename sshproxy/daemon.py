@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 27, 02:27:04 by david
+# Last modified: 2006 Jul 01, 01:35:06 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,6 +23,7 @@
 import sys, os, os.path, socket, threading, traceback, signal
 
 import paramiko
+from paramiko import AuthenticationException
 
 from ptywrap import PTYWrapper
 from plugins import init_plugins, pluginInfo
@@ -185,12 +186,22 @@ def service_client(client, addr, host_key_file):
     # is this a direct connection ?
     if len(userdata.list_sites()):
         if userdata.get_site().type == 'scp':
-            proxy.ProxyScp(userdata).loop()
+            try:
+                proxy.ProxyScp(userdata).loop()
+            except AuthenticationException, msg:
+                chan.send("\r\n ERROR: %s." % msg +
+                      "\r\n Please report this error "
+                      "to your administrator.\r\n\r\n")
             chan.close()
             transport.close()
             return
         if userdata.get_site().type == 'cmd':
-            proxy.ProxyCmd(userdata).loop()
+            try:
+                proxy.ProxyCmd(userdata).loop()
+            except AuthenticationException, msg:
+                chan.send("\r\n ERROR: %s." % msg +
+                      "\r\n Please report this error "
+                      "to your administrator.\r\n\r\n")
             chan.close()
             transport.close()
             return
@@ -198,9 +209,18 @@ def service_client(client, addr, host_key_file):
         log.info("Connecting to %s", userdata.get_site().sitename)
         try:
             ret = conn.loop()
+        except AuthenticationException, msg:
+            chan.send("\r\n ERROR: %s." % msg +
+                      "\r\n Please report this error "
+                      "to your administrator.\r\n\r\n")
+            chan.close()
+            transport.close()
+            return
+
         except:
-            chan.send("\r\n ERROR: seems you found a bug"
-                      "\r\n Please report it to sshproxy-dev@penguin.fr\r\n")
+            chan.send("\r\n ERROR: It seems you found a bug."
+                      "\r\n Please report this error "
+                      "to your administrator.\r\n\r\n")
             chan.close()
             raise
         
@@ -314,8 +334,9 @@ class ConsoleBackend(object):
             try:
                 ret = conn.loop()
             except:
-                self.chan.send("\r\n ERROR: seems you found a bug"
-                      "\r\n Please report it to sshproxy-dev@penguin.fr\r\n")
+                self.chan.send("\r\n ERROR: It seems you found a bug."
+                               "\r\n Please report this error "
+                               "to your administrator.\r\n\r\n")
                 self.chan.close()
                 raise
             if ret == util.CLOSE:
@@ -333,7 +354,7 @@ class ConsoleBackend(object):
     def cmd_switch(self, args):
         # switch between one connection to the other
         if not self.cpool:
-            return 'ERROR: no opened connection'
+            return 'ERROR: no opened connection.'
         args = args.strip()
         if args:
             cid = int(args)

@@ -1,12 +1,16 @@
-0.4 (stable)
-* there is still a dependency on ssh for dss key generation (fixed in 0.5).
+KNOWN BUGS
+==========
+
+
+0.4.1 (stable)
+--------------
+
+* None known
+
 
 0.5 (dev)
-* If the proxy's public key in known_host does not correspond to what the
-  proxy sends, the client exits without a message, and the server thread
-  crashes.
+---------
 
-* If the public key in the database is not authorized by the server, it
-  does not try password authentication.
-
-
+* Intermitent error happening: when executing a remote command with pssh,
+  it sometimes quit without displaying the result of the command.
+  The error disappeared when trying to track it down.

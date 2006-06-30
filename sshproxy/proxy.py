@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 28, 02:37:40 by david
+# Last modified: 2006 Jul 01, 01:31:28 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,6 +25,7 @@ import threading
 
 import paramiko
 from paramiko.transport import SSHException, DEBUG
+from paramiko import AuthenticationException
 
 import hooks, keys, cipher, util, log
 
@@ -42,19 +43,36 @@ class Proxy(object):
         log.info("Connecting to %s by %s on %s" %
                                     (self.name, userdata.username, now))
         try:
-            self.transport = paramiko.Transport((sitedata.hostname,
-                                                 sitedata.port))
-            # XXX: debugging code follows
-            #self.transport.set_hexdump(1)
-            if sitedata.pkey:
-                pkey = cipher.decipher(sitedata.pkey)
-                password, pkey = None, util.get_dss_key_from_string(pkey)
-            else:
-                password, pkey = cipher.decipher(sitedata.password), None
-            self.transport.connect(username=sitedata.username,
-                                   password=password,
-                                   hostkey=sitedata.hostkey,
-                                   pkey=pkey)
+            while True:
+                self.transport = paramiko.Transport((sitedata.hostname,
+                                                     sitedata.port))
+                # XXX: debugging code follows
+                #self.transport.set_hexdump(1)
+                if sitedata.pkey:
+                    pkey = cipher.decipher(sitedata.pkey)
+                    password, pkey = None, util.get_dss_key_from_string(pkey)
+                else:
+                    password, pkey = cipher.decipher(sitedata.password), None
+    
+                try:
+                    self.transport.connect(username=sitedata.username,
+                                           password=password,
+                                           hostkey=sitedata.hostkey,
+                                           pkey=pkey)
+                except AuthenticationException:
+                    self.transport.close()
+                    del self.transport
+                    if pkey:
+                        # pkey is not accepted
+                        sitedata.pkey = None
+                        log.warning('PKey for %s was not accepted' % self.name)
+                    else:
+                        log.error('Password for %s is not valid' % self.name)
+                        raise
+                    # try with the password
+                    continue
+                # no exception, this is ok to break free and go on
+                break
             del password
             del pkey
 
@@ -67,11 +85,13 @@ class Proxy(object):
                 self.transport.close()
             except:
                 pass
+            del self.transport
+            return
         now = time.ctime()
-        print ("Connected to %s by %s the %s" %
-                                    (sitename, userdata.username, now))
-        log.info("Connected to %s by %s the %s\n" %
-                                    (sitename, userdata.username, now))
+        print ("Connected to %s by %s on %s" %
+                                    (self.name, userdata.username, now))
+        log.info("Connected to %s by %s on %s\n" %
+                                    (self.name, userdata.username, now))
 
 
 
@@ -83,6 +103,9 @@ class ProxyScp(Proxy):
                                               self.sitedata.path))
 
     def loop(self):
+        if not hasattr(self, 'transport'):
+            raise AuthenticationException('Could not authenticate %s'
+                                                                % self.name)
         t = self.transport
         chan = self.chan
         client = self.client
@@ -124,6 +147,9 @@ class ProxyCmd(Proxy):
         self.chan.exec_command(self.sitedata.cmdline)
 
     def loop(self):
+        if not hasattr(self, 'transport'):
+            raise AuthenticationException('Could not authenticate %s'
+                                                                % self.name)
         t = self.transport
         chan = self.chan
         client = self.client
@@ -167,6 +193,9 @@ class ProxyClient(Proxy):
 
 
     def loop(self):
+        if not hasattr(self, 'transport'):
+            raise AuthenticationException('Could not authenticate %s'
+                                                                % self.name)
         t = self.transport
         chan = self.chan
         client = self.client
