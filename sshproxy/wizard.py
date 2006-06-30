@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 30, 01:05:51 by david
+# Last modified: 2006 Jun 30, 15:52:59 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -88,6 +88,8 @@ def setup():
                                                         "read the warning)")
             if ans.lower() == "yes i have read the warning":
                 break
+        elif cfg['pwdb_backend'] == 'mysql':
+            break
 
 
     cfg.write()
