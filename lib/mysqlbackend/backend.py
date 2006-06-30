@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 26, 23:31:45 by david
+# Last modified: 2006 Jun 30, 23:41:36 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -391,6 +391,18 @@ class MySQLBackend(backend.PasswordDatabase):
             return False
         update = self.db.cursor()
         update.execute(q_setpassword % (Q(password), Q(uid), site_id))
+        return True
+
+    def set_rlogin_pkey(self, uid, site, pkey):
+        q_setpkey = """
+            update rlogin set pkey = '%s'
+                where uid = '%s' and site_id = %d
+        """
+        site_id = self.get_id('site', site)
+        if not site_id:
+            return False
+        update = self.db.cursor()
+        update.execute(q_setpkey % (Q(pkey), Q(uid), site_id))
         return True
 
     def remove_rlogin_from_site(self, uid, site):

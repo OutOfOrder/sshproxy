@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 30, 01:25:03 by david
+# Last modified: 2006 Jun 30, 22:55:39 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -158,10 +158,18 @@ class FileBackend(PasswordDatabase):
                 priority = file.getint(sect, 'priority')
             except NoOptionError:
                 priority = 0
+            try:
+                password = file.get(sect, 'password')
+            except NoOptionError:
+                password = ''
+            try:
+                pkey = file.get(sect, 'pkey')
+            except NoOptionError:
+                pkey = ''
             rlogin_list.append(UserEntry(
                     uid=sect,
-                    password=file.get(sect, 'password'),
-                    pkey=file.get(sect, 'pkey'),
+                    password=password,
+                    pkey=pkey,
                     priority=priority))
 
         rlogin_list.sort(cmp=lambda x,y: cmp(x.priority, y.priority),
@@ -223,6 +231,22 @@ class FileBackend(PasswordDatabase):
             return False
 
         file.set(rlogin, 'password', password)
+
+        file.write(open(site_file, 'w'))
+        return True
+
+    def set_rlogin_pkey(self, rlogin, site, pkey):
+        site_file = os.path.join(self.db_path, site)
+        if not os.path.exists(site_file):
+            return None, None
+
+        file = ConfigParser()
+        file.read(site_file)
+
+        if not file.has_section(rlogin):
+            return False
+
+        file.set(rlogin, 'pkey', pkey)
 
         file.write(open(site_file, 'w'))
         return True

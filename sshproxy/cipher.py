@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 25, 01:44:06 by david
+# Last modified: 2006 Jun 30, 23:38:25 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -220,7 +220,8 @@ def recipher(cipher_type, password_fd, dry_run=False):
     
     pwdb = get_backend()
     
-    n = 0
+    nb_passwords = 0
+    nb_pkeys = 0
     total = 0
     sites = [ pwdb.get_rlogin_site(site['name'])[1]
                                             for site in pwdb.list_sites() ]
@@ -233,12 +234,16 @@ def recipher(cipher_type, password_fd, dry_run=False):
         for rlogin in siteentry.rlogins.values():
             uid = rlogin.uid
             password = rlogin.password
+            pkey = rlogin.pkey
         
             # decipher with old secret
             oldpass = decipher(password)
+            oldpkey = decipher(pkey)
             # cipher with new secret
             newpass = cipher(oldpass, type=cipher_type, secret=newsecret)
-            if oldpass != decipher(newpass, secret=newsecret):
+            newpkey = cipher(oldpkey, type=cipher_type, secret=newsecret)
+            if ( oldpass != decipher(newpass, secret=newsecret) or
+                oldpkey != decipher(newpkey, secret=newsecret) ):
                 raise KeyError('Problem with %s cipher on user %s@%s!' %
                                                     (cipher_type, uid, site))
             if dry_run:
@@ -247,7 +252,10 @@ def recipher(cipher_type, password_fd, dry_run=False):
                 print 
             if password != newpass:
                 dry_run or pwdb.set_rlogin_password(uid, site, newpass)
-                n += 1
+                nb_passwords += 1
+            if pkey != newpkey:
+                dry_run or pwdb.set_rlogin_pkey(uid, site, newpkey)
+                nb_pkeys += 1
             total += 1
     
     
@@ -257,6 +265,8 @@ def recipher(cipher_type, password_fd, dry_run=False):
         conf['blowfish']['secret'] = newsecret
     conf['sshproxy']['cipher_type'] = cipher_type
     dry_run or conf.write()
-    print 'Reciphered %d on %d passwords' % (n, total)
+    print 'Reciphered %d passwords and %d pkeys on %d entries' % (nb_passwords,
+                                                                  nb_pkeys,
+                                                                  total)
 
 
