@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 30, 00:33:00 by david
+# Last modified: 2006 Jul 01, 00:02:47 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,20 +25,46 @@ from optparse import OptionParser
 
 __VERSION__ = (0, 4, 1)
 
-parser = OptionParser()
+usage = """
+  %(program)s [--config-dir CFGDIR]
+      Normal run.
+  
+  %(program)s [--config-dir CFGDIR] --daemon [--user USER] [--pid PIDFILE]
+      Run daemonized (in the background).
+  
+  %(program)s [--config-dir CFGDIR] --wizard
+      Launch the wizard for a first installation setup.
+  
+  %(program)s [--config-dir CFGDIR] --backend
+      Open the backend console if available.
+  
+  %(program)s [--config-dir CFGDIR] --cipher ENGINE [--keep] [--dry-run]
+      Recipher the database.
+""" % {'program': os.path.split(sys.argv[0])[1],}
+
+parser = OptionParser(usage=usage)
+
+##### runtime options
 parser.add_option("-d", "--daemon", dest="daemon", default=False,
                     help="start in background.", action="store_true")
 parser.add_option("-p", "--pid", dest="pid", default='/var/run/sshproxyd.pid',
-                    help="set pid file (default: /var/run/sshproxyd.pid). "
+                    help="set pid file (default: %default). "
                          "This option is only effective with --daemon.",
                     metavar="PIDFILE")
 parser.add_option("-u", "--user", dest="user", default=None,
                     help="start as user USER, usefull with --daemon.",
                     metavar="USER")
 parser.add_option("-c", "--config-dir", dest="config", default=None,
-                    help="configuration directory.", metavar="CFGDIR")
+                    help="configuration directory (default: ~/.sshproxy).",
+                    metavar="CFGDIR")
+
+##### special actions options
 parser.add_option("-w", "--wizard", dest="wizard", default=False,
                     help="run setup wizard.", action="store_true")
+parser.add_option("-b", "--backend", dest="backend", default=False,
+                    help="run backend console.", action="store_true")
+
+##### recipher options
 parser.add_option("", "--cipher", dest="cipher", default=None,
                     help="cipher rlogin passwords with ENGINE. "
                          "ENGINE can be one of plain, base64 or blowfish. "
@@ -55,8 +81,6 @@ parser.add_option("-n", "--dry-run", dest="dry_run", default=False,
                     help="Along with --cipher, do not modify anything. "
                          "This option has no effect with other options.",
                     action="store_true")
-parser.add_option("-b", "--backend", dest="backend", default=False,
-                    help="run backend console.", action="store_true")
 
 (options, args) = parser.parse_args()
 
