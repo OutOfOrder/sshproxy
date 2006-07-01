@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 15, 13:57:34 by david
+# Last modified: 2006 Jul 01, 18:55:45 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -131,9 +131,7 @@ class ProxyClient(object):
         self.name = '%s@%s' % (self.sitedata.username, self.sitedata.sid)
 
         now = time.ctime()
-        print ("\nConnecting to %s by %s the %s" %
-                                    (sitename, userdata.username, now))
-        log.info("Connecting to %s by %s the %s" %
+        log.info("Connecting to %s by %s on %s" %
                                     (sitename, userdata.username, now))
 
         try:
@@ -159,9 +157,7 @@ class ProxyClient(object):
                 pass
         
         now = time.ctime()
-        print ("Connected to %s by %s the %s" %
-                                    (sitename, userdata.username, now))
-        log.info("Connected to %s by %s the %s\n" %
+        log.info("Connected to %s by %s on %s\n" %
                                     (sitename, userdata.username, now))
 
 
@@ -219,7 +215,7 @@ class ProxyClient(object):
     
         finally:
             now = time.ctime()
-            print ("Disconnected from %s by %s the %s" %
+            log.info("Disconnected from %s by %s on %s" %
                                     (self.name, self.sitedata.username, now))
             log.debug("Exiting ProxyClient.loop()")
 
