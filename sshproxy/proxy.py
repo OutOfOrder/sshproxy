@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 01, 02:29:11 by david
+# Last modified: 2006 Jul 01, 19:07:53 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -38,8 +38,6 @@ class Proxy(object):
         self.userdata = userdata
         self.name = '%s@%s' % (self.sitedata.username, self.sitedata.sid)
         now = time.ctime()
-        print ("\nConnecting to %s by %s on %s" %
-                                    (self.name, userdata.username, now))
         log.info("Connecting to %s by %s on %s" %
                                     (self.name, userdata.username, now))
         try:
@@ -62,8 +60,6 @@ class Proxy(object):
             del self.transport
             return
         now = time.ctime()
-        print ("Connected to %s by %s on %s" %
-                                    (self.name, userdata.username, now))
         log.info("Connected to %s by %s on %s\n" %
                                     (self.name, userdata.username, now))
 
@@ -155,9 +151,10 @@ class ProxyScp(Proxy):
 class ProxyCmd(Proxy):
     def open_connection(self):
         log.info('Executing: %s' % (self.sitedata.cmdline))
-        self.chan.get_pty(self.userdata.term,
-                          self.userdata.width,
-                          self.userdata.height)
+        if hasattr(self.userdata, 'term'):
+            self.chan.get_pty(self.userdata.term,
+                              self.userdata.width,
+                              self.userdata.height)
         self.chan.exec_command(self.sitedata.cmdline)
 
     def loop(self):
@@ -262,7 +259,7 @@ class ProxyClient(Proxy):
     
         finally:
             now = time.ctime()
-            print ("Disconnected from %s by %s the %s" %
+            log.info("Disconnected from %s by %s the %s" %
                                     (self.name, self.sitedata.username, now))
             log.debug("Exiting ProxyClient.loop()")
 
