@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 01, 17:23:13 by david
+# Last modified: 2006 Jul 01, 23:16:30 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -246,6 +246,8 @@ def service_client(client, addr, host_key_file):
                                             ' '*(name_width + 1 - len(sid)),
                                             site['location'])) 
                 chan.send('\r\nTOTAL: %d\r\n' % len(sites))
+            elif action in ('-g', '--get-pkey'):
+                chan.send('heya!\r\n')
             else:
                 chan.send("Unknown option %s\r\n" % action)
 

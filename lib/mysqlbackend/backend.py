@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 01, 18:44:54 by david
+# Last modified: 2006 Jul 01, 23:12:08 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -715,7 +715,7 @@ class MySQLBackend(backend.PasswordDatabase):
         while rlogin:
             # try all rlogins until we find one that we can connect to
             rlogin = rlogin[0]
-            if self.can_connect(rlogin, sid):
+            if not self.login or self.can_connect(rlogin, sid):
                 break
             rlogin = rlogins.fetchone()
             if self.login and not rlogin:

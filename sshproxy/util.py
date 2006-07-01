@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 01, 15:28:24 by david
+# Last modified: 2006 Jul 01, 23:59:40 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -286,7 +286,6 @@ def _get_dss_key_from_string(dsskeystr=None, password=None):
 def get_site_pkey(site):
     from sshproxy.backend import get_backend
     from sshproxy.cipher import decipher
-    from sshproxy.config import get_config
 
 
     pwdb = get_backend()
@@ -301,13 +300,25 @@ def get_site_pkey(site):
 
     spkey = decipher(pwdb.get_rlogin_pkey(rlogin, site.sid))
     if len(spkey):
-        cfg = get_config('sshproxy')
-        pkey_id = cfg.get('pkey_id', 'sshproxy@penguin.fr')
-
-        pkey = get_dss_key_from_string(spkey)
-        return (pkey.get_name(), pkey.get_base64(), pkey_id)
+        return get_public_key(spkey)
     else:
         # no key found
         return ()
+
+
+def get_public_key(pkey):
+    # accept a string or a PKey object
+    from sshproxy.config import get_config
+
+    if isinstance(pkey, str):
+        if len(pkey):
+            pkey = get_dss_key_from_string(pkey)
+        else:
+            return None
+
+    cfg = get_config('sshproxy')
+    pkey_id = cfg.get('pkey_id', 'sshproxy@penguin.fr')
+
+    return (pkey.get_name(), pkey.get_base64(), pkey_id)
 
 

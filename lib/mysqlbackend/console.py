@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 01, 02:26:09 by david
+# Last modified: 2006 Jul 01, 22:08:08 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,8 +25,11 @@ import sys
 import cmd
 import readline
 
+from paramiko import SSHException
+
 from sshproxy.cipher import cipher
-from sshproxy.util import CommandLine, get_dss_key_as_string
+from sshproxy.util import CommandLine
+from sshproxy.util import get_dss_key_as_string, get_dss_key_from_string
 
 
 class DBConsole(cmd.Cmd):
@@ -93,6 +96,37 @@ class DBConsole(cmd.Cmd):
             print pass1
         print 'Password set for user %s' % user
         return pass1
+
+    def set_pkey(self, user):
+        import os, termios
+        key = ""
+        print 'Setting pkey for user %s' % user
+        try:
+            fdin = os.fdopen(os.dup(sys.stdin.fileno()))
+            print "Enter new pkey (end with Ctrl-D or an empty line): "
+            lines = []
+            while True:
+                line = fdin.readline()
+                if not line.strip():
+                    break
+                lines.append(line)
+            fdin.close()
+            key = ''.join(lines)
+            dsskey = get_dss_key_from_string(key)
+            print dsskey
+            if key == '':
+                raise termios.error
+        except EOFError:
+            print 'Abort'
+            return
+        except (termios.error, SSHException):
+            print 'Warning: Could not set pkey, generating pkey.'
+            import string, random
+            key = get_dss_key_as_string()
+        print 'Pkey set for user %s' % user
+        print 'Public key:'
+        print get_dss_key_from_string(key).get_base64()
+        return key
 
     def _sites(self, domain=None):
         sites=[]
@@ -217,6 +251,28 @@ class DBConsole(cmd.Cmd):
                 if not self.backend.set_rlogin_password(arg[0], arg[1],
                                                         cipher(password)):
                     print "Could not update password"
+            except KeyboardInterrupt:
+                return
+
+    def do_set_rlogin_pkey(self, arg):
+        """
+            set_rlogin_pkey uid site
+        
+            Change the pkey of a rlogin.
+        """
+        arg = CommandLine (arg)
+        if (len(arg) != 2):
+            self.onecmd('help set_rlogin_pkey')
+            return
+        elif not self.backend.get_rlogins(arg[0], arg[1]):
+            print "Remote login %s@%s does not exist" % (arg[0], arg[1])
+            return
+        else:
+            try:
+                pkey = self.set_pkey('%s@%s' % (arg[0], arg[1]))
+                if not self.backend.set_rlogin_pkey(arg[0], arg[1],
+                                                        cipher(pkey)):
+                    print "Could not update pkey"
             except KeyboardInterrupt:
                 return
 

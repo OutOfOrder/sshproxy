@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 01, 15:07:00 by david
+# Last modified: 2006 Jul 01, 22:04:15 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -124,7 +124,10 @@ elif options.backend:
         print ("Sorry, but the %s backend has no administration console." % 
                                                             backend.backend_id)
     else:
-        console.cmdloop()
+        try:
+            console.cmdloop()
+        except KeyboardInterrupt:
+            pass
 
 elif options.get_pkey:
     from sshproxy.plugins import init_plugins
