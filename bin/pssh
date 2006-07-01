@@ -11,4 +11,4 @@ if [[ -z "${PROXY_USER}" ]]; then
    fi
 fi
 
-ssh -tp $PROXY_PORT $PROXY_USER@$PROXY_HOST "$@"
+ssh -tp $PROXY_PORT $PROXY_USER@$PROXY_HOST -- "$@"
