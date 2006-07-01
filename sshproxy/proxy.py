@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 01, 01:31:28 by david
+# Last modified: 2006 Jul 01, 02:29:11 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -43,38 +43,12 @@ class Proxy(object):
         log.info("Connecting to %s by %s on %s" %
                                     (self.name, userdata.username, now))
         try:
-            while True:
-                self.transport = paramiko.Transport((sitedata.hostname,
-                                                     sitedata.port))
-                # XXX: debugging code follows
-                #self.transport.set_hexdump(1)
-                if sitedata.pkey:
-                    pkey = cipher.decipher(sitedata.pkey)
-                    password, pkey = None, util.get_dss_key_from_string(pkey)
-                else:
-                    password, pkey = cipher.decipher(sitedata.password), None
-    
-                try:
-                    self.transport.connect(username=sitedata.username,
-                                           password=password,
-                                           hostkey=sitedata.hostkey,
-                                           pkey=pkey)
-                except AuthenticationException:
-                    self.transport.close()
-                    del self.transport
-                    if pkey:
-                        # pkey is not accepted
-                        sitedata.pkey = None
-                        log.warning('PKey for %s was not accepted' % self.name)
-                    else:
-                        log.error('Password for %s is not valid' % self.name)
-                        raise
-                    # try with the password
-                    continue
-                # no exception, this is ok to break free and go on
-                break
-            del password
-            del pkey
+            self.transport = paramiko.Transport((sitedata.hostname,
+                                                 sitedata.port))
+            # XXX: debugging code follows
+            #self.transport.set_hexdump(1)
+
+            self.connect()
 
             self.chan = self.transport.open_session()
             self.open_connection()
@@ -94,6 +68,46 @@ class Proxy(object):
                                     (self.name, userdata.username, now))
 
 
+    def connect(self):
+        hostkey = self.sitedata.hostkey
+        transport = self.transport
+        sitedata = self.sitedata
+
+        transport.start_client()
+
+        if hostkey is not None:
+            transport._preferred_keys = [ hostkey.get_name() ]
+
+            key = transport.get_remote_server_key()
+            if (key.get_name() != hostkey.get_name() 
+                                                or str(key) != str(hostkey)):
+                log.error('Bad host key from server (%s).' % self.name)
+                raise AuthenticationError('Bad host key from server (%s).'
+                                                                % self.name)
+            log.info('Server host key verified (%s) for %s' % (key.get_name(), 
+                                                           self.name))
+
+        pkey = cipher.decipher(sitedata.pkey)
+        password = cipher.decipher(sitedata.password)
+        if pkey:
+            pkey = util.get_dss_key_from_string(pkey)
+            try:
+                transport.auth_publickey(sitedata.username, pkey)
+                return True
+            except AuthenticationException:
+                log.warning('PKey for %s was not accepted' % self.name)
+
+        if password:
+            try:
+                transport.auth_password(sitedata.username, password)
+                return True
+            except AuthenticationException:
+                log.error('Password for %s is not valid' % self.name)
+                raise
+
+        raise AuthenticationException('No password for %s' % self.name)
+                
+            
 
 class ProxyScp(Proxy):
     def open_connection(self):
