@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 30, 23:41:36 by david
+# Last modified: 2006 Jul 01, 15:09:04 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -392,6 +392,21 @@ class MySQLBackend(backend.PasswordDatabase):
         update = self.db.cursor()
         update.execute(q_setpassword % (Q(password), Q(uid), site_id))
         return True
+
+    def get_rlogin_pkey(self, uid, site):
+        q_getpkey = """
+            select pkey from rlogin
+                where uid = '%s' and site_id = %d
+        """
+        site_id = self.get_id('site', site)
+        if not site_id:
+            return None
+        getpkey = self.db.cursor()
+        getpkey.execute(q_getpkey % (Q(uid), site_id))
+        pkey = getpkey.fetchone()
+        if not pkey or not len(pkey):
+            return ''
+        return pkey[0]
 
     def set_rlogin_pkey(self, uid, site, pkey):
         q_setpkey = """

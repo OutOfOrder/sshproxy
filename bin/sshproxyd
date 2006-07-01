@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 01, 00:02:47 by david
+# Last modified: 2006 Jul 01, 15:07:00 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -37,6 +37,8 @@ usage = """
   
   %(program)s [--config-dir CFGDIR] --backend
       Open the backend console if available.
+
+  %(program)s [--get-pkey user@host]
   
   %(program)s [--config-dir CFGDIR] --cipher ENGINE [--keep] [--dry-run]
       Recipher the database.
@@ -63,6 +65,9 @@ parser.add_option("-w", "--wizard", dest="wizard", default=False,
                     help="run setup wizard.", action="store_true")
 parser.add_option("-b", "--backend", dest="backend", default=False,
                     help="run backend console.", action="store_true")
+parser.add_option("-g", "--get-pkey", dest="get_pkey", default=None,
+                    help="display public key for user@host.",
+                    metavar="user@host")
 
 ##### recipher options
 parser.add_option("", "--cipher", dest="cipher", default=None,
@@ -93,6 +98,17 @@ if not os.environ['SSHPROXY_CONFIG'] and options.user:
     os.environ['SSHPROXY_CONFIG'] = os.path.join(pwd.getpwnam(options.user)[5],
                                                     '.sshproxy')
 
+exclusive_options = ('wizard', 'backend', 'get-pkey', 'cipher', 'daemon')
+nb_opt = 0
+for opt in exclusive_options:
+    if getattr(options, opt.replace('-', '_'), None):
+        nb_opt += 1
+
+if nb_opt > 1:
+    print "Options %s are mutually exclusives." % ', '.join(exclusive_options)
+    sys.exit(1)
+
+
 if options.wizard:
     from sshproxy import wizard
     wizard.setup()
@@ -110,6 +126,19 @@ elif options.backend:
     else:
         console.cmdloop()
 
+elif options.get_pkey:
+    from sshproxy.plugins import init_plugins
+    init_plugins()
+    from sshproxy.util import get_site_pkey
+    spkey = get_site_pkey(options.get_pkey)
+    if spkey is None:
+        print "Error: no such entry: %s" % options.get_pkey
+        sys.exit(1)
+
+    if len(spkey):
+        print ' '.join(spkey)
+    else:
+        print "No pkey found for %s" % options.get_pkey
 
 elif options.cipher:
     from sshproxy.plugins import init_plugins

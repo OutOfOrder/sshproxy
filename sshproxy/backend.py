@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 30, 22:55:39 by david
+# Last modified: 2006 Jul 01, 14:36:16 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -222,7 +222,7 @@ class FileBackend(PasswordDatabase):
     def set_rlogin_password(self, rlogin, site, password):
         site_file = os.path.join(self.db_path, site)
         if not os.path.exists(site_file):
-            return None, None
+            return None
 
         file = ConfigParser()
         file.read(site_file)
@@ -235,10 +235,28 @@ class FileBackend(PasswordDatabase):
         file.write(open(site_file, 'w'))
         return True
 
+    def get_rlogin_pkey(self, rlogin, site):
+        site_file = os.path.join(self.db_path, site)
+        if not os.path.exists(site_file):
+            return None
+
+        file = ConfigParser()
+        file.read(site_file)
+
+        if not file.has_section(rlogin):
+            return None
+    
+        if file.has_option(rlogin, 'pkey'):
+            pkey = file.get(rlogin, 'pkey')
+        else:
+            pkey = ''
+
+        return pkey
+
     def set_rlogin_pkey(self, rlogin, site, pkey):
         site_file = os.path.join(self.db_path, site)
         if not os.path.exists(site_file):
-            return None, None
+            return None
 
         file = ConfigParser()
         file.read(site_file)
