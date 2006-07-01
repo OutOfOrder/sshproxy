@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 01, 15:09:04 by david
+# Last modified: 2006 Jul 01, 18:44:54 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -712,12 +712,17 @@ class MySQLBackend(backend.PasswordDatabase):
         rlogin = rlogins.fetchone()
         if not rlogin or not len(rlogin):
             raise SSHProxyAuthError("No such rlogin: %s" % site_id)
-        rlogin = rlogin[0]
+        while rlogin:
+            # try all rlogins until we find one that we can connect to
+            rlogin = rlogin[0]
+            if self.can_connect(rlogin, sid):
+                break
+            rlogin = rlogins.fetchone()
+            if self.login and not rlogin:
+                raise SSHProxyAuthError("User %s is not allowed to connect "
+                                        "to %s@%s" % (self.login, rlogin, sid))
+
         rlogins.close()
-        if self.login and not self.can_connect(rlogin, sid):
-            raise SSHProxyAuthError(
-                "User %s is not allowed to connect to %s@%s" % (self.login, 
-                                                                rlogin, sid))
         q_sites = """
             select id, name, ip_address, port, location
                 from site
@@ -758,6 +763,7 @@ class MySQLBackend(backend.PasswordDatabase):
             profile_domain,
             domain,
             domain_site,
+            domain_rlogin,
             site,
             rlogin 
         where login.uid = '%s' 
@@ -765,8 +771,10 @@ class MySQLBackend(backend.PasswordDatabase):
           and login_profile.profile_id = profile.id 
           and profile.id = profile_domain.profile_id 
           and profile_domain.domain_id = domain.id
-          and domain.id = domain_site.domain_id
-          and domain_site.site_id = site.id
+          and ((domain.id = domain_site.domain_id
+                and domain_site.site_id = site.id)
+           or (domain.id = domain_rlogin.domain_id
+                and domain_rlogin.rlogin_id = rlogin.id))
           and site.name = '%s'
           and rlogin.site_id = site.id
           and rlogin.uid = '%s'  
@@ -792,6 +800,7 @@ class MySQLBackend(backend.PasswordDatabase):
             profile_domain,
             domain,
             domain_site,
+            domain_rlogin,
             site,
             rlogin 
         where login.uid = '%s' 
@@ -799,8 +808,10 @@ class MySQLBackend(backend.PasswordDatabase):
           and login_profile.profile_id = profile.id 
           and profile.id = profile_domain.profile_id 
           and profile_domain.domain_id = domain.id
-          and domain.id = domain_site.domain_id
-          and domain_site.site_id = site.id
+          and ((domain.id = domain_site.domain_id
+                and domain_site.site_id = site.id)
+           or (domain.id = domain_rlogin.domain_id
+                and domain_rlogin.rlogin_id = rlogin.id))
           and rlogin.site_id = site.id
         """
         if domain:

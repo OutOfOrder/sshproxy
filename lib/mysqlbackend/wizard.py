@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 27, 01:58:56 by david
+# Last modified: 2006 Jul 01, 17:45:05 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -67,6 +67,8 @@ CREATE TABLE `domain_rlogin` (
   PRIMARY KEY  (`domain_id`,`rlogin_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
+INSERT INTO `domain_rlogin` VALUES (0, 0);
+
 --
 -- Table structure for table `domain_site`
 --
@@ -77,6 +79,8 @@ CREATE TABLE `domain_site` (
   `site_id` int(10) unsigned NOT NULL default '0',
   PRIMARY KEY  (`domain_id`,`site_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+INSERT INTO `domain_site` VALUES (0, 0);
 
 --
 -- Table structure for table `login`

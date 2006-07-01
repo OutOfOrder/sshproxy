@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 01, 01:35:06 by david
+# Last modified: 2006 Jul 01, 17:23:13 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -237,11 +237,12 @@ def service_client(client, addr, host_key_file):
         for action in userdata.actions:
             if action in ('-l', '--list-sites'):
                 sites = get_backend().list_allowed_sites()
-                name_width = max([ len(e['uid']) + len(e['name'])
+                if len(sites):
+                    name_width = max([ len(e['uid']) + len(e['name'])
                                                     for e in sites ])
-                for site in sites:
-                    sid = '%s@%s' % (site['uid'], site['name'])
-                    chan.send('%s %s [%s]\r\n' % (sid,
+                    for site in sites:
+                        sid = '%s@%s' % (site['uid'], site['name'])
+                        chan.send('%s %s [%s]\r\n' % (sid,
                                             ' '*(name_width + 1 - len(sid)),
                                             site['location'])) 
                 chan.send('\r\nTOTAL: %d\r\n' % len(sites))
