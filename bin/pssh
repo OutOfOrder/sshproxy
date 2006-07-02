@@ -7,8 +7,9 @@ if [[ -z "${PROXY_USER}" ]]; then
    if [[ -n "${USER}" ]]; then
       PROXY_USER=${USER}
    else
-      PROXY_USER=${admin}
+      PROXY_USER=admin
    fi
 fi
 
-ssh -tp $PROXY_PORT $PROXY_USER@$PROXY_HOST "$@"
+[ -n "$verbose" ] && echo ssh -tp $PROXY_PORT $PROXY_USER@$PROXY_HOST -- "$@"
+exec ssh -tp $PROXY_PORT $PROXY_USER@$PROXY_HOST -- "$@"
