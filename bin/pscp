@@ -13,7 +13,6 @@ fi
 
 REMOTE=$PROXY_USER@$PROXY_HOST
 
-verbose=false
 OPTS=( )
 remote_set=
 args=( )
