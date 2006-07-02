@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 01, 19:07:53 by david
+# Last modified: 2006 Jul 03, 00:00:17 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -32,17 +32,17 @@ import hooks, keys, cipher, util, log
 
 
 class Proxy(object):
-    def __init__(self, userdata, sitename=None):
-        self.client = userdata.channel
-        self.sitedata = sitedata = userdata.get_site(sitename)
-        self.userdata = userdata
-        self.name = '%s@%s' % (self.sitedata.username, self.sitedata.sid)
+    def __init__(self, proxy_client):
+        self.client = proxy_client.chan
+        self.remote = remote = proxy_client.remote
+        self.proxy_client = proxy_client
+        self.name = '%s@%s' % (self.remote.username, self.remote.sid)
         now = time.ctime()
         log.info("Connecting to %s by %s on %s" %
-                                    (self.name, userdata.username, now))
+                                    (self.name, proxy_client.username, now))
         try:
-            self.transport = paramiko.Transport((sitedata.hostname,
-                                                 sitedata.port))
+            self.transport = paramiko.Transport((remote.hostname,
+                                                 remote.port))
             # XXX: debugging code follows
             #self.transport.set_hexdump(1)
 
@@ -61,13 +61,13 @@ class Proxy(object):
             return
         now = time.ctime()
         log.info("Connected to %s by %s on %s\n" %
-                                    (self.name, userdata.username, now))
+                                    (self.name, proxy_client.username, now))
 
 
     def connect(self):
-        hostkey = self.sitedata.hostkey
+        remote = self.remote
+        hostkey = remote.hostkey
         transport = self.transport
-        sitedata = self.sitedata
 
         transport.start_client()
 
@@ -83,19 +83,19 @@ class Proxy(object):
             log.info('Server host key verified (%s) for %s' % (key.get_name(), 
                                                            self.name))
 
-        pkey = cipher.decipher(sitedata.pkey)
-        password = cipher.decipher(sitedata.password)
+        pkey = cipher.decipher(remote.pkey)
+        password = cipher.decipher(remote.password)
         if pkey:
             pkey = util.get_dss_key_from_string(pkey)
             try:
-                transport.auth_publickey(sitedata.username, pkey)
+                transport.auth_publickey(remote.username, pkey)
                 return True
             except AuthenticationException:
                 log.warning('PKey for %s was not accepted' % self.name)
 
         if password:
             try:
-                transport.auth_password(sitedata.username, password)
+                transport.auth_password(remote.username, password)
                 return True
             except AuthenticationException:
                 log.error('Password for %s is not valid' % self.name)
@@ -107,10 +107,10 @@ class Proxy(object):
 
 class ProxyScp(Proxy):
     def open_connection(self):
-        log.info('Executing: scp %s %s' % (self.sitedata.args, 
-                                           self.sitedata.path))
-        self.chan.exec_command('scp %s %s' % (self.sitedata.args,
-                                              self.sitedata.path))
+        log.info('Executing: scp %s %s' % (self.remote.args, 
+                                           self.remote.path))
+        self.chan.exec_command('scp %s %s' % (self.remote.args,
+                                              self.remote.path))
 
     def loop(self):
         if not hasattr(self, 'transport'):
@@ -119,28 +119,26 @@ class ProxyScp(Proxy):
         t = self.transport
         chan = self.chan
         client = self.client
-        sitedata = self.sitedata
         try:
             chan.settimeout(0.0)
             client.settimeout(0.0)
-            fd = client
     
             size = 4096
             while t.is_active() and client.active and not chan.eof_received:
-                r, w, e = select.select([chan, fd], [chan, fd], [], 0.2)
+                r, w, e = select.select([chan, client], [chan, client], [], 0.2)
 
                 if chan in r:
-                    if fd.out_window_size > 0:
+                    if client.out_window_size > 0:
                         x = chan.recv(size)
-                        fd.send(x)
+                        client.send(x)
                     if len(x) == 0 or chan.closed or chan.eof_received:
                         log.info("Connection closed by server")
                         break
-                if fd in r:
+                if client in r:
                     if chan.out_window_size > 0:
-                        x = fd.recv(size)
+                        x = client.recv(size)
                         chan.send(x)
-                    if len(x) == 0 or fd.closed or fd.eof_received:
+                    if len(x) == 0 or client.closed or client.eof_received:
                         log.info("Connection closed by client")
                         break
         finally:
@@ -150,12 +148,12 @@ class ProxyScp(Proxy):
 
 class ProxyCmd(Proxy):
     def open_connection(self):
-        log.info('Executing: %s' % (self.sitedata.cmdline))
-        if hasattr(self.userdata, 'term'):
-            self.chan.get_pty(self.userdata.term,
-                              self.userdata.width,
-                              self.userdata.height)
-        self.chan.exec_command(self.sitedata.cmdline)
+        log.info('Executing: %s' % (self.remote.cmdline))
+        if hasattr(self.proxy_client, 'term'):
+            self.chan.get_pty(self.proxy_client.term,
+                              self.proxy_client.width,
+                              self.proxy_client.height)
+        self.chan.exec_command(self.remote.cmdline)
 
     def loop(self):
         if not hasattr(self, 'transport'):
@@ -164,29 +162,26 @@ class ProxyCmd(Proxy):
         t = self.transport
         chan = self.chan
         client = self.client
-        sitedata = self.sitedata
-        userdata = self.userdata
         try:
             chan.settimeout(0.0)
             client.settimeout(0.0)
-            fd = client
     
             size = 40960
             while t.is_active() and client.active and not chan.eof_received:
-                r, w, e = select.select([chan, fd], [chan, fd], [], 0.2)
+                r, w, e = select.select([chan, client], [chan, client], [], 0.2)
 
                 if chan in r:
-                    if fd.out_window_size > 0:
+                    if client.out_window_size > 0:
                         x = chan.recv(size)
-                        fd.send(x)
+                        client.send(x)
                     if len(x) == 0 or chan.closed or chan.eof_received:
                         log.info("Connection closed by server")
                         break
-                if fd in r:
+                if client in r:
                     if chan.out_window_size > 0:
-                        x = fd.recv(size)
+                        x = client.recv(size)
                         chan.send(x)
-                    if len(x) == 0 or fd.closed or fd.eof_received:
+                    if len(x) == 0 or client.closed or client.eof_received:
                         log.info("Connection closed by client")
                         break
         finally:
@@ -197,9 +192,9 @@ class ProxyCmd(Proxy):
 
 class ProxyClient(Proxy):
     def open_connection(self):
-        self.chan.get_pty(self.userdata.term,
-                          self.userdata.width,
-                          self.userdata.height)
+        self.chan.get_pty(self.proxy_client.term,
+                          self.proxy_client.width,
+                          self.proxy_client.height)
         self.chan.invoke_shell()
 
 
@@ -210,15 +205,13 @@ class ProxyClient(Proxy):
         t = self.transport
         chan = self.chan
         client = self.client
-        sitedata = self.sitedata
         try:
             chan.settimeout(0.0)
             client.settimeout(0.0)
-            fd = client
     
             while t.is_active() and client.active and not chan.eof_received:
                 try:
-                    r, w, e = select.select([chan, fd], [], [], 0.2)
+                    r, w, e = select.select([chan, client], [], [], 0.2)
                 except select.error:
                     # this happens sometimes when returning from console
                     log.exception('ERROR: select.select() failed')
@@ -229,39 +222,38 @@ class ProxyClient(Proxy):
                         if len(x) == 0 or chan.closed or chan.eof_received:
                             log.info("Connection closed by server")
                             break
-                        fd.send(x)
+                        client.send(x)
                     except socket.timeout:
                         pass
-                if fd in r:
-                    x = fd.recv(1024)
-                    if len(x) == 0 or fd.closed or fd.eof_received:
+                if client in r:
+                    x = client.recv(1024)
+                    if len(x) == 0 or client.closed or client.eof_received:
                         log.info("Connection closed by client")
                         break
                     if x == keys.CTRL_X:
                         return util.SUSPEND
-                    hooks.call_hooks('filter-proxy', fd, chan,
-                                                          sitedata, x)
+                    hooks.call_hooks('filter-proxy', client, chan,
+                                                          self.remote, x)
                     # XXX: debuging code following
                     #if ord(x[0]) < 0x20 or ord(x[0]) > 126:
-                    #    fd.send('ctrl char: %s\r\n' % ''.join([
+                    #    client.send('ctrl char: %s\r\n' % ''.join([
                     #                    '\\x%02x' % ord(c) for c in x ]))
                     if x in keys.ALT_NUMBERS:
                         return keys.get_alt_number(x)
                     if x == keys.CTRL_K:
                         client.settimeout(None)
-                        fd.send('\r\nEnter script name: ')
-                        name = fd.makefile('rU').readline().strip()
+                        client.send('\r\nEnter script name: ')
+                        name = client.makefile('rU').readline().strip()
                         client.settimeout(0.0)
-                        hooks.call_hooks('console', fd, chan,
-                                                       name, sitedata)
+                        hooks.call_hooks('console', client, chan,
+                                                       name, self.remote)
                         continue
                     chan.send(x)
     
         finally:
             now = time.ctime()
             log.info("Disconnected from %s by %s the %s" %
-                                    (self.name, self.sitedata.username, now))
-            log.debug("Exiting ProxyClient.loop()")
+                                    (self.name, self.remote.username, now))
 
         return util.CLOSE
             
