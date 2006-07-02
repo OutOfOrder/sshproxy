@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 02, 13:28:10 by david
+# Last modified: 2006 Jul 02, 14:03:15 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -503,7 +503,7 @@ def _run_server(daemon, sock):
             pass
             
 
-def bind_server(daemon=False):
+def bind_server(daemon):
     conf = config.get_config('sshproxy')
     ip = conf['bindip']
     port = conf['port']

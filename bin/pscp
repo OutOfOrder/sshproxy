@@ -1,15 +1,18 @@
 #!/bin/bash
 
-# You can edit the values of the following variables
-# or you can set SSHPROXY_* in your .environment
-# via your .bashrc or .bash_profile
 PROXY_PORT=${SSHPROXY_PORT:-2242}
-PROXY_HOST=${SSHPROXY_HOST:-sshproxy}
-PROXY_USER=${SSHPROXY_USER:-admin}
+PROXY_HOST=${SSHPROXY_HOST:-localhost}
+PROXY_USER=${SSHPROXY_USER}
+if [[ -z "${PROXY_USER}" ]]; then
+   if [[ -n "${USER}" ]]; then
+      PROXY_USER=${USER}
+   else
+      PROXY_USER=admin
+   fi
+fi
 
 REMOTE=$PROXY_USER@$PROXY_HOST
 
-verbose=false
 OPTS=( )
 remote_set=
 args=( )
@@ -40,5 +43,5 @@ while [ $# -gt 0 ]; do
 done
 
 
-$verbose && echo scp -oPort=$PROXY_PORT "${OPTS[@]}" "${args[@]}"
-eval scp -oPort=$PROXY_PORT "${OPTS[@]}" "${args[@]}"
+[ -n "$verbose" ] && echo scp -oPort=$PROXY_PORT "${OPTS[@]}" "${args[@]}"
+exec scp -oPort=$PROXY_PORT "${OPTS[@]}" "${args[@]}"

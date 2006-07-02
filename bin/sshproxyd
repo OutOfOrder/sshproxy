@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 01, 22:04:15 by david
+# Last modified: 2006 Jul 02, 14:04:13 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,7 +23,7 @@ import sys, os, pwd
 from optparse import OptionParser
 
 
-__VERSION__ = (0, 4, 1)
+__VERSION__ = (0, 4, 2)
 
 usage = """
   %(program)s [--config-dir CFGDIR]
