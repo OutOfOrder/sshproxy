@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 01, 23:16:30 by david
+# Last modified: 2006 Jul 02, 13:28:10 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -456,7 +456,7 @@ def kill_zombies(signum, frame):
         
 
 
-def _run_server(sock):
+def _run_server(daemon, sock):
     init_plugins()
 
     # get host key
@@ -503,7 +503,7 @@ def _run_server(sock):
             pass
             
 
-def bind_server():
+def bind_server(daemon=False):
     conf = config.get_config('sshproxy')
     ip = conf['bindip']
     port = conf['port']
@@ -513,7 +513,8 @@ def bind_server():
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((ip, port))
         sock.listen(100)
-        print "Server ready, clients may login now ..."
+        if not daemon:
+            print "Server ready, clients may login now ..."
         log.debug('Listening for connection ...')
     except Exception, e:
         log.exception("ERROR: Couldn't bind on port %s" % port)
@@ -523,14 +524,14 @@ def bind_server():
     return sock
 
 
-def run_server(sock=None):
+def run_server(daemon=False, sock=None):
     log.info("sshproxy starting")
 
     try:
         try:
             if sock is None:
-                sock = bind_server()
-            _run_server(sock)
+                sock = bind_server(daemon)
+            _run_server(daemon, sock)
         except KeyboardInterrupt:
             return
         except:
@@ -541,13 +542,17 @@ def run_server(sock=None):
 
 
 def run_daemon(daemonize, user, pidfile): # Credits: portions of code from TMDA
-    sock = bind_server()
+    sock = bind_server(daemonize)
 
-    try:
-        pidfd = open(pidfile, 'w')
-    except IOError:
-        print "Warning: could not open %s for writing" % pidfile
+    if daemonize:
+        try:
+            pidfd = open(pidfile, 'w')
+        except IOError:
+            print "Warning: could not open %s for writing" % pidfile
+            pidfd = None
+    else:
         pidfd = None
+
 
     if os.getuid() == 0:
         uid = util.getuid(user)
@@ -564,7 +569,7 @@ def run_daemon(daemonize, user, pidfile): # Credits: portions of code from TMDA
         pidfd.write('%d\n' % os.getpid())
         pidfd.close()
 
-    run_server(sock)
+    run_server(daemonize, sock)
 
 
 
