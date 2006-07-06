@@ -5,6 +5,7 @@ Legend of pictograms:
     + work in progress
     - done
     ? need to think about it, may be impossible to do but nice to have
+    / task canceled (most probably due to new design)
 
 
 0.3.2
@@ -36,12 +37,13 @@ Legend of pictograms:
     - --cipher ciphers private keys in the database
     + options can be given on the pssh command line (before sites) to be able
       to optionally get rid of the console (list-sites, add-key, get-pssh)
-    + profiles will be optionally linked to rlogins
+    / profiles will be optionally linked to rlogins
+    + backend gain more precise ACLs (access based on IP, hour... plugin ?)
+    * backend database schema will be thoroughly simplified with ACLs
     * add a default pkey in site, if the rlogin does not provide one
     * add a hostkey in site, to check identity of remote site
     * split ebuild in server, client and plugins
     * make Message protocole more robust
-    * profiles gain more precise ACLs (access based on IP, hour... plugin ?)
     * make it simpler in mysqlbackend to add users in bulk mode
     * make a wizard and a console for the file backend
     ? make the admin password the cipher key for the solo mode
