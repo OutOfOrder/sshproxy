@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 07, 01:07:16 by david
+# Last modified: 2006 Jul 07, 03:01:46 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -50,6 +50,8 @@ class Server(paramiko.ServerInterface):
 
     def check_global_request(self, kind, chanid):
         log.devdebug("check_global_request %s %s", kind, chanid)
+        # XXX: disabled for the moment
+        return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
         if kind in [ 'tcpip-forward' ]:
             return paramiko.OPEN_SUCCEEDED
         log.debug('Ohoh! What is this "%s" channel type ?', kind)
