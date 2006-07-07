@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 06, 03:45:29 by david
+# Last modified: 2006 Jul 07, 02:43:34 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,25 +24,6 @@ from registry import Registry
 class ParseError(Exception):
     pass
 
-class ACLTags(Registry):
-    def __init__(self, tags=None, obj=None):
-        self.tags = {}
-        if tags:
-            self.add_tags(tags)
-        if obj:
-            self.add_attributes(obj)
-
-    def add_tag(self, tag, value):
-        self.tags[tag] = value
-
-    def add_tags(self, tags):
-        for tag, value in tags.items():
-            self.tags[tag] = value
-
-    def add_attributes(self, obj):
-        for tag, value in dir(obj):
-            if tag[0] != '_' and isinstance(value, str):
-                self.tags[tag] = value
 
 class Operator(object):
     _ops = {}
@@ -189,10 +170,11 @@ for cls in (Equals, Different, Superior, Inferior, SuperiorEq,
     Operator.add(cls)
 
 
-class AccessRule(Registry):
-    _class_id = 'AccessRule'
+class ACLRule(Registry):
+    _class_id = 'ACLRule'
 
-    def __init__(self, rule):
+    def __init__(self, name, rule):
+        self.name = name
         tokens = self.tokenize(rule)
 
         self.tokens = list(tokens)
@@ -351,122 +333,95 @@ class AccessRule(Registry):
             for k in namespace:
                 if tree.startswith(k+'.'):
                     attr = tree[len(k)+1:]
-                    if hasattr(namespace[k], attr):
-                        tree = getattr(namespace[k], attr)
+                    if namespace[k].has_key(attr):
+                        tree = namespace[k][attr]
                     else:
                         tree = ''
             return tree
 
+ACLRule.register()
+
+class ACLTags(Registry):
+    _class_id = 'ACLTags'
+
+    def __init__(self, tags=None, obj=None):
+        self.tags = {}
+        if tags:
+            self.add_tags(tags)
+        if obj:
+            self.add_attributes(obj)
+
+    def add_tag(self, tag, value):
+        self.tags[tag] = value
+
+    def add_tags(self, tags):
+        for tag, value in tags.items():
+            self.tags[tag] = value
+
+    def add_attributes(self, obj):
+        for tag, value in [ (k, getattr(obj, k)) for k in dir(obj) ]:
+            if tag[0] != '_' and isinstance(value, str):
+                self.tags[tag] = value
+
+    def update(self, other):
+        print repr(self.tags), repr(other.tags)
+        if not other or not other.tags.keys():
+            return
+        self.tags.update(other.tags)
+
+    def __str__(self):
+        return repr(self.tags)
+
+    def __getitem__(self, item):
+        return self.tags[item]
+
+    def has_key(self, key):
+        return self.tags.has_key(key)
+
+    def keys(self):
+        return self.tags.keys()
+
+    __repr__ = __str__
+
+ACLTags.register()
 
 
-class AccessControl(Registry):
-    _class_id = 'AccessControl'
+class ACLDB(Registry):
+    _class_id = 'ACLDB'
+    _singleton = True
     
-    @staticmethod
-    def can_connect(self, clientinfo, site_id):
-        pwdb = PasswordDatabase.get_instance()
+    def __init__(self):
+        self.rules = []
+        self.load_rules()
 
-    def add_rule(self, name, rule):
-        self.rules.append(rule)
+    def load_rules(self):
+        pass
 
-    """
-    Attributes:
-        proxy.state
-        proxy.date
-        proxy.time
-        proxy.datetime
+    def save_rules(self):
+        pass
 
-        client.username
-        client.ip_address
-        client.password
-        client.pkey
-        client.hostkey
-        client.location
+    def add_rule(self, acl, rule):
+        if not isinstance(rule, ACLRule):
+            rule = ACLRule.get_instance(acl, str(rule))
+        self.rules.append((acl, rule))
 
-        profile.acl_data
+    def check(self, acl, **namespaces):
+        namespace = {}
+        for ns in namespaces:
+            if not namespace.has_key(ns):
+                namespace[ns] = ACLTags.get_instance()
+            namespace[ns].update(namespaces[ns])
 
-        site.name
-        site.ip
-        site.port
-        site.location
-        site.description
-        site.hostkey
-        site.pkey
-
-        user.name
-        user.password
-        user.pkey
-
-    Operators:
-        =
-        !=
-        >
-        <
-        >=
-        <=
-        in
-        and
-        or
-        not
-        :=     <- startswith
-        =:     <- endswith
-        (
-        )
-
-    """
+        result = False
+        for rule in self.rules:
+            if rule[0] == acl:
+                if rule[1].eval(namespace):
+                    result = True
+                    break
+        print 'ACL', acl, result, repr(rule[1].rule)
+        return result
 
 
-if __name__ == '__main__':
-    import sys, datetime, time
-    # example usage:
-    arstr = '''
-        ((site.group in "BSD hosts"))
-        and((site.stime<=proxy.time)
-        and(site.etime>=proxy.time))
-        and(site.stime<=proxy.time
-        and site.etime>=proxy.time)
-        and not("noobs"=:user.profile)
-        '''
-    arstr = '''
-        (site.group in "BSD hosts"
-        and(site.stime<=proxy.time))
-        '''
-    try:
-        ar = AccessRule(arstr)
-    except ParseError, msg:
-        print 'Error:', msg
-        sys.exit(1)
-    #print repr(ar.tree)
-    class A(dict):
-        def __init__(self, **kw):
-            for k in kw:
-                setattr(self, k, str(kw[k]))
-                self[k] = str(kw[k])
+ACLDB.register()
 
-        def __setattr__(self, k, v):
-            dict.__setattr__(self, k, v)
-            self[k] = v
-            
-
-    namespace = {
-            'site': A(group='BSD', stime='08:00', etime='18:00'),
-            'user': A(profile='users_noobs'),
-            'client': A(username='david'),
-            'proxy': A(time=time.strftime('%H:%M')),
-            }
-
-
-    print ar.rule
-    namespace['proxy'].time = '07:00'
-    print namespace
-    print ar.eval(namespace) # prints False
-    namespace['proxy'].time = '10:00'
-    print namespace
-    print ar.eval(namespace) # prints False
-    namespace['user'].profile = 'admin'
-    print namespace
-    print ar.eval(namespace) # prints True
-    namespace['proxy'].time = '07:00'
-    print namespace
-    print ar.eval(namespace) # prints False
 

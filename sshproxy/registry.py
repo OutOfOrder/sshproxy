@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 04, 22:48:17 by david
+# Last modified: 2006 Jul 07, 01:50:17 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -32,6 +32,7 @@ class Registry(object):
         """
 
         Registry._registry[cls._class_id] = cls
+        print '%s.register() <= %s' % (cls.__name__, cls._class_id)
 
     @classmethod
     def get_instance(cls, *args, **kw):
@@ -44,6 +45,8 @@ class Registry(object):
         """
 
         obj_class = Registry._registry[cls._class_id]
+        print '%s.get_instance() => %s' % (obj_class._class_id,
+                                           obj_class.__name__)
         if cls._singleton:
             if not Registry._singletons.has_key(cls._class_id):
                 Registry._singletons[cls._class_id] = obj_class(*args, **kw)

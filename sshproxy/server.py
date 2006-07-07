@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 03, 00:36:31 by david
+# Last modified: 2006 Jul 07, 01:07:16 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,6 +26,7 @@ import paramiko
 from paramiko import AuthenticationException
 
 import util, log, proxy, pool
+from options import OptionParser
 from util import chanfmt
 from backend import get_backend
 from config import get_config
@@ -33,51 +34,6 @@ from data import SiteData
 from message import Message
 from ptywrap import PTYWrapper
 from console import Console
-
-
-class OptionParser(optparse.OptionParser):
-    # wrapper class to divert printing to the client channel
-    def __init__(self, chan, *args, **kw):
-        self.chan = chan
-        optparse.OptionParser.__init__(self, *args, **kw)
-
-    def exit(self, status=0, msg=None):
-        if msg:
-            self.chan.send(chanfmt(msg))
-        raise 'EXIT'
-
-    def print_help(self, file=None):
-        """print_help(file : file = stdout)
-
-        Print an extended help message, listing all options and any
-        help text provided with them, to 'file' (default stdout).
-        """
-        self.chan.send(chanfmt(self.format_help()))
-
-    def print_usage(self, file=None):
-        """print_usage(file : file = stdout)
-
-        Print the usage message for the current program (self.usage) to
-        'file' (default stdout).  Any occurence of the string "%prog" in
-        self.usage is replaced with the name of the current program
-        (basename of sys.argv[0]).  Does nothing if self.usage is empty
-        or not defined.
-        """
-        if self.usage:
-            self.chan.send(chanfmt(self.get_usage()))
-
-    def print_version(self, file=None):
-        """print_version(file : file = stdout)
-
-        Print the version message for this program (self.version) to
-        'file' (default stdout).  As with print_usage(), any occurence
-        of "%prog" in self.version is replaced by the current program's
-        name.  Does nothing if self.version is empty or undefined.
-        """
-        if self.version:
-            self.chan.send(chanfmt(self.get_version()))
-
-
 
 
 class Server(paramiko.ServerInterface):
@@ -92,9 +48,17 @@ class Server(paramiko.ServerInterface):
 
     ### STANDARD PARAMIKO SERVER INTERFACE
 
+    def check_global_request(self, kind, chanid):
+        log.devdebug("check_global_request %s %s", kind, chanid)
+        if kind in [ 'tcpip-forward' ]:
+            return paramiko.OPEN_SUCCEEDED
+        log.debug('Ohoh! What is this "%s" channel type ?', kind)
+        return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
+
+
     def check_channel_request(self, kind, chanid):
         log.devdebug("check_channel_request %s %s", kind, chanid)
-        if kind in [ 'session' ]:
+        if kind in [ 'session', 'direct-tcpip', 'tcpip-forward' ]:
             return paramiko.OPEN_SUCCEEDED
         log.debug('Ohoh! What is this "%s" channel type ?', kind)
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
@@ -140,7 +104,7 @@ class Server(paramiko.ServerInterface):
     ### SSHPROXY SERVER INTERFACE
 
     def valid_auth(self, username, password=None, key=None):
-        if not self.pwdb.is_allowed(username=username,
+        if not self.pwdb.authenticate(username=username,
                                     password=password,
                                     key=key):
             if key is not None:
@@ -190,6 +154,7 @@ class Server(paramiko.ServerInterface):
 
     def parse_cmdline(self, args):
         parser = OptionParser(self.chan)
+        # add options from a mapping or a Registry callback
         parser.add_option("-l", "--list-sites", dest="action",
                     help="list allowed sites",
                     action="store_const",
@@ -258,6 +223,9 @@ class Server(paramiko.ServerInterface):
         negotiation_ev = threading.Event()
         #self.transport.set_subsystem_handler('sftp', paramiko.SFTPServer,
         #                                               ProxySFTPServer)
+        #self.transport.set_subsystem_handler('tcpip-forward',
+        #                                     ForwardHandler,
+        #                                     ProxyForward)
 
         self.transport.start_server(negotiation_ev, self)
 
@@ -270,7 +238,7 @@ class Server(paramiko.ServerInterface):
         if chan is None:
             log.error('ERROR: cannot open the channel. '
                       'Check the transport object. Exiting..')
-            sys.exit(1)
+            return
         log.info('Authenticated %s', self.username)
         self.event.wait(15)
         if not self.event.isSet():
