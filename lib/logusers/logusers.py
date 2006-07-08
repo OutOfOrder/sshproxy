@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 03, 00:25:54 by david
+# Last modified: 2006 Jul 08, 02:51:49 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -60,12 +60,12 @@ class PluginLogUsers(object):
             self.tr_table[key] = value
 
     def logusers(self, console, chan, sitedata, char):
-        user = sitedata.client.username
+        user = sitedata.login
         path = os.path.join(self.path, user)
         if not os.path.isdir(path):
             os.mkdir(path)
 
-        logfile = os.path.join(path, sitedata.sitename)
+        logfile = os.path.join(path, sitedata.name)
         log = open(logfile, 'a')
         log.write(self.translate(char))
         log.close()

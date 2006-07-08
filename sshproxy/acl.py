@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 07, 02:43:34 by david
+# Last modified: 2006 Jul 08, 02:32:41 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -175,7 +175,7 @@ class ACLRule(Registry):
 
     def __init__(self, name, rule):
         self.name = name
-        tokens = self.tokenize(rule)
+        tokens = self.tokenize('( %s )' % rule)
 
         self.tokens = list(tokens)
         self.rule = ' '.join(tokens)
@@ -341,6 +341,7 @@ class ACLRule(Registry):
 
 ACLRule.register()
 
+
 class ACLTags(Registry):
     _class_id = 'ACLTags'
 
@@ -352,11 +353,11 @@ class ACLTags(Registry):
             self.add_attributes(obj)
 
     def add_tag(self, tag, value):
-        self.tags[tag] = value
+        self.tags[str(tag)] = str(value)
 
     def add_tags(self, tags):
         for tag, value in tags.items():
-            self.tags[tag] = value
+            self.tags[str(tag)] = str(value)
 
     def add_attributes(self, obj):
         for tag, value in [ (k, getattr(obj, k)) for k in dir(obj) ]:
@@ -364,22 +365,31 @@ class ACLTags(Registry):
                 self.tags[tag] = value
 
     def update(self, other):
-        print repr(self.tags), repr(other.tags)
+        #print repr(self.tags), repr(other.tags)
         if not other or not other.tags.keys():
             return
         self.tags.update(other.tags)
 
-    def __str__(self):
-        return repr(self.tags)
+    def __getattr__(self, tag):
+        return self.tags[str(tag)]
 
-    def __getitem__(self, item):
-        return self.tags[item]
+    def __getitem__(self, tag):
+        return self.tags[str(tag)]
 
-    def has_key(self, key):
-        return self.tags.has_key(key)
+    def get(self, tag, default=None):
+        return self.tags.get(tag, default)
+
+    def has_key(self, tag):
+        return self.tags.has_key(str(tag))
 
     def keys(self):
         return self.tags.keys()
+
+    def items(self):
+        return self.tags.items()
+
+    def __str__(self):
+        return repr(self.tags)
 
     __repr__ = __str__
 
@@ -401,7 +411,9 @@ class ACLDB(Registry):
         pass
 
     def add_rule(self, acl, rule):
-        if not isinstance(rule, ACLRule):
+        if rule is None:
+            rule = ACLRule.get_instance(acl, '( not 1 )')
+        elif not isinstance(rule, ACLRule):
             rule = ACLRule.get_instance(acl, str(rule))
         self.rules.append((acl, rule))
 

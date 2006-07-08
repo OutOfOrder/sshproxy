@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 07, 03:01:46 by david
+# Last modified: 2006 Jul 08, 02:47:58 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -73,7 +73,7 @@ class Server(paramiko.ServerInterface):
 
 
     def check_auth_publickey(self, username, key):
-        if self.valid_auth(username=username, key=key.get_base64()):
+        if self.valid_auth(username=username, pkey=key.get_base64()):
             return paramiko.AUTH_SUCCESSFUL
         return paramiko.AUTH_FAILED
 
@@ -105,17 +105,19 @@ class Server(paramiko.ServerInterface):
 
     ### SSHPROXY SERVER INTERFACE
 
-    def valid_auth(self, username, password=None, key=None):
+    def valid_auth(self, username, password=None, pkey=None):
         if not self.pwdb.authenticate(username=username,
                                     password=password,
-                                    key=key):
-            if key is not None:
-                self.unauth_key = key
+                                    pkey=pkey):
+            if pkey is not None:
+                self.unauth_key = pkey
             return False
         else:
-            if key is None and hasattr(self, 'unauth_key'):
-                if istrue(get_config('sshproxy')['auto_add_key']):
-                    self.pwdb.set_login_key(self.unauth_key)
+            if pkey is None and hasattr(self, 'unauth_key'):
+                if util.istrue(get_config('sshproxy')['auto_add_key']):
+                    client = self.pwdb.get_client()
+                    client.set_tokens(pkey=self.unauth_key)
+                    client.save()
             self.username = username
             return True
 
@@ -138,12 +140,14 @@ class Server(paramiko.ServerInterface):
         return True
 
 
-    def set_remote(self, sitename):
-        if sitename in self._remotes.keys():
-            self.remote = self._remotes[sitename]
-        else:
-            self.remote = SiteData(self, sitename)
-            self._remotes[sitename] = self.remote
+    #def set_remote(self, sitename):
+    #    self.pwdb.load_site(sitename)
+    #    return
+    #    if sitename in self._remotes.keys():
+    #        self.remote = self._remotes[sitename]
+    #    else:
+    #        self.remote = SiteData(self, sitename)
+    #        self._remotes[sitename] = self.remote
 
 
     def is_admin(self):
@@ -236,7 +240,7 @@ class Server(paramiko.ServerInterface):
         if not self.transport.is_active():
             raise 'ERROR: SSH negotiation failed'
 
-        chan = self.transport.accept(20)
+        chan = self.transport.accept(60)
         if chan is None:
             log.error('ERROR: cannot open the channel. '
                       'Check the transport object. Exiting..')
@@ -277,9 +281,10 @@ class Server(paramiko.ServerInterface):
             break
         site, path = argv[0].split(':', 1)
 
-        try:
-            self.set_remote(site)
-        except util.SSHProxyError, msg:
+        #try:
+        #    self.set_remote(site)
+        #except util.SSHProxyError, msg:
+        if not self.pwdb.authorize(site):
             self.chan.send(chanfmt("ERROR: %s does not exist in your scope\n" %
                                                                     site))
             return False
@@ -310,7 +315,7 @@ class Server(paramiko.ServerInterface):
 
     def do_shell_session(self):
         conn = proxy.ProxyClient(self)
-        log.info("Connecting to %s", self.remote.sitename)
+        log.info("Connecting to %s", self.pwdb.sitedb.get_tags().name)
         try:
             ret = conn.loop()
         except AuthenticationException, msg:
@@ -328,7 +333,7 @@ class Server(paramiko.ServerInterface):
         if ret == util.CLOSE:
             # if the direct connection closed, then exit cleanly
             conn = None
-            log.info("Exiting %s", self.remote.sitename)
+            log.info("Exiting %s", self.pwdb.sitedb.get_tags().name)
             return True
         # else go to the console
         return self.do_console()
@@ -357,16 +362,17 @@ class Server(paramiko.ServerInterface):
 
             else:
                 site = self.args.pop(0)
-                try:
-                    self.set_remote(site)
-                except util.SSHProxyError, msg:
+                #try:
+                #    self.set_remote(site)
+                #except util.SSHProxyError, msg:
+                if not self.pwdb.authorize(site):
                     self.chan.send(chanfmt("ERROR: %s does not exist in "
-                                                    "your scope\n" % argv[0]))
+                                                    "your scope\n" % site))
                     return False
 
                 # this is a remote command execution
                 if len(self.args):
-                    self.remote.set_cmdline(' '.join(self.args))
+                    self.pwdb.tags.add_tag('cmdline', ' '.join(self.args))
                     return self.do_remote_execution()
     
 
@@ -440,9 +446,10 @@ class ConsoleBackend(object):
         sitename = args.strip()
         if sitename == "":
             return 'ERROR: where to?'
-        try:
-            sitename = self.client.set_remote(sitename)
-        except util.SSHProxyAuthError, msg:
+        #try:
+        #    sitename = self.client.set_remote(sitename)
+        #except util.SSHProxyAuthError, msg:
+        if not self.pwdb.authorize(sitename):
             log.error("ERROR(open): %s", msg)
             return ("ERROR: site does not exist or you don't "
                             "have sufficient rights")

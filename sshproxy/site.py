@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 06, 23:04:13 by david
+# Last modified: 2006 Jul 08, 02:39:40 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,20 +20,44 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 from registry import Registry
-from acl import ACLTags
+from acl import ACLTags, ACLDB
 
 
-class UserInfo(Registry):
-    _class_id = 'UserInfo'
-    def __init__(self, **kw):
-        self.tags = ACLTags(obj=self)
-
-UserInfo.register()
+#class UserInfo(Registry):
+#    _class_id = 'UserInfo'
+#    def __init__(self, login, **kw):
+#        self.login = login
+#        self.tags = ACLTags.get_instance()
+#
+#    def get_tags(self):
+#        tags = ACLTags.get_instance()
+#        tags.add_tag('login', self.login)
+#        return tags
+#
+#UserInfo.register()
 
 class SiteInfo(Registry):
     _class_id = 'SiteInfo'
-    def __init__(self, **kw):
-        self.tags = ACLTags(obj=self)
+    def __init__(self, login, name, **kw):
+        self.tags = ACLTags.get_instance(kw)
+        self.login = login
+        self.name = name
+        self.loaded = False
+        self.load()
+
+    def load(self):
+        pass
+
+    def save(self):
+        pass
+
+    def get_tags(self):
+        tags = ACLTags.get_instance()
+        tags.update(self.tags)
+        tags.add_tag('login', self.login or '')
+        tags.add_tag('name', self.name)
+        return tags
+
 
 SiteInfo.register()
 
@@ -43,8 +67,44 @@ class SiteDB(Registry):
     _singleton = True
 
     def __init__(self, **kw):
-        self.tags = ACLTags(obj=self)
+        self.siteinfo = None
+        self.userinfo = None
 
+    @staticmethod
+    def split_user_site(user_site):
+        s = user_site.split('@')
+        if len(s) >= 2:
+            return '@'.join(s[:-1]), s[-1]
+        else:
+            return None, s[0]
+
+
+    def authorize(self, user_site, client, **tokens):
+        user, site = self.split_user_site(user_site)
+        siteinfo = SiteInfo.get_instance(user, site, **tokens)
+
+        if not siteinfo.loaded:
+            return False
+
+        if not ACLDB.get_instance().check(acl='authorize',
+                                                    client=client.get_tags(),
+                                                    site=siteinfo.get_tags()):
+            return False
+
+        self.siteinfo = siteinfo
+        return True
+
+
+    def get_tags(self):
+        tags = ACLTags.get_instance()
+        tags.update(self.siteinfo.get_tags())
+        #tags.update(self.userinfo.get_tags())
+        return tags
+
+    def get_site(self):
+        return self.siteinfo
+
+################################################################
     def get_rlogin(self, uid=None):
         pass
 
@@ -71,31 +131,5 @@ class SiteDB(Registry):
 
 
 SiteDB.register()
-
-
-if __name__ == '__main__':
-    class MySiteInfo(SiteInfo):
-        pass
-    MySiteInfo.register()
-
-    class MyPwDb(SiteDB):
-        def list_sites(self):
-            s = SiteInfo.get_instance()
-            s.toto = 'titi'
-            return s
-    MyPwDb.register()
-
-    
-
-    pwdb = SiteDB.get_instance()
-    pwdb.toto='pwdb'
-
-    pwdb = SiteDB.get_instance()
-    print pwdb.toto
-    sites = pwdb.list_sites()
-    print sites.toto
-    print sites.__class__.__name__
-
-
 
 

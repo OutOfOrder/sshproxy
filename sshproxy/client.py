@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 07, 02:24:21 by david
+# Last modified: 2006 Jul 08, 02:31:08 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -39,27 +39,44 @@ class ClientInfo(Registry):
         @param **kw: optional context information
         @type **kw: dict
         """
-        from acl import ACLTags
+        self.tokens = ACLTags.get_instance(tokens)
         self.username = username
         self.load()
-        self.tags = ACLTags(obj=self)
-        print 'TAGS:', self.tags
 
 
     def load(self):
         pass
 
-    def set_password(self, password):
-        """
-        Set the password of the user. The password is stored encrypted in
-        the database if the database engine allows it.
 
-        @param password: the password to be set.
-        @type password: str
-        @return: True if the password was set, False otherwise.
-        @rtype: bool
+    def save(self):
+        pass
+
+
+    def get_token(self, token, default=None):
+        return self.tokens.get(token, default)
+
+
+    def set_tokens(self, **tokens):
         """
-        return False
+        Set the authentication or context token of the user.
+
+        @param **tokens: the tokens to be set.
+        @type **tokens: dict
+        @return: None
+        """
+        for token, value in tokens.items():
+            # XXX: how to encrypt the tokens ? encrypt them all ?
+            self.tokens.add_tag(token, str(value))
+
+
+    def get_tags(self):
+        tags = ACLTags.get_instance(self.tokens)
+        tags.add_tag('username', self.username)
+        return tags
+
+
+    def auth_token_order(self):
+        return ()
 
 
     def authenticate(self, **tokens):
@@ -71,7 +88,12 @@ class ClientInfo(Registry):
         @return: True if the client was authenticated, False otherwise.
         @rtype: bool
         """
+        for token in self.auth_token_order():
+            if token in tokens and tokens[token] is not None:
+                if self.get_token(token) == tokens[token]:
+                    return True
         return False
+
 
 ClientInfo.register()
 
@@ -90,7 +112,6 @@ class ClientDB(Registry):
         C{clientinfo} to None.
         """
         self.clientinfo = None
-        self.tags = ACLTags(obj=self)
 
 
     def authenticate(self, username, **tokens):
@@ -109,11 +130,9 @@ class ClientDB(Registry):
         """
         clientinfo = ClientInfo.get_instance(username, **tokens)
 
-        print "ACL OK?????"
-        if not ACLDB.get_instance().check(acl='authenticate', client=clientinfo.tags):
-            print "ACL KO"
+        if not ACLDB.get_instance().check(acl='authenticate',
+                                          client=clientinfo.get_tags()):
             return False
-        print "ACL OK"
 
         if clientinfo.authenticate(**tokens):
             self.clientinfo = clientinfo
@@ -145,8 +164,11 @@ class ClientDB(Registry):
         if username:
             return ClientInfo.get_instance(username, **kw)
         else:
-            return self.username
+            return self.clientinfo
 
+
+    def get_tags(self):
+        return self.clientinfo.get_tags()
 
     def list_users(self, **kw):
         """

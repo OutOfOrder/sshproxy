@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 03, 00:00:17 by david
+# Last modified: 2006 Jul 08, 02:57:30 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -28,21 +28,26 @@ from paramiko.transport import SSHException, DEBUG
 from paramiko import AuthenticationException
 
 import hooks, keys, cipher, util, log
+from acl import ACLTags
 
 
 
 class Proxy(object):
     def __init__(self, proxy_client):
         self.client = proxy_client.chan
-        self.remote = remote = proxy_client.remote
+        remote = ACLTags.get_instance()
+        remote.update(proxy_client.pwdb.get_site_tags())
+        remote.update(proxy_client.pwdb.tags)
+        self.remote = remote
+        print 'REMOTE', repr(remote)
         self.proxy_client = proxy_client
-        self.name = '%s@%s' % (self.remote.username, self.remote.sid)
+        self.name = '%s@%s' % (self.remote.login, self.remote.name)
         now = time.ctime()
         log.info("Connecting to %s by %s on %s" %
-                                    (self.name, proxy_client.username, now))
+                    (self.name, proxy_client.pwdb.get_client().username, now))
         try:
             self.transport = paramiko.Transport((remote.hostname,
-                                                 remote.port))
+                                                 int(remote.port)))
             # XXX: debugging code follows
             #self.transport.set_hexdump(1)
 
@@ -66,7 +71,7 @@ class Proxy(object):
 
     def connect(self):
         remote = self.remote
-        hostkey = remote.hostkey
+        hostkey = remote.hostkey or None
         transport = self.transport
 
         transport.start_client()
@@ -95,7 +100,7 @@ class Proxy(object):
 
         if password:
             try:
-                transport.auth_password(remote.username, password)
+                transport.auth_password(remote.login, password)
                 return True
             except AuthenticationException:
                 log.error('Password for %s is not valid' % self.name)
@@ -253,7 +258,7 @@ class ProxyClient(Proxy):
         finally:
             now = time.ctime()
             log.info("Disconnected from %s by %s the %s" %
-                                    (self.name, self.remote.username, now))
+                                    (self.name, self.remote.login, now))
 
         return util.CLOSE
             

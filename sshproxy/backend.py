@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 07, 02:45:44 by david
+# Last modified: 2006 Jul 08, 02:23:24 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,7 +21,7 @@
 
 
 from registry import Registry
-from acl import ACLDB
+from acl import ACLDB, ACLTags
 from client import ClientDB
 from site import SiteDB
 
@@ -36,6 +36,7 @@ class Backend(Registry):
         self.clientdb = ClientDB.get_instance()
         self.acldb = ACLDB.get_instance()
         self._site_cache = (None, None)
+        self.tags = ACLTags.get_instance()
 
 
     def authenticate(self, username, **tokens):
@@ -48,29 +49,24 @@ class Backend(Registry):
 
     def authorize(self, user_site):
         sitedb = SiteDB.get_instance()
-        sitedb.load(user_site)
-        if self.acldb.check(acl='authorize', client=self.clientdb,
-                                             site=self.sitedb):
+        if sitedb.authorize(user_site, self.clientdb):
             self.authorized = True
-            self._site_cache = (user_site, sitedb)
+            self.sitedb = sitedb
         else:
             self.authorized = False
         return self.authorized
 
 
     def is_admin(self):
-        return self.acldb.check(acl='admin', client=self.clientdb.clientinfo.tags)
+        return self.acldb.check(acl='admin', client=self.clientdb.get_tags())
 
 
-    def load_site(self, user_site):
-        if user_site == self._site_cache[0]:
-            self.sitedb = self._site_cache[1]
-        else:
-            sitedb = SiteDB.get_instance()
-            sitedb.load(user_site)
-            self.sitedb = sitedb
-            self._site_cache = (user_site, sitedb)
+    def get_client(self, username=None, **kw):
+        return self.clientdb.get_user_info(username=username, **kw)
 
+
+    def get_site_tags(self):
+        return self.sitedb.get_tags()
 
     def get_site(self):
         return self.sitedb.get_site()
