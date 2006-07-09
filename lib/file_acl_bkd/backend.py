@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 09, 02:52:13 by david
+# Last modified: 2006 Jul 09, 10:37:34 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -111,15 +111,30 @@ class FileACLDB(ACLDB):
             open(rulefile, 'w').close()
 
         fd = open(rulefile)
-        for line in fd.readlines():
-            line = line.strip()
-            if not line or line[0] == '#':
+        nline = []
+        line = []
+        for linepart in fd.readlines():
+            if not linepart.strip() or linepart.strip()[0] == '#':
                 continue
+
+            if linepart[0] not in (' ', '\t'):
+                nline = [ linepart.strip() ]
+                if not line:
+                    line = nline
+                    continue
+            else:
+                line.append(linepart.strip())
+                continue
+
             try:
-                acl, rule = line.split(' ', 1)
+                acl, rule = (' '.join(line)).split(':', 1)
+                if rule is None:
+                    raise ValueError
             except ValueError:
-                acl, rule = line.strip(), None
+                # drop rule, it won't parse anyway
+                continue
             self.add_rule(acl=acl, rule=rule.lstrip())
+            line = nline
         fd.close()
 
     def save_rules(self):

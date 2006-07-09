@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 09, 01:59:34 by david
+# Last modified: 2006 Jul 09, 14:51:00 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+
+import time, datetime
 
 from registry import Registry
 
@@ -143,6 +145,19 @@ class Int(Function):
         except ValueError:
             return False
 
+class List(Function):
+    token = 'list'
+    def call(self, namespace):
+        items = self.left.eval(namespace, self.right)
+        return items.split()
+
+class Acl(Function):
+    token = 'acl'
+    def call(self, namespace):
+        acl = self.left.eval(namespace, self.right)
+        return self.left.eval(namespace,
+                              ACLDB().check(acl, **namespace))
+
 class Literal(str):
     token = 's'
     p = 0
@@ -212,7 +227,7 @@ class Group(object):
 
 
 for cls in (Equals, Different, Superior, Inferior, SuperiorEq,
-            InferiorEq, In, And, Or, Starts, Ends, Not, Int):
+            InferiorEq, In, And, Or, Starts, Ends, Not, Int, List, Acl):
     Operator.add(cls)
 
 
@@ -224,9 +239,18 @@ class ACLRule(Registry):
         tokens = self.tokenize('( %s )' % rule)
 
         self.tokens = list(tokens)
-        self.rule = ' '.join(tokens)
+        rule = []
+        for token in tokens:
+            if isinstance(token, Literal):
+                token = '"%s"' % token
+            rule.append(token)
+
+        self.rule = ' '.join(rule)
 
         self.tree = self.parse(self.tokens)
+
+    #def __repr__(self):
+    #    return '[repr] %s: %s' % (self.name, self.rule)
 
     def _search_tok(self, s, i, *toks):
         indexes = [len(s)]
@@ -346,7 +370,10 @@ class ACLRule(Registry):
         if maxi < len(tokens):
             return [tokens[:maxi], tokens[maxi], tokens[maxi+1:]]
         else:
-            return tokens[0]
+            try:
+                return tokens[0]
+            except IndexError:
+                raise ParseError("Parse error, check your ACL rules.")
 
     def hier_op(self, tokens):
         all = self._find_center_op(tokens)
@@ -392,14 +419,41 @@ class ACLRule(Registry):
         elif isinstance(tree, Const):
             return tree.item
         elif isinstance(tree, Token):
+            if tree[:6] == 'proxy.':
+                value = self.proxy_dyn_namespace(tree[6:], namespace)
+                if value is not None:
+                    return value
             for k in namespace.keys():
                 if tree.startswith(k+'.'):
                     attr = tree[len(k)+1:]
                     if namespace[k].has_key(attr):
-                        return namespace[k][attr]
-            raise ParseError('Missing quotes around %s.' % tree)
+                        item = namespace[k][attr]
+                        if isinstance(item, ACLRule):
+                            return namespace[k][attr]
+                        else:
+                            return namespace[k][attr]
+            raise ParseError('Unknown identifier or missing quotes around %s.'
+                                                                        % tree)
         else:
             return tree
+
+    def proxy_dyn_namespace(self, tag, namespace):
+        if tag == 'time':
+            return str(datetime.datetime.now().strftime("%H:%M"))
+        elif tag == 'date':
+            return str(datetime.datetime.now().strftime("%Y-%m-%d"))
+        elif tag == 'datetime':
+            return str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+        elif tag == 'doy':
+            return datetime.datetime.now().strftime("%j")
+        elif tag == 'week':
+            return str(datetime.datetime.now().strftime("%W"))
+        elif tag == 'unixtime':
+            return int(time.time())
+        elif tag == 'dow':
+            return str(datetime.datetime.now().strftime("%w"))
+        return None
+
 
 ACLRule.register()
 
@@ -415,16 +469,21 @@ class ACLTags(Registry):
             self.add_attributes(obj)
 
     def add_tag(self, tag, value):
-        self.tags[str(tag)] = str(value)
+        if tag[:4] == 'acl.':
+            tag = tag[4:]
+            value = ACLRule(tag, value)
+        else:
+            value = str(value)
+        self.tags[str(tag)] = value
 
     def add_tags(self, tags):
         for tag, value in tags.items():
-            self.tags[str(tag)] = str(value)
+            self.add_tag(tag, value)
 
     def add_attributes(self, obj):
         for tag, value in [ (k, getattr(obj, k)) for k in dir(obj) ]:
             if tag[0] != '_' and isinstance(value, str):
-                self.tags[tag] = value
+                self.add_tag(tag, value)
 
     def update(self, other):
         if not other or not other.tags.keys():
@@ -473,7 +532,7 @@ class ACLDB(Registry):
 
     def add_rule(self, acl, rule):
         if rule is None:
-            rule = ACLRule(acl, '( not 1 )')
+            rule = ACLRule(acl, 'False')
         elif not isinstance(rule, ACLRule):
             rule = ACLRule(acl, str(rule))
         self.rules.append((acl, rule))
@@ -485,13 +544,27 @@ class ACLDB(Registry):
                 namespace[ns] = ACLTags()
             namespace[ns].update(namespaces[ns])
 
-        result = False
-        for rule in self.rules:
-            if rule[0] == acl:
-                if rule[1].eval(namespace):
-                    result = True
-                    break
-        print 'ACL', acl, result, repr(rule[1].rule)
+        result = None
+        match = ''
+        if isinstance(acl, ACLRule):
+            match = repr(acl.rule)
+            result = acl.eval(namespace)
+        else:
+            for rule in self.rules:
+                if rule[0] == acl:
+                    match = repr(rule[1].rule)
+                    if rule[1].eval(namespace):
+                        result = True
+                        break
+                    else:
+                        result = False
+
+        if result is None:
+            result = False
+            #print 'ACL', acl, 'not found'
+        else:
+            #print 'ACL', acl, result, match
+            pass
         return result
 
 
