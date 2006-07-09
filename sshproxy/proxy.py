@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 08, 02:57:30 by david
+# Last modified: 2006 Jul 09, 01:30:14 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -27,27 +27,28 @@ import paramiko
 from paramiko.transport import SSHException, DEBUG
 from paramiko import AuthenticationException
 
+from registry import Registry
 import hooks, keys, cipher, util, log
-from acl import ACLTags
+from util import chanfmt
+from acl import ACLDB, ACLTags
 
 
 
-class Proxy(object):
-    def __init__(self, proxy_client):
+class Proxy(Registry):
+    def __reginit__(self, proxy_client):
         self.client = proxy_client.chan
-        remote = ACLTags.get_instance()
-        remote.update(proxy_client.pwdb.get_site_tags())
-        remote.update(proxy_client.pwdb.tags)
-        self.remote = remote
-        print 'REMOTE', repr(remote)
+        tags = ACLTags()
+        tags.update(proxy_client.pwdb.get_site_tags())
+        tags.update(proxy_client.pwdb.tags)
+        self.tags = tags
         self.proxy_client = proxy_client
-        self.name = '%s@%s' % (self.remote.login, self.remote.name)
+        self.name = '%s@%s' % (self.tags.login, self.tags.name)
         now = time.ctime()
         log.info("Connecting to %s by %s on %s" %
                     (self.name, proxy_client.pwdb.get_client().username, now))
         try:
-            self.transport = paramiko.Transport((remote.hostname,
-                                                 int(remote.port)))
+            self.transport = paramiko.Transport((tags.hostname,
+                                                 int(tags.port)))
             # XXX: debugging code follows
             #self.transport.set_hexdump(1)
 
@@ -70,8 +71,8 @@ class Proxy(object):
 
 
     def connect(self):
-        remote = self.remote
-        hostkey = remote.hostkey or None
+        tags = self.tags
+        hostkey = tags.hostkey or None
         transport = self.transport
 
         transport.start_client()
@@ -88,19 +89,19 @@ class Proxy(object):
             log.info('Server host key verified (%s) for %s' % (key.get_name(), 
                                                            self.name))
 
-        pkey = cipher.decipher(remote.pkey)
-        password = cipher.decipher(remote.password)
+        pkey = cipher.decipher(tags.pkey)
+        password = cipher.decipher(tags.password)
         if pkey:
             pkey = util.get_dss_key_from_string(pkey)
             try:
-                transport.auth_publickey(remote.username, pkey)
+                transport.auth_publickey(tags.login, pkey)
                 return True
             except AuthenticationException:
                 log.warning('PKey for %s was not accepted' % self.name)
 
         if password:
             try:
-                transport.auth_password(remote.login, password)
+                transport.auth_password(tags.login, password)
                 return True
             except AuthenticationException:
                 log.error('Password for %s is not valid' % self.name)
@@ -111,11 +112,12 @@ class Proxy(object):
             
 
 class ProxyScp(Proxy):
+    _class_id = 'ProxyScp'
     def open_connection(self):
-        log.info('Executing: scp %s %s' % (self.remote.args, 
-                                           self.remote.path))
-        self.chan.exec_command('scp %s %s' % (self.remote.args,
-                                              self.remote.path))
+        log.info('Executing: scp %s %s' % (self.tags.scp_args, 
+                                           self.tags.scp_path))
+        self.chan.exec_command('scp %s %s' % (self.tags.scp_args,
+                                              self.tags.scp_path))
 
     def loop(self):
         if not hasattr(self, 'transport'):
@@ -150,15 +152,18 @@ class ProxyScp(Proxy):
             pass
         return util.CLOSE
 
+ProxyScp.register()
+
 
 class ProxyCmd(Proxy):
+    _class_id = 'ProxyScp'
     def open_connection(self):
-        log.info('Executing: %s' % (self.remote.cmdline))
+        log.info('Executing: %s' % (self.tags.cmdline))
         if hasattr(self.proxy_client, 'term'):
             self.chan.get_pty(self.proxy_client.term,
                               self.proxy_client.width,
                               self.proxy_client.height)
-        self.chan.exec_command(self.remote.cmdline)
+        self.chan.exec_command(self.tags.cmdline)
 
     def loop(self):
         if not hasattr(self, 'transport'):
@@ -193,9 +198,11 @@ class ProxyCmd(Proxy):
             pass
         return util.CLOSE
 
+ProxyCmd.register()
 
 
-class ProxyClient(Proxy):
+class ProxyShell(Proxy):
+    _class_id = 'ProxyShell'
     def open_connection(self):
         self.chan.get_pty(self.proxy_client.term,
                           self.proxy_client.width,
@@ -236,9 +243,15 @@ class ProxyClient(Proxy):
                         log.info("Connection closed by client")
                         break
                     if x == keys.CTRL_X:
-                        return util.SUSPEND
+                        if not ACLDB().check('console_session',
+                                                            client=self.tags):
+                            client.send(chanfmt("ERROR: You are not allowed to"
+                                                " open a console session.\n"))
+                            continue
+                        else:
+                            return util.SUSPEND
                     hooks.call_hooks('filter-proxy', client, chan,
-                                                          self.remote, x)
+                                                          self.tags, x)
                     # XXX: debuging code following
                     #if ord(x[0]) < 0x20 or ord(x[0]) > 126:
                     #    client.send('ctrl char: %s\r\n' % ''.join([
@@ -251,14 +264,14 @@ class ProxyClient(Proxy):
                         name = client.makefile('rU').readline().strip()
                         client.settimeout(0.0)
                         hooks.call_hooks('console', client, chan,
-                                                       name, self.remote)
+                                                       name, self.tags)
                         continue
                     chan.send(x)
     
         finally:
             now = time.ctime()
             log.info("Disconnected from %s by %s the %s" %
-                                    (self.name, self.remote.login, now))
+                                    (self.name, self.tags.login, now))
 
         return util.CLOSE
             
@@ -271,7 +284,7 @@ class ProxyClient(Proxy):
         except ValueError:
             pass
 
-
+ProxyShell.register()
     
     
 

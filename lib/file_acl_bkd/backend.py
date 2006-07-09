@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 08, 02:38:59 by david
+# Last modified: 2006 Jul 08, 03:10:35 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -135,7 +135,6 @@ FileACLDB.register()
 class FileSiteInfo(SiteInfo):
     def get_config_file(self, sitename):
         sitepath = get_config('site_db.file')['db_path']
-        print 'SITEPATH', sitepath
         if not os.path.exists(sitepath):
             os.makedirs(sitepath)
             # no need to search for the site file
@@ -164,7 +163,6 @@ class FileSiteInfo(SiteInfo):
         except NoSectionError:
             return
 
-        print tags
         self.tags.add_tags(tags)
         self.loaded = True
 

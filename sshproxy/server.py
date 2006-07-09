@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 08, 02:47:58 by david
+# Last modified: 2006 Jul 09, 01:56:59 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,19 +25,21 @@ import optparse
 import paramiko
 from paramiko import AuthenticationException
 
+from registry import Registry
 import util, log, proxy, pool
 from options import OptionParser
 from util import chanfmt
 from backend import get_backend
 from config import get_config
-from data import SiteData
 from message import Message
 from ptywrap import PTYWrapper
 from console import Console
+from acl import ACLDB
 
 
-class Server(paramiko.ServerInterface):
-    def __init__(self, client, addr, host_key_file):
+class Server(Registry, paramiko.ServerInterface):
+    _class_id = "Server"
+    def __reginit__(self, client, addr, host_key_file):
         self.pwdb = get_backend()
         self.client = client
         self.client_addr = addr
@@ -140,16 +142,6 @@ class Server(paramiko.ServerInterface):
         return True
 
 
-    #def set_remote(self, sitename):
-    #    self.pwdb.load_site(sitename)
-    #    return
-    #    if sitename in self._remotes.keys():
-    #        self.remote = self._remotes[sitename]
-    #    else:
-    #        self.remote = SiteData(self, sitename)
-    #        self._remotes[sitename] = self.remote
-
-
     def is_admin(self):
         return self.is_authenticated() and self.pwdb.is_admin()
 
@@ -158,9 +150,7 @@ class Server(paramiko.ServerInterface):
         return hasattr(self, 'username')
 
 
-    def parse_cmdline(self, args):
-        parser = OptionParser(self.chan)
-        # add options from a mapping or a Registry callback
+    def add_cmdline_options(self, parser):
         parser.add_option("-l", "--list-sites", dest="action",
                     help="list allowed sites",
                     action="store_const",
@@ -171,6 +161,11 @@ class Server(paramiko.ServerInterface):
                     action="store_const",
                     const="get_pkey",
                     )
+
+    def parse_cmdline(self, args):
+        parser = OptionParser(self.chan)
+        # add options from a mapping or a Registry callback
+        self.add_cmdline_options(parser)
         return parser.parse_args(args)
 
 
@@ -267,8 +262,15 @@ class Server(paramiko.ServerInterface):
         return
 
 
-    def do_console(self):
-        return ConsoleBackend(self).loop()
+    def do_console(self, conn=None):
+        namespace = {
+                'client': self.pwdb.clientdb.get_tags(),
+                }
+        if not ACLDB().check('console_session', **namespace):
+            self.chan.send(chanfmt("ERROR: You are not allowed to"
+                                    " open a console session.\n"))
+            return False
+        return ConsoleBackend(self, conn).loop()
 
 
     def do_scp(self):
@@ -281,16 +283,34 @@ class Server(paramiko.ServerInterface):
             break
         site, path = argv[0].split(':', 1)
 
-        #try:
-        #    self.set_remote(site)
-        #except util.SSHProxyError, msg:
         if not self.pwdb.authorize(site):
             self.chan.send(chanfmt("ERROR: %s does not exist in your scope\n" %
                                                                     site))
             return False
 
-        self.remote.set_sftp_path(path)
-        self.remote.set_sftp_args(' '.join(args))
+        if '-t' in args:
+            upload = True
+        else:
+            upload = False
+
+        (upload and self.pwdb.tags.add_tag('scp_dir', 'upload')
+                 or self.pwdb.tags.add_tag('scp_dir', 'download'))
+        self.pwdb.tags.add_tag('scp_path', path or '.')
+        self.pwdb.tags.add_tag('scp_args', ' '.join(args))
+
+        namespace = {
+                'client': self.pwdb.clientdb.get_tags(),
+                'site': self.pwdb.sitedb.get_tags(),
+                'proxy': self.pwdb.tags,
+                }
+        # check ACL for the given direction, then if failed, check general ACL
+        if not (((upload and ACLDB().check('scp_upload', **namespace)) or
+                (not upload and ACLDB().check('scp_download', **namespace))) or
+                ACLDB().check('scp_transfer', **namespace)):
+            self.chan.send(chanfmt("ERROR: You are not allowed to"
+                                    " do scp file transfert in this"
+                                    " directory or direction on %s\n" % site))
+            return False
 
         try:
             proxy.ProxyScp(self).loop()
@@ -303,6 +323,21 @@ class Server(paramiko.ServerInterface):
 
 
     def do_remote_execution(self):
+        site = self.args.pop(0)
+        if not self.pwdb.authorize(site):
+            self.chan.send(chanfmt("ERROR: %s does not exist in "
+                                            "your scope\n" % site))
+            return False
+
+        self.pwdb.tags.add_tag('cmdline', ' '.join(self.args))
+        if not ACLDB().check('remote_exec',
+                                client=self.pwdb.clientdb.get_tags(),
+                                site=self.pwdb.sitedb.get_tags(),
+                                proxy=self.pwdb.tags):
+            self.chan.send(chanfmt("ERROR: You are not allowed to"
+                                    " exec that command on %s"
+                                    "\n" % site))
+            return False
         try:
             proxy.ProxyCmd(self).loop()
         except AuthenticationException, msg:
@@ -314,8 +349,21 @@ class Server(paramiko.ServerInterface):
 
 
     def do_shell_session(self):
-        conn = proxy.ProxyClient(self)
-        log.info("Connecting to %s", self.pwdb.sitedb.get_tags().name)
+        site = self.args.pop(0)
+        if not self.pwdb.authorize(site):
+            self.chan.send(chanfmt("ERROR: %s does not exist in "
+                                            "your scope\n" % site))
+            return False
+
+        if not ACLDB().check('shell_session',
+                            client=self.pwdb.clientdb.get_tags(),
+                            site=self.pwdb.sitedb.get_tags()):
+            self.chan.send(chanfmt("ERROR: You are not allowed to"
+                                    " open a shell session on %s"
+                                    "\n" % site))
+            return False
+        conn = proxy.ProxyShell(self)
+        log.info("Connecting to %s", site)
         try:
             ret = conn.loop()
         except AuthenticationException, msg:
@@ -333,10 +381,10 @@ class Server(paramiko.ServerInterface):
         if ret == util.CLOSE:
             # if the direct connection closed, then exit cleanly
             conn = None
-            log.info("Exiting %s", self.pwdb.sitedb.get_tags().name)
+            log.info("Exiting %s", site)
             return True
         # else go to the console
-        return self.do_console()
+        return self.do_console(conn)
 
 
     def do_work(self):
@@ -358,23 +406,13 @@ class Server(paramiko.ServerInterface):
             # this is an scp file transfer
             elif self.args[0] == 'scp':
                 return self.do_scp()
-    
 
             else:
-                site = self.args.pop(0)
-                #try:
-                #    self.set_remote(site)
-                #except util.SSHProxyError, msg:
-                if not self.pwdb.authorize(site):
-                    self.chan.send(chanfmt("ERROR: %s does not exist in "
-                                                    "your scope\n" % site))
-                    return False
+                site = self.args[0]
 
                 # this is a remote command execution
-                if len(self.args):
-                    self.pwdb.tags.add_tag('cmdline', ' '.join(self.args))
+                if len(self.args) > 1:
                     return self.do_remote_execution()
-    
 
                 # this is a shell session
                 else:
@@ -383,11 +421,12 @@ class Server(paramiko.ServerInterface):
         # Should never get there
         return False
 
+Server.register()
 
 
-
-class ConsoleBackend(object):
-    def __init__(self, client, conn=None):
+class ConsoleBackend(Registry):
+    _class_id = "ConsoleBackend"
+    def __reginit__(self, client, conn=None):
         conf = get_config('sshproxy')
         self.maxcon = conf['max_connections']
 
@@ -449,12 +488,12 @@ class ConsoleBackend(object):
         #try:
         #    sitename = self.client.set_remote(sitename)
         #except util.SSHProxyAuthError, msg:
-        if not self.pwdb.authorize(sitename):
+        if not self.client.pwdb.authorize(sitename):
             log.error("ERROR(open): %s", msg)
             return ("ERROR: site does not exist or you don't "
                             "have sufficient rights")
 
-        conn = proxy.ProxyClient(self.client)
+        conn = proxy.ProxyShell(self.client)
 
         cid = self.cpool.add_connection(conn)
         while True:
@@ -572,3 +611,4 @@ class ConsoleBackend(object):
         log.info('Client exits now!')
 
 
+ConsoleBackend.register()

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 08, 02:31:08 by david
+# Last modified: 2006 Jul 08, 14:04:10 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,7 +30,7 @@ class ClientInfo(Registry):
     _class_id = 'ClientInfo'
 
 
-    def __init__(self, username, **tokens):
+    def __reginit__(self, username, **tokens):
         """
         Create a new ClientInfo object, and set the username.
 
@@ -39,7 +39,7 @@ class ClientInfo(Registry):
         @param **kw: optional context information
         @type **kw: dict
         """
-        self.tokens = ACLTags.get_instance(tokens)
+        self.tokens = ACLTags(tokens)
         self.username = username
         self.load()
 
@@ -70,7 +70,7 @@ class ClientInfo(Registry):
 
 
     def get_tags(self):
-        tags = ACLTags.get_instance(self.tokens)
+        tags = ACLTags(self.tokens)
         tags.add_tag('username', self.username)
         return tags
 
@@ -106,7 +106,7 @@ class ClientDB(Registry):
     _class_id = 'ClientDB'
     _singleton = True
 
-    def __init__(self, **kw):
+    def __reginit__(self, **kw):
         """
         This creates a ClientDB object, and initialize the attribute
         C{clientinfo} to None.
@@ -128,9 +128,9 @@ class ClientDB(Registry):
         @return: True if authenticated, False otherwise.
         @rtype: bool
         """
-        clientinfo = ClientInfo.get_instance(username, **tokens)
+        clientinfo = ClientInfo(username, **tokens)
 
-        if not ACLDB.get_instance().check(acl='authenticate',
+        if not ACLDB().check(acl='authenticate',
                                           client=clientinfo.get_tags()):
             return False
 
@@ -162,7 +162,7 @@ class ClientDB(Registry):
         """
 
         if username:
-            return ClientInfo.get_instance(username, **kw)
+            return ClientInfo(username, **kw)
         else:
             return self.clientinfo
 

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 07, 01:50:17 by david
+# Last modified: 2006 Jul 08, 23:01:05 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,6 +25,7 @@ class Registry(object):
     _singletons = {}
     _singleton = False
 
+
     @classmethod
     def register(cls):
         """
@@ -32,10 +33,9 @@ class Registry(object):
         """
 
         Registry._registry[cls._class_id] = cls
-        print '%s.register() <= %s' % (cls.__name__, cls._class_id)
 
-    @classmethod
-    def get_instance(cls, *args, **kw):
+
+    def __new__(cls, *args, **kw):
         """
         Return an instance of the previously registered class.
 
@@ -45,14 +45,19 @@ class Registry(object):
         """
 
         obj_class = Registry._registry[cls._class_id]
-        print '%s.get_instance() => %s' % (obj_class._class_id,
-                                           obj_class.__name__)
         if cls._singleton:
-            if not Registry._singletons.has_key(cls._class_id):
-                Registry._singletons[cls._class_id] = obj_class(*args, **kw)
-            return Registry._singletons[cls._class_id]
+            theone = Registry._singletons.get(cls._class_id)
+            if theone is None:
+                theone = object.__new__(obj_class)
+                Registry._singletons[cls._class_id] = theone
+                theone.__reginit__(*args, **kw)
+            return theone
+            
         else:
-            return obj_class(*args, **kw)
+            obj = object.__new__(obj_class)
+            obj.__reginit__(*args, **kw)
+            return obj
 
-
+    def __reginit__(self, *args, **kw):
+        pass
 

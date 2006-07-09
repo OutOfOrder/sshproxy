@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 08, 02:39:40 by david
+# Last modified: 2006 Jul 08, 14:06:38 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,23 +23,10 @@ from registry import Registry
 from acl import ACLTags, ACLDB
 
 
-#class UserInfo(Registry):
-#    _class_id = 'UserInfo'
-#    def __init__(self, login, **kw):
-#        self.login = login
-#        self.tags = ACLTags.get_instance()
-#
-#    def get_tags(self):
-#        tags = ACLTags.get_instance()
-#        tags.add_tag('login', self.login)
-#        return tags
-#
-#UserInfo.register()
-
 class SiteInfo(Registry):
     _class_id = 'SiteInfo'
-    def __init__(self, login, name, **kw):
-        self.tags = ACLTags.get_instance(kw)
+    def __reginit__(self, login, name, **kw):
+        self.tags = ACLTags(kw)
         self.login = login
         self.name = name
         self.loaded = False
@@ -52,7 +39,7 @@ class SiteInfo(Registry):
         pass
 
     def get_tags(self):
-        tags = ACLTags.get_instance()
+        tags = ACLTags()
         tags.update(self.tags)
         tags.add_tag('login', self.login or '')
         tags.add_tag('name', self.name)
@@ -66,7 +53,7 @@ class SiteDB(Registry):
     _class_id = 'SiteDB'
     _singleton = True
 
-    def __init__(self, **kw):
+    def __reginit__(self, **kw):
         self.siteinfo = None
         self.userinfo = None
 
@@ -81,12 +68,12 @@ class SiteDB(Registry):
 
     def authorize(self, user_site, client, **tokens):
         user, site = self.split_user_site(user_site)
-        siteinfo = SiteInfo.get_instance(user, site, **tokens)
+        siteinfo = SiteInfo(user, site, **tokens)
 
         if not siteinfo.loaded:
             return False
 
-        if not ACLDB.get_instance().check(acl='authorize',
+        if not ACLDB().check(acl='authorize',
                                                     client=client.get_tags(),
                                                     site=siteinfo.get_tags()):
             return False
@@ -96,7 +83,7 @@ class SiteDB(Registry):
 
 
     def get_tags(self):
-        tags = ACLTags.get_instance()
+        tags = ACLTags()
         tags.update(self.siteinfo.get_tags())
         #tags.update(self.userinfo.get_tags())
         return tags
@@ -112,7 +99,7 @@ class SiteDB(Registry):
         pass
 
     def list_sites(self, **kw):
-        return SiteInfo.get_instance()
+        return SiteInfo()
 
     def list_allowed_sites(self, login=None, **kw):
         pass

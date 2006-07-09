@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 08, 02:23:24 by david
+# Last modified: 2006 Jul 08, 14:03:10 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,13 +30,13 @@ class Backend(Registry):
     _class_id = 'Backend'
     _singleton = True
 
-    def __init__(self):
+    def __reginit__(self):
         self.authenticated = False
         self.authorized = False
-        self.clientdb = ClientDB.get_instance()
-        self.acldb = ACLDB.get_instance()
+        self.clientdb = ClientDB()
+        self.acldb = ACLDB()
         self._site_cache = (None, None)
-        self.tags = ACLTags.get_instance()
+        self.tags = ACLTags()
 
 
     def authenticate(self, username, **tokens):
@@ -48,7 +48,7 @@ class Backend(Registry):
 
 
     def authorize(self, user_site):
-        sitedb = SiteDB.get_instance()
+        sitedb = SiteDB()
         if sitedb.authorize(user_site, self.clientdb):
             self.authorized = True
             self.sitedb = sitedb
@@ -74,4 +74,4 @@ class Backend(Registry):
 Backend.register()
 
 def get_backend():
-    return Backend.get_instance()
+    return Backend()

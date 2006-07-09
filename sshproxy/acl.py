@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 08, 02:32:41 by david
+# Last modified: 2006 Jul 09, 01:59:34 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -27,6 +27,8 @@ class ParseError(Exception):
 
 class Operator(object):
     _ops = {}
+    is_func = False
+    p = 0
     def __init__(self, left, right):
         self.right = right
         self.left = left
@@ -53,105 +55,149 @@ class Operator(object):
 
 class Equals(Operator):
     token = '='
-    p = 0
+    p = 5
     def op(self):
         return self.left == self.right
 
 class Different(Operator):
     token = '!='
-    p = 0
+    p = 5
     def op(self):
-        return self.left == self.right
+        return self.left != self.right
 
 class Superior(Operator):
     token = '>'
-    p = 0
+    p = 5
     def op(self):
         return self.left > self.right
 
 class Inferior(Operator):
     token = '<'
-    p = 0
+    p = 5
     def op(self):
         return self.left < self.right
 
 class SuperiorEq(Operator):
     token = '>='
-    p = 0
+    p = 5
     def op(self):
         return self.left >= self.right
 
 class InferiorEq(Operator):
     token = '<='
-    p = 0
+    p = 5
     def op(self):
         return self.left <= self.right
 
-class Not(Operator):
-    token = 'not'
-    p = 1
-    def op(self):
-        return not self.right
-
 class In(Operator):
     token = 'in'
-    p = 0
+    p = 5
     def op(self):
         return self.left in self.right
 
 class And(Operator):
     token = 'and'
-    p = 1
+    p = 9
     def op(self):
         return self.left and self.right
 
 class Or(Operator):
     token = 'or'
-    p = 1
+    p = 9
     def op(self):
         return self.left or self.right
 
 class Starts(Operator):
     token = ':='
-    p = 0
+    p = 5
     def op(self):
         return str(self.left).startswith(str(self.right))
 
 class Ends(Operator):
     token = '=:'
-    p = 0
+    p = 5
     def op(self):
         return str(self.left).endswith(str(self.right))
 
-class Literal(object):
-    token = '.'
-    p = -2
-    def __init__(self, item):
-        self.item = item
-
+class Function(Operator):
+    is_func = True
+    p = 4
     def __str__(self):
-        if self.item is None:
-            return ''
-        return str(self.item)
+        return '%s(%s)' % (self.token, repr(self.right))
 
     def __repr__(self):
-        if self.item is None:
-            return 'L(%s)' % repr('')
-        return '%s' % repr(self.item)
+        return '%s(%s)' % (self.token, repr(self.right))
+
+class Not(Function):
+    token = 'not'
+    def call(self, namespace):
+        return not self.left.eval(namespace, self.right)
+
+class Int(Function):
+    token = 'int'
+    def call(self, namespace):
+        result = self.left.eval(namespace, self.right)
+        try:
+            result = int(result)
+            return result
+        except ValueError:
+            return False
+
+class Literal(str):
+    token = 's'
+    p = 0
+    def __init__(self, item):
+        str.__init__(self, item)
+
+class Token(str):
+    token = '1'
+    p = 0
+    def __init__(self, item):
+        str.__init__(self, item)
+
+
+    def __repr__(self):
+        return str(self)
+
+class Const(object):
+    token = 'A'
+    p = 0
+    _constants = {
+            'True': True,
+            'False': False,
+            }
+
+    def __init__(self, item):
+        self.item = self.get_constant(item)
+
+    @staticmethod
+    def get_int(i):
+        try:
+            return int(i)
+        except ValueError:
+            return None
+
+    @classmethod
+    def get_constant(cls, token):
+        if token in cls._constants.keys():
+            return cls._constants[token]
+        return cls.get_int(token)
+
+    @classmethod
+    def is_constant(cls, token):
+        if token in cls._constants.keys():
+            return True
+        return cls.get_int(token) is not None
+
+
 
 class Group(object):
-    token = '*'
+    token = '3'
     p = -2
     def __init__(self, left, op, right):
         if op.token in ('.', '*'):
             raise ParseError('Unknown operator: %s' % repr(op))
         self.left, self.op, self.right = left, op, right
-
-    def __getitem__(self, item):
-        return self.items[item]
-
-    def __len__(self):
-        return len(self.items)
 
     def __str__(self):
         return ' ( %s %s %s ) ' % (str(self.left),
@@ -166,14 +212,14 @@ class Group(object):
 
 
 for cls in (Equals, Different, Superior, Inferior, SuperiorEq,
-            InferiorEq, Not, In, And, Or, Starts, Ends,):
+            InferiorEq, In, And, Or, Starts, Ends, Not, Int):
     Operator.add(cls)
 
 
 class ACLRule(Registry):
     _class_id = 'ACLRule'
 
-    def __init__(self, name, rule):
+    def __reginit__(self, name, rule):
         self.name = name
         tokens = self.tokenize('( %s )' % rule)
 
@@ -195,15 +241,12 @@ class ACLRule(Registry):
         l = 0
         tokens = []
         seps = []
-        seps += ['>=', '<=', '!=', ':=', '=:']
-        seps += ['=', '>', '<']
-        seps += [' ', '\t', '\n', '\r', '"']
-        seps += ['(', ')']
-        # I don't know why the sort function does not work...
-        #def sort_seps(x, y):
-        #    r = len(x) > len(y)
-        #    return r
-        #seps.sort(cmp=sort_seps)
+        seps += [' ', '\t', '\n', '\r']
+        seps += ['(', ')', '"']
+        seps += ['=', '!=']
+        seps += ['>', '>=', '<', '<=']
+        seps += [':=', '=:']
+        seps.sort(cmp=lambda x, y: cmp(len(y), len(x)))
         while i < len(s):
             j = i
             i = self._search_tok(s, i, *seps)
@@ -230,7 +273,7 @@ class ACLRule(Registry):
                     if s[i] not in seps:
                         raise ParseError('Missing separator: ...%s...'
                                                         % s[max(i-5, 0):i+5])
-                    tokens.append(s[j:i].replace('\\"', '"'))
+                    tokens.append(Literal(s[j:i].replace('\\"', '"')))
             else:
                 if j < i:
                     tokens.append(s[j:i])
@@ -249,17 +292,20 @@ class ACLRule(Registry):
         i = 0
 
         while i < len(tokens):
-            op = Operator.get(tokens[i])
-            if op:
-                tokens[i] = op
-                # exception for not that does take only one argument
-                if op.token == 'not':
-                    tokens.insert(i, Literal('NULL'))
-                    i += 1
-            elif tokens[i] in ('(', ')'):
-                pass
-            else:
-                tokens[i] = Literal(tokens[i])
+            if not isinstance(tokens[i], Literal):
+                op = Operator.get(tokens[i])
+                if op:
+                    tokens[i] = op
+                    # exception for functions that does take only one argument
+                    if op.is_func:
+                        tokens.insert(i, Token('NULL'))
+                        i += 1
+                elif tokens[i] in ('(', ')'):
+                    pass
+                elif Const.is_constant(tokens[i]):
+                    tokens[i] = Const(tokens[i])
+                else:
+                    tokens[i] = Token(tokens[i])
             i += 1
 
         # treat parenthesis first
@@ -272,7 +318,12 @@ class ACLRule(Registry):
         lt = len(tokens)
         while i < lt:
             if str(tokens[i]) == '(':
-                v, j = self.hier_par(tokens, i+1, l+1)
+                try:
+                    v, j = self.hier_par(tokens, i+1, l+1)
+                except ValueError:
+                    raise ParseError('Parenthesis count mismatch in rule %s:\n'
+                                                '%s' % (self.name, self.rule))
+
                 val.append(v)
                 i = j
             elif str(tokens[i]) == ')':
@@ -283,7 +334,7 @@ class ACLRule(Registry):
         return val
 
     def _find_center_op(self, tokens):
-        max = -1
+        max = 1
         maxi = 1
         for i in range(len(tokens)):
             if isinstance(tokens[i], list):
@@ -317,26 +368,37 @@ class ACLRule(Registry):
         return ret
 
 
-    def eval(self, namespace):
-        return bool(self.eval_r(self.tree, namespace))
+    def eval(self, namespace, tree=None):
+        if tree is None:
+            tree = self.tree
+        return self.eval_r(tree, namespace)
 
     def eval_r(self, tree, namespace):
         if isinstance(tree, Group): # and len(tree) == 3:
-            left, right = (self.eval_r(tree.left, namespace),
-                           self.eval_r(tree.right, namespace))
             op = tree.op
+            if op.is_func:
+                left = self
+                right = tree.right
+            else:
+                left, right = (self.eval_r(tree.left, namespace),
+                               self.eval_r(tree.right, namespace))
             o = op(left, right)
-            print o.op(), '=', o
-            return bool(o.op())
-        else:
-            tree = str(tree)
-            for k in namespace:
+            if op.is_func:
+                result = o.call(namespace)
+            else:
+                result = o.op()
+            #print result, '=', o
+            return result
+        elif isinstance(tree, Const):
+            return tree.item
+        elif isinstance(tree, Token):
+            for k in namespace.keys():
                 if tree.startswith(k+'.'):
                     attr = tree[len(k)+1:]
                     if namespace[k].has_key(attr):
-                        tree = namespace[k][attr]
-                    else:
-                        tree = ''
+                        return namespace[k][attr]
+            raise ParseError('Missing quotes around %s.' % tree)
+        else:
             return tree
 
 ACLRule.register()
@@ -345,7 +407,7 @@ ACLRule.register()
 class ACLTags(Registry):
     _class_id = 'ACLTags'
 
-    def __init__(self, tags=None, obj=None):
+    def __reginit__(self, tags=None, obj=None):
         self.tags = {}
         if tags:
             self.add_tags(tags)
@@ -365,7 +427,6 @@ class ACLTags(Registry):
                 self.tags[tag] = value
 
     def update(self, other):
-        #print repr(self.tags), repr(other.tags)
         if not other or not other.tags.keys():
             return
         self.tags.update(other.tags)
@@ -400,7 +461,7 @@ class ACLDB(Registry):
     _class_id = 'ACLDB'
     _singleton = True
     
-    def __init__(self):
+    def __reginit__(self):
         self.rules = []
         self.load_rules()
 
@@ -412,16 +473,16 @@ class ACLDB(Registry):
 
     def add_rule(self, acl, rule):
         if rule is None:
-            rule = ACLRule.get_instance(acl, '( not 1 )')
+            rule = ACLRule(acl, '( not 1 )')
         elif not isinstance(rule, ACLRule):
-            rule = ACLRule.get_instance(acl, str(rule))
+            rule = ACLRule(acl, str(rule))
         self.rules.append((acl, rule))
 
     def check(self, acl, **namespaces):
         namespace = {}
         for ns in namespaces:
             if not namespace.has_key(ns):
-                namespace[ns] = ACLTags.get_instance()
+                namespace[ns] = ACLTags()
             namespace[ns].update(namespaces[ns])
 
         result = False
