@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 02, 17:12:37 by david
+# Last modified: 2006 Jul 09, 03:02:45 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -288,13 +288,14 @@ def _get_dss_key_from_string(dsskeystr=None, password=None):
 
 
 def get_site_pkey(site):
-    from sshproxy.backend import get_backend
+    from sshproxy.backend import Backend
     from sshproxy.cipher import decipher
 
 
-    pwdb = get_backend()
+    pwdb = Backend()
     try:
-        rlogin, site = pwdb.get_rlogin_site(site)
+        site = pwdb.get_site(site)
+        rlogin = site.get_tags().login
     except SSHProxyAuthError:
         rlogin, site = None, None
 
@@ -302,7 +303,7 @@ def get_site_pkey(site):
         # site or rlogin do not exist
         return None
 
-    spkey = decipher(pwdb.get_rlogin_pkey(rlogin, site.sid))
+    spkey = decipher(site.get_tags().get('pkey'))
     if len(spkey):
         return get_public_key(spkey)
     else:

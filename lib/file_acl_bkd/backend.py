@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 08, 03:10:35 by david
+# Last modified: 2006 Jul 09, 02:52:13 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,7 +25,7 @@ from ConfigParser import NoSectionError, SafeConfigParser as ConfigParser
 from sshproxy.config import Config, ConfigSection, path, get_config
 from sshproxy.acl import ACLDB
 from sshproxy.client import ClientInfo
-from sshproxy.site import SiteInfo
+from sshproxy.site import SiteDB, SiteInfo
 
 class FileClientConfigSection(ConfigSection):
     section_defaults = {
@@ -186,6 +186,26 @@ class FileSiteInfo(SiteInfo):
 
 FileSiteInfo.register()
 
+class FileSiteDB(SiteDB):
+    def list_site_users(self):
+        sitepath = get_config('site_db.file')['db_path']
+        if not os.path.exists(sitepath):
+            os.makedirs(sitepath)
+            # no need to search for the site files
+            return []
+        sitefiles = os.listdir(sitepath)
+        sites = []
+        for sitefile in sitefiles:
+            if sitefile[0] == '.':
+                continue
+            file = ConfigParser()
+            file.read(os.path.join(sitepath, sitefile))
+            for user in file.sections():
+                sites.append(SiteInfo(user, sitefile))
 
+        return sites
+
+
+FileSiteDB.register()
 
 

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 09, 01:56:59 by david
+# Last modified: 2006 Jul 09, 03:10:59 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -151,12 +151,17 @@ class Server(Registry, paramiko.ServerInterface):
 
 
     def add_cmdline_options(self, parser):
-        parser.add_option("-l", "--list-sites", dest="action",
+        namespace = {
+                'client': self.pwdb.clientdb.get_tags(),
+                }
+        if ACLDB().check('opt_list_sites', **namespace):
+            parser.add_option("-l", "--list-sites", dest="action",
                     help="list allowed sites",
                     action="store_const",
                     const='list_sites',
                     )
-        parser.add_option("-g", "--get-pkey", dest="action",
+        if ACLDB().check('opt_get_pkey', **namespace):
+            parser.add_option("-g", "--get-pkey", dest="action",
                     help="display public key for user@host.",
                     action="store_const",
                     const="get_pkey",
@@ -173,13 +178,12 @@ class Server(Registry, paramiko.ServerInterface):
         result = []
         sites = self.pwdb.list_allowed_sites()
         if len(sites):
-            name_width = max([ len(e['uid']) + len(e['name'])
+            name_width = max([ len(e.get_tags().login) + len(e.get_tags().name)
                                             for e in sites ])
             for site in sites:
-                sid = '%s@%s' % (site['uid'], site['name'])
-                result.append('%s %s [%s]\n' % (sid,
-                                    ' '*(name_width + 1 - len(sid)),
-                                    site['location'])) 
+                sid = '%s@%s' % (site.get_tags().login, site.get_tags().name)
+                result.append('%s %s\n' % (sid,
+                                    ' '*(name_width + 1 - len(sid)))) 
         result.append('\nTOTAL: %d\n' % len(sites))
 
         self.chan.send(chanfmt(''.join(result)))
@@ -198,6 +202,8 @@ class Server(Registry, paramiko.ServerInterface):
             else:
                 result.append("%s: No pkey found" % site)
 
+        if not result:
+            result.append('Please give at least a site.')
         self.chan.send(chanfmt('\n'.join(result)+'\n'))
 
 

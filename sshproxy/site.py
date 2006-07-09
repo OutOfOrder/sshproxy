@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 08, 14:06:38 by david
+# Last modified: 2006 Jul 09, 03:05:02 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -67,8 +67,11 @@ class SiteDB(Registry):
 
 
     def authorize(self, user_site, client, **tokens):
-        user, site = self.split_user_site(user_site)
-        siteinfo = SiteInfo(user, site, **tokens)
+        if not isinstance(user_site, SiteInfo):
+            user, site = self.split_user_site(user_site)
+            siteinfo = SiteInfo(user, site, **tokens)
+        else:
+            siteinfo = user_site
 
         if not siteinfo.loaded:
             return False
@@ -88,35 +91,12 @@ class SiteDB(Registry):
         #tags.update(self.userinfo.get_tags())
         return tags
 
-    def get_site(self):
+    def get_site(self, user_site=None):
+        if user_site is not None:
+            user, site = self.split_user_site(user_site)
+            return SiteInfo(user, site)
         return self.siteinfo
 
-################################################################
-    def get_rlogin(self, uid=None):
-        pass
-
-    def get_rlogin_site(self, site_id):
-        pass
-
-    def list_sites(self, **kw):
-        return SiteInfo()
-
-    def list_allowed_sites(self, login=None, **kw):
-        pass
-
-    def is_admin(self, login=None):
-        pass
-
-    def can_connect(self, rlogin, site):
-        pass
-
-    def get_console(self):
-        return None
-
-    def get_wizard(self):
-        return None
-
-
-SiteDB.register()
-
+    def list_site_users(self):
+        return []
 
