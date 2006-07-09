@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 09, 01:30:14 by david
+# Last modified: 2006 Jul 09, 22:53:00 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -47,7 +47,7 @@ class Proxy(Registry):
         log.info("Connecting to %s by %s on %s" %
                     (self.name, proxy_client.pwdb.get_client().username, now))
         try:
-            self.transport = paramiko.Transport((tags.hostname,
+            self.transport = paramiko.Transport((tags.ip_address,
                                                  int(tags.port)))
             # XXX: debugging code follows
             #self.transport.set_hexdump(1)
@@ -72,7 +72,7 @@ class Proxy(Registry):
 
     def connect(self):
         tags = self.tags
-        hostkey = tags.hostkey or None
+        hostkey = tags.get('hostkey', None) or None
         transport = self.transport
 
         transport.start_client()

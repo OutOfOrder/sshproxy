@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 09, 03:31:32 by david
+# Last modified: 2006 Jul 09, 17:16:43 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -109,9 +109,9 @@ class Server(Registry, paramiko.ServerInterface):
 
     def valid_auth(self, username, password=None, pkey=None):
         if not self.pwdb.authenticate(username=username,
-                                    password=password,
-                                    pkey=pkey,
-                                    ip_addr=self.client_addr[0]):
+                                      auth_tokens={'password': password,
+                                                   'pkey': pkey},
+                                      ip_addr=self.client_addr[0]):
             if pkey is not None:
                 self.unauth_key = pkey
             return False

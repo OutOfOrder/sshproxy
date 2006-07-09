@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 08, 14:04:10 by david
+# Last modified: 2006 Jul 09, 22:54:57 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -114,7 +114,7 @@ class ClientDB(Registry):
         self.clientinfo = None
 
 
-    def authenticate(self, username, **tokens):
+    def authenticate(self, username, auth_tokens, **tokens):
         """
         Authenticate the client connecting as C{username} with C{**tokens}.
         If authentication is successful, set the attribute C{clientinfo} as
@@ -134,12 +134,10 @@ class ClientDB(Registry):
                                           client=clientinfo.get_tags()):
             return False
 
-        if clientinfo.authenticate(**tokens):
+        if clientinfo.authenticate(**auth_tokens):
             self.clientinfo = clientinfo
-            print "AUTH OK"
             return True
         else:
-            print "AUTH KO"
             return False
 
 

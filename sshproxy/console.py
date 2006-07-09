@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 22, 02:18:05 by david
+# Last modified: 2006 Jul 09, 23:54:45 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -63,16 +63,13 @@ class Console(cmd.Cmd):
 
     #needed for do_show_sites
     # TODO: put this in daemon.py when the ctrlfd protocol is more robust
-    def _sites(self, domain=None):
+    def _sites(self):
         from backend import get_backend
         pwdb = get_backend()
         sites=[]
         login = self._whoami().strip()
-        for site in pwdb.list_allowed_sites(login=login, domain=domain):
-            sites.append((site['name'], site['uid'],
-                          site['ip'], site['location']))
-        sites.sort(lambda x, y: x[1] < y[1])
-        sites.sort()
+        for site in pwdb.list_allowed_sites():
+            sites.append([site.login, site.name, site.get_tags().priority])
         return sites
 
 
@@ -114,15 +111,12 @@ class Console(cmd.Cmd):
         """sites"""
         from util import CommandLine
         arg = CommandLine(arg)
-        domain = None
-        if len(arg) and arg[0] != '#':
-            domain = arg[0]
-        sites = self._sites(domain=domain)
+        sites = self._sites()
         if len(sites):
             name_width = max([ len(e[0]) + len(e[1]) for e in sites ])
-            for name, uid, ip, location in sites:
+            for uid, name, priority in sites:
                 sid = '%s@%s' % (uid, name)
-                print sid, ' '*(name_width + 1 - len(sid)), '[ %s ]' % location
+                print sid, ' '*(name_width + 1 - len(sid)), '[%s]' % priority
         print '\nTOTAL: %d ' % len(sites)
 
     def do_open(self, arg):

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 09, 10:37:34 by david
+# Last modified: 2006 Jul 10, 00:43:07 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -101,7 +101,6 @@ class FileClientInfo(ClientInfo):
         return ('pkey', 'password')
 
 
-FileClientInfo.register()
 
 
 class FileACLDB(ACLDB):
@@ -144,7 +143,6 @@ class FileACLDB(ACLDB):
         fd.close()
         os.mv(rulefile+'.new', rulefile)
 
-FileACLDB.register()
 
 
 class FileSiteInfo(SiteInfo):
@@ -199,7 +197,6 @@ class FileSiteInfo(SiteInfo):
         os.rename(sitefile+'.new', sitefile)
         
 
-FileSiteInfo.register()
 
 class FileSiteDB(SiteDB):
     def list_site_users(self):
@@ -219,8 +216,4 @@ class FileSiteDB(SiteDB):
                 sites.append(SiteInfo(user, sitefile))
 
         return sites
-
-
-FileSiteDB.register()
-
 

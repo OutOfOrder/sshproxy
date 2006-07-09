@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 09, 13:11:28 by david
+# Last modified: 2006 Jul 09, 17:15:21 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -39,8 +39,8 @@ class Backend(Registry):
         self.tags = ACLTags()
 
 
-    def authenticate(self, username, **tokens):
-        if self.clientdb.authenticate(username, **tokens):
+    def authenticate(self, username, auth_tokens, **tokens):
+        if self.clientdb.authenticate(username, auth_tokens, **tokens):
             self.authenticated = True
         else:
             self.authenticated = False
