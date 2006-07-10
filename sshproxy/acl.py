@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 09, 22:53:44 by david
+# Last modified: 2006 Jul 10, 01:41:42 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -432,6 +432,8 @@ class ACLRule(Registry):
                             return namespace[k][attr]
                         else:
                             return namespace[k][attr]
+                    else:
+                        return False
             raise ParseError('Unknown identifier or missing quotes around %s.'
                                                                         % tree)
         else:
@@ -561,9 +563,9 @@ class ACLDB(Registry):
 
         if result is None:
             result = False
-            #print 'ACL', acl, 'not found'
+            print 'ACL', acl, 'not found'
         else:
-            #print 'ACL', acl, result, match
+            print 'ACL', acl, result, match
             pass
         return result
 

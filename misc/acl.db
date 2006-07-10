@@ -1,0 +1,92 @@
+# Example ACL file
+
+# authenticate is for client authentication to the proxy
+authenticate:
+    # only clients connecting from these IPs are allowed
+    (client.ip_addr in list("127.0.0.1 192.168.1.7"))
+    # username begining (:=) with 'guest' are denied
+    and (client.username := "guest" ) = False
+    # check also the custom ACL called level_auth
+    and acl(level_auth)
+    # connections on work hours only
+    and (proxy.time >= "08:00" and proxy.time <= "19:00")
+    # on monday only (sunday is 0)
+    and proxy.dow = "1"
+    # after july, no connection allowed
+    and proxy.date < "2006-08-01"
+
+# ACLs can be broken down into shareable subparts, call with acl(level_auth)
+# this one is a custom ACL
+level_auth:
+    # client has a custom tag named "level" which is an integer
+    int(client.level) >= 7
+
+# admin is for administration access
+admin:
+    # if the client tag "groups" contains the word "admin"
+    "admin" in list(client.groups)
+
+
+authorize:
+    # localnet group members are allowed to connect to local network only
+    ("localnet" in list(client.groups) and site.ip_address := "192.168.1.")
+    # or any user must pass the "enforce" ACL attached to sites
+    or acl(site.enforce)
+
+# console_session is for the sshproxy console
+console_session:
+    # allow admin group members only
+    "admin" in list(client.groups)
+
+# shell_session controls normal ssh session
+shell_session:
+    # only client username "david" can connect anywhere as root
+    site.login != "root" or client.username = "david"
+
+# remote_exec controls remote command execution
+remote_exec:
+    # deny root login
+    site.login != "root"
+    # allow only the uname command
+    and proxy.cmdline := "uname"
+    # ensure there is only one command
+    and not (";" in proxy.cmdline) and not ("&" in proxy.cmdline)
+
+# ACLs can be given more than once,
+# only one success is sufficient to allow access (OR relation)
+remote_exec:
+    # only david is allowed to connect as root
+    site.login != "root" or client.username = "david"
+
+# scp_upload is for file upload
+# an ACL that is not declared is evaluated as False
+#scp_upload:
+#    # allow scp upload for any login anywhere, or root inside /tmp only
+#    site.login != "root" or ( proxy.scp_path := "/tmp"
+#                            and not ( ".." in proxy.scp_path ))
+
+# scp_download is for file download
+#scp_download:
+#    # allow scp download for any login but root
+#    site.login != "root"
+
+# scp_transfer is for file upload AND download
+# if the above rules failed, try the general rule
+#scp_transfer: False
+
+
+# options ######################################################
+
+# opt_list_sites is to allow or deny the use of the --list-sites option:
+#  $ pssh --list-sites
+opt_list_sites:
+    # guests group members can't see the list of allowed sites (they're blind)
+    client.group != "guests"
+
+# opt_get_pkey controls the option --get-pkey of pssh:
+#  $ pssh --get-pkey root@host
+opt_get_pkey:
+    # only admins can get the public key of a site login
+    "admin" in list(client.groups)
+
+
