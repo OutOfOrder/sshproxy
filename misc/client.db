@@ -1,0 +1,13 @@
+# Example file_db client database
+[david]
+password = mypassword
+pkey = 
+groups = localnet admin
+level = 7
+
+[admin]
+password = 
+pkey = AAAA65435ABFED565465....
+groups = admin
+level = 10
+acl.src_ip = client.ip_addr in list("127.0.0.1 192.168.1.7 88.191.11.242")

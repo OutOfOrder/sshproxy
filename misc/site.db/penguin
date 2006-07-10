@@ -1,0 +1,15 @@
+[DEFAULT]
+ip_address = 88.191.11.242
+port = 22
+hostkey = **********
+acl.enforce = client.username in list("david admin") and acl(client.src_ip)
+
+[root]
+priority = 1
+password = $blowfish$==================
+pkey = 
+
+[pundit]
+password = $blowfish$Pvx+5dVlPgE=
+pkey = $blowfish$======================
+
