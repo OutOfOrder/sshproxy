@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 09, 22:53:00 by david
+# Last modified: 2006 Jul 11, 22:24:42 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -156,7 +156,7 @@ ProxyScp.register()
 
 
 class ProxyCmd(Proxy):
-    _class_id = 'ProxyScp'
+    _class_id = 'ProxyCmd'
     def open_connection(self):
         log.info('Executing: %s' % (self.tags.cmdline))
         if hasattr(self.proxy_client, 'term'):
