@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 12, 00:24:44 by david
+# Last modified: 2006 Jul 12, 00:58:36 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,4 +20,27 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-from registry import get_class
+from sshproxy.acl import Function, Token
+
+
+class Len(Function):
+    token = 'len'
+    def call(self, namespace):
+        return len(self.left.eval(namespace, self.right))
+
+Function.add(Len)
+
+class Substr(Function):
+    token = 'substr'
+    def call(self, namespace):
+        # self.right = "start end ns.var"
+        try:
+            start, end, var = self.right.split()
+        except ValueError:
+            return False
+        sub = str(self.left.eval(namespace, Token(str(var))))[int(start):int(end)]
+        return sub
+
+Function.add(Substr)
+
+

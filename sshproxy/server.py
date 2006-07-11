@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 09, 17:16:43 by david
+# Last modified: 2006 Jul 12, 00:01:46 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -43,6 +43,7 @@ class Server(Registry, paramiko.ServerInterface):
         self.pwdb = get_backend()
         self.client = client
         self.client_addr = addr
+        self.ip_addr, self.port = client.getsockname()
         self.host_key = paramiko.DSSKey(filename=host_key_file)
         self.event = threading.Event()
         self.args = []
@@ -169,7 +170,11 @@ class Server(Registry, paramiko.ServerInterface):
                     )
 
     def parse_cmdline(self, args):
-        parser = OptionParser(self.chan)
+        usage = """
+        pssh [options]
+        pssh [user@site [cmd]]
+        """
+        parser = OptionParser(self.chan, usage=usage)
         # add options from a mapping or a Registry callback
         self.add_cmdline_options(parser)
         return parser.parse_args(args)

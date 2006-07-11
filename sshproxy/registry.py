@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 08, 23:01:05 by david
+# Last modified: 2006 Jul 12, 00:22:50 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -61,3 +61,5 @@ class Registry(object):
     def __reginit__(self, *args, **kw):
         pass
 
+def get_class(class_id):
+    return Registry._registry.get(class_id, object)
