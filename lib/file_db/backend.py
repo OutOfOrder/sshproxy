@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 10, 00:43:07 by david
+# Last modified: 2006 Jul 14, 16:09:36 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,6 +26,7 @@ from sshproxy.config import Config, ConfigSection, path, get_config
 from sshproxy.acl import ACLDB
 from sshproxy.client import ClientInfo
 from sshproxy.site import SiteDB, SiteInfo
+from sshproxy import log
 
 class FileClientConfigSection(ConfigSection):
     section_defaults = {
@@ -127,13 +128,25 @@ class FileACLDB(ACLDB):
 
             try:
                 acl, rule = (' '.join(line)).split(':', 1)
-                if rule is None:
+                if rule is None or not rule.strip():
                     raise ValueError
             except ValueError:
                 # drop rule, it won't parse anyway
+                log.warning('Dropped unparseable rule %s' % acl)
+                line = nline
                 continue
             self.add_rule(acl=acl, rule=rule.lstrip())
             line = nline
+
+        try:
+            acl, rule = (' '.join(line)).split(':', 1)
+            if rule is None or not rule.strip():
+                raise ValueError
+            self.add_rule(acl=acl, rule=rule.lstrip())
+        except ValueError:
+            # drop rule, it won't parse anyway
+            log.warning('Dropped unparseable rule %s' % acl)
+            pass
         fd.close()
 
     def save_rules(self):

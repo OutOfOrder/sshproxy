@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 10, 01:41:42 by david
+# Last modified: 2006 Jul 14, 16:12:30 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,6 +22,7 @@
 import time, datetime
 
 from registry import Registry
+import log
 
 class ParseError(Exception):
     pass
@@ -414,7 +415,7 @@ class ACLRule(Registry):
                 result = o.call(namespace)
             else:
                 result = o.op()
-            #print result, '=', o
+            log.debug('ACLrule: %s = %s' % (result, o))
             return result
         elif isinstance(tree, Const):
             return tree.item
@@ -563,9 +564,9 @@ class ACLDB(Registry):
 
         if result is None:
             result = False
-            print 'ACL', acl, 'not found'
+            log.info('ACL %s not found' % acl)
         else:
-            print 'ACL', acl, result, match
+            log.info('ACL %s %s %s' % (acl, result, match))
             pass
         return result
 

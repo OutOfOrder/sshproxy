@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 27, 17:20:34 by david
+# Last modified: 2006 Jul 12, 01:25:27 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,7 +22,7 @@
 import os, os.path
 from distutils.core import setup
 
-version = '0.4'
+version = '0.5'
 url = 'http://penguin.fr/sshproxy/'
 
 def get_data_files(target, root, path=''):
