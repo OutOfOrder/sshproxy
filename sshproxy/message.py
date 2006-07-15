@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 mai 30, 15:11:50 by david
+# Last modified: 2006 Jul 15, 23:10:26 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,6 +21,7 @@
 
 
 import os, select
+from struct import pack, unpack
 
 class Pipe(object):
     def __init__(self, r, w):
@@ -33,30 +34,74 @@ class Pipe(object):
         os.close(self.rfd)
         os.close(self.wfd)
 
+    def _read_size(self):
+        S = os.read(self.rfd, 4)
+        return unpack('I', S)[0]
+
+    def _read_nonblocking(self):
+        sz = self._read_size()
+        S = os.read(self.rfd, sz)
+        s = unpack('%ss' % sz, S)[0]
+        if s == '___EMPTY_MESSAGE___':
+            return ''
+        return s
+
+    def _read_blocking(self):
+        while True:
+            r, w, e = select.select([self.rfd], [], [], 5)
+            if self.rfd in r:
+                sz = self._read_size()
+                break
+        while True:
+            r, w, e = select.select([self.rfd], [], [], 5)
+            if self.rfd in r:
+                S = os.read(self.rfd, sz)
+                break
+        s = unpack('%ss' % sz, S)[0]
+        if s == '___EMPTY_MESSAGE___':
+            return ''
+        return s
+
+    def _read_timeout(self):
+        r, w, e = select.select([self.rfd], [], [], self.timeout)
+        if self.rfd not in r:
+            return None
+        sz = self._read_size()
+        r, w, e = select.select([self.rfd], [], [], self.timeout)
+        if self.rfd not in r:
+            return None
+        S = os.read(self.rfd, sz)
+        s = unpack('%ss' % sz, S)[0]
+        if s == '___EMPTY_MESSAGE___':
+            return ''
+        return s
+
     def read(self, sz=10240):
         if self.timeout == 0.0:
-            return os.read(self.rfd, sz)
+            return self._read_nonblocking()
         elif self.timeout is None:
-            while 1:
-                r, w, e = select.select([self.rfd], [], [], 5)
-                if self.rfd in r:
-                    return os.read(self.rfd, sz)
+            return self._read_blocking()
         else:
-            r, w, e = select.select([self.rfd], [], [], self.timeout)
-            return os.read(self.rfd, sz)
+            return self._read_timeout()
 
     def write(self, s):
-        return os.write(self.wfd, str(s))
+        s = str(s)
+        S = pack('I%ss' % len(s), len(s), s)
+        return os.write(self.wfd, S)
 
     def response(self, s):
         if self._responded:
             raise Exception('Already responded, not reset')
         if not s:
-            s = 'OK'
+            s = '___EMPTY_MESSAGE___'
         
         ret = self.write(s)
         self._responded = True
         return ret
+
+    def request(self, request):
+        self.write(request)
+        return self._read_blocking()
 
     def reset(self):
         self._responded = False

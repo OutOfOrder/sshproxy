@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 09, 23:54:45 by david
+# Last modified: 2006 Jul 15, 21:29:46 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -45,6 +45,13 @@ class Console(cmd.Cmd):
         self.is_admin = is_admin
         cmd.Cmd.__init__(self, stdin=stdin, stdout=stdout)
         self.prompt = '\nsshproxy> '
+
+    def default(self, line):
+        action = line.split()[0]
+        args = line[len(action):].strip()
+        resp = self.ctrlfd.request(line)
+        if resp:
+            print resp
 
     def need_admin(self):
         if not self.is_admin:
@@ -106,6 +113,14 @@ class Console(cmd.Cmd):
         self.ctrlfd.setblocking()
         err = self.ctrlfd.read(4096)
         print err
+
+    def do_watch(self, arg):
+        """watch"""
+        print self.ctrlfd.request('watch')
+
+    def do_kill_client(self, arg):
+        """kill_client username@ip_addr"""
+        print self.ctrlfd.request('kill_client %s' % arg)
 
     def do_sites(self, arg):
         """sites"""

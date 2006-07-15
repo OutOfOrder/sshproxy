@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 08, 02:51:49 by david
+# Last modified: 2006 Jul 15, 11:15:09 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -47,7 +47,7 @@ class PluginLogUsers(object):
     def __init__(self):
         conf = get_config('logusers')
         if not os.path.isdir(conf['logdir']):
-            os.mkdir(conf['logdir'])
+            os.makedirs(conf['logdir'])
         
         self.path = conf['logdir']
 
@@ -59,13 +59,14 @@ class PluginLogUsers(object):
         for key, value in self._tr_table.items():
             self.tr_table[key] = value
 
-    def logusers(self, console, chan, sitedata, char):
-        user = sitedata.login
+    def logusers(self, console, chan, tags, char):
+        user = tags['client'].username
         path = os.path.join(self.path, user)
         if not os.path.isdir(path):
-            os.mkdir(path)
+            os.makedirs(path)
 
-        logfile = os.path.join(path, sitedata.name)
+        site = '%s@%s' % (tags['site'].login, tags['site'].name)
+        logfile = os.path.join(path, site)
         log = open(logfile, 'a')
         log.write(self.translate(char))
         log.close()

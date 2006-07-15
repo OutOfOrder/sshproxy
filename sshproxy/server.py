@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 12, 00:01:46 by david
+# Last modified: 2006 Jul 15, 22:30:53 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -39,12 +39,13 @@ from acl import ACLDB
 
 class Server(Registry, paramiko.ServerInterface):
     _class_id = "Server"
-    def __reginit__(self, client, addr, host_key_file):
+    def __reginit__(self, client, addr, msg, host_key_file):
         self.pwdb = get_backend()
         self.client = client
         self.client_addr = addr
-        self.ip_addr, self.port = client.getsockname()
+        self.msg = msg
         self.host_key = paramiko.DSSKey(filename=host_key_file)
+        self.ip_addr, self.port = client.getsockname()
         self.event = threading.Event()
         self.args = []
         self._remotes = {}
@@ -123,6 +124,7 @@ class Server(Registry, paramiko.ServerInterface):
                     client.set_tokens(pkey=self.unauth_key)
                     client.save()
             self.username = username
+            self.msg.request('set_client username=%s' % username)
             return True
 
 
@@ -156,6 +158,18 @@ class Server(Registry, paramiko.ServerInterface):
         namespace = {
                 'client': self.pwdb.clientdb.get_tags(),
                 }
+        if ACLDB().check('admin', **namespace):
+            parser.add_option("", "--admin", dest="action",
+                    help="run administrative commands",
+                    action="store_const",
+                    const='admin',
+                    )
+        if ACLDB().check('console_session', **namespace):
+            parser.add_option("", "--console", dest="action",
+                    help="open administration console",
+                    action="store_const",
+                    const='console',
+                    )
         if ACLDB().check('opt_list_sites', **namespace):
             parser.add_option("-l", "--list-sites", dest="action",
                     help="list allowed sites",
@@ -163,7 +177,7 @@ class Server(Registry, paramiko.ServerInterface):
                     const='list_sites',
                     )
         if ACLDB().check('opt_get_pkey', **namespace):
-            parser.add_option("-g", "--get-pkey", dest="action",
+            parser.add_option("", "--get-pkey", dest="action",
                     help="display public key for user@host.",
                     action="store_const",
                     const="get_pkey",
@@ -179,6 +193,19 @@ class Server(Registry, paramiko.ServerInterface):
         self.add_cmdline_options(parser)
         return parser.parse_args(args)
 
+
+    def opt_admin(self, options, *args):
+        if not len(args):
+            self.chan.send(chanfmt('Missing argument, try --admin help '
+                                   'to get a list of commands.\n'))
+            return
+
+        resp = self.msg.request('%s' % ' '.join(args))
+        self.chan.send(chanfmt(resp+'\n'))
+
+
+    def opt_console(self, options, *args):
+        return self.do_console()
 
     def opt_list_sites(self, options, *args):
         result = []
@@ -265,7 +292,7 @@ class Server(Registry, paramiko.ServerInterface):
             self.do_work()
         finally:
             # close what we can
-            for item in ('chan', 'transport'):
+            for item in ('chan', 'transport', 'msg'):
                 try:
                     getattr(self, item).close()
                 except:
@@ -282,7 +309,8 @@ class Server(Registry, paramiko.ServerInterface):
             self.chan.send(chanfmt("ERROR: You are not allowed to"
                                     " open a console session.\n"))
             return False
-        return ConsoleBackend(self, conn).loop()
+        self.msg.request("set_client type=console")
+        return ConsoleBackend(self, conn, self.msg).loop()
 
 
     def do_scp(self):
@@ -302,11 +330,12 @@ class Server(Registry, paramiko.ServerInterface):
 
         if '-t' in args:
             upload = True
+            scpdir = 'upload'
         else:
             upload = False
+            scpdir = 'download'
 
-        (upload and self.pwdb.tags.add_tag('scp_dir', 'upload')
-                 or self.pwdb.tags.add_tag('scp_dir', 'download'))
+        self.pwdb.tags.add_tag('scp_dir', scpdir)
         self.pwdb.tags.add_tag('scp_path', path or '.')
         self.pwdb.tags.add_tag('scp_args', ' '.join(args))
 
@@ -316,14 +345,19 @@ class Server(Registry, paramiko.ServerInterface):
                 'proxy': self.pwdb.tags,
                 }
         # check ACL for the given direction, then if failed, check general ACL
-        if not (((upload and ACLDB().check('scp_upload', **namespace)) or
-                (not upload and ACLDB().check('scp_download', **namespace))) or
+        if not ((ACLDB().check('scp_' % scpdir, **namespace)) or
                 ACLDB().check('scp_transfer', **namespace)):
+#        if not (((upload and ACLDB().check('scp_upload', **namespace)) or
+#                (not upload and ACLDB().check('scp_download', **namespace))) or
+#                ACLDB().check('scp_transfer', **namespace)):
             self.chan.send(chanfmt("ERROR: You are not allowed to"
                                     " do scp file transfert in this"
                                     " directory or direction on %s\n" % site))
             return False
 
+        self.msg.request("set_client type=scp_%s login=%s name=%s" % (scpdir,
+                                         self.pwdb.sitedb.get_tags()['login'],
+                                         self.pwdb.sitedb.get_tags()['name']))
         try:
             proxy.ProxyScp(self).loop()
         except AuthenticationException, msg:
@@ -350,6 +384,9 @@ class Server(Registry, paramiko.ServerInterface):
                                     " exec that command on %s"
                                     "\n" % site))
             return False
+        self.msg.request("set_client type=remote_exec login=%s name=%s" % 
+                                        (self.pwdb.sitedb.get_tags()['login'],
+                                         self.pwdb.sitedb.get_tags()['name']))
         try:
             proxy.ProxyCmd(self).loop()
         except AuthenticationException, msg:
@@ -374,6 +411,9 @@ class Server(Registry, paramiko.ServerInterface):
                                     " open a shell session on %s"
                                     "\n" % site))
             return False
+        self.msg.request("set_client type=shell_session login=%s name=%s" % 
+                                        (self.pwdb.sitedb.get_tags()['login'],
+                                         self.pwdb.sitedb.get_tags()['name']))
         conn = proxy.ProxyShell(self)
         log.info("Connecting to %s", site)
         try:
@@ -384,10 +424,15 @@ class Server(Registry, paramiko.ServerInterface):
                            "to your administrator.\r\n\r\n")
             return False
 
-        except:
+        except KeyboardInterrupt:
+            return True
+        except Exception, e:
             self.chan.send("\r\n ERROR: It seems you found a bug."
                            "\r\n Please report this error "
-                           "to your administrator.\r\n\r\n")
+                           "to your administrator.\r\n"
+                           "Exception class: <%s>\r\n\r\n"
+                                    % e.__class__.__name__)
+            
             raise
         
         if ret == util.CLOSE:
@@ -438,7 +483,7 @@ Server.register()
 
 class ConsoleBackend(Registry):
     _class_id = "ConsoleBackend"
-    def __reginit__(self, client, conn=None):
+    def __reginit__(self, client, conn=None, msg=None):
         conf = get_config('sshproxy')
         self.maxcon = conf['max_connections']
 
@@ -446,6 +491,7 @@ class ConsoleBackend(Registry):
         self.chan = client.chan
 
         self.msg = Message()
+        self.daemon = msg
 
         self.main_console = PTYWrapper(self.chan, self.PtyConsole, self.msg,
                                     client.is_admin())
@@ -485,11 +531,19 @@ class ConsoleBackend(Registry):
             # has been processed, otherwise you may experience hang ups.
                     self.status.response(response)
                     continue
+            else:
+                response = self.passthru(action, data)
+                if response:
+                    self.status.response(response)
+                    continue
             # if inexistant or no callable
             self.status.response('ERROR: Unknown action %s' % action)
             log.error('ERROR: Unknown action %s' % action)
 
         self.close()
+
+    def passthru(self, action, data):
+        return self.daemon.request('%s %s' % (action, data))
 
     def cmd_open(self, args):
         if self.maxcon and len(self.cpool) >= self.maxcon:
@@ -515,7 +569,7 @@ class ConsoleBackend(Registry):
             try:
                 ret = conn.loop()
             except:
-                self.chan.send("\r\n ERROR: It seems you found a bug."
+                self.chan.send("\r\n ERROR0: It seems you found a bug."
                                "\r\n Please report this error "
                                "to your administrator.\r\n\r\n")
                 self.chan.close()
@@ -617,6 +671,22 @@ class ConsoleBackend(Registry):
         # dump the listing of all sites we're allowed to connect to
         # TODO: see console.py : Console._sites()
         return 'OK'
+
+###########################################################################
+
+    def cmd_admin(self, args):
+        """
+        admin command [args]
+
+        Execute administrative commands on the main daemon.
+        """
+        return self.daemon.request(args)
+
+    def cmd_watch(self, args):
+        return self.daemon.request('watch')
+
+    def cmd_kill_client(self, args):
+        return self.daemon.request('kill_client %s' % args)
 
     def close(self):
         self.chan.close()

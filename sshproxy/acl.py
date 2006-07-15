@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 14, 16:12:30 by david
+# Last modified: 2006 Jul 14, 21:08:45 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -96,7 +96,11 @@ class In(Operator):
     token = 'in'
     p = 5
     def op(self):
-        return self.left in self.right
+        try:
+            return self.left in self.right
+        except TypeError:
+            log.warning("Not an iterable: %s" % repr(self.right))
+            return False
 
 class And(Operator):
     token = 'and'
@@ -150,7 +154,11 @@ class List(Function):
     token = 'list'
     def call(self, namespace):
         items = self.left.eval(namespace, self.right)
-        return items.split()
+        if hasattr(items, 'split'):
+            return items.split()
+        else:
+            log.warning("Not a list: %s" % repr(self.right))
+            return False
 
 class Acl(Function):
     token = 'acl'
@@ -541,34 +549,38 @@ class ACLDB(Registry):
         self.rules.append((acl, rule))
 
     def check(self, acl, **namespaces):
-        namespace = {}
-        for ns in namespaces:
-            if not namespace.has_key(ns):
-                namespace[ns] = ACLTags()
-            namespace[ns].update(namespaces[ns])
-
-        result = None
-        match = ''
-        if isinstance(acl, ACLRule):
-            match = repr(acl.rule)
-            result = acl.eval(namespace)
-        else:
-            for rule in self.rules:
-                if rule[0] == acl:
-                    match = repr(rule[1].rule)
-                    if rule[1].eval(namespace):
-                        result = True
-                        break
-                    else:
-                        result = False
-
-        if result is None:
-            result = False
-            log.info('ACL %s not found' % acl)
-        else:
-            log.info('ACL %s %s %s' % (acl, result, match))
-            pass
-        return result
+        try:
+            namespace = {}
+            for ns in namespaces:
+                if not namespace.has_key(ns):
+                    namespace[ns] = ACLTags()
+                namespace[ns].update(namespaces[ns])
+    
+            result = None
+            match = ''
+            if isinstance(acl, ACLRule):
+                match = repr(acl.rule)
+                result = acl.eval(namespace)
+            else:
+                for rule in self.rules:
+                    if rule[0] == acl:
+                        match = repr(rule[1].rule)
+                        if rule[1].eval(namespace):
+                            result = True
+                            break
+                        else:
+                            result = False
+    
+            if result is None:
+                result = False
+                log.info('ACL %s not found' % acl)
+            else:
+                log.info('ACL %s %s %s' % (acl, result, match))
+                pass
+            return result
+        except:
+            log.error('Error while checking ACL %s' % acl)
+            raise
 
 
 ACLDB.register()

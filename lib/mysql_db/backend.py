@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 10, 00:39:12 by david
+# Last modified: 2006 Jul 15, 01:02:01 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -123,6 +123,8 @@ class MySQLClientInfo(ClientInfo, MySQLDB):
     def load_tags(self, id=None):
         if id is None:
             id = self._id
+        if id is None:
+            return
         query = """select tag, value from acltags where object = 'client'
                                                     and id = %d""" % id
         tags = {}

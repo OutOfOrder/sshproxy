@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 11, 22:24:42 by david
+# Last modified: 2006 Jul 15, 20:04:38 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,7 +20,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-import sys, os, select, socket, fcntl, time
+import sys, os, select, socket, fcntl, time, signal
 import threading
 
 import paramiko
@@ -37,18 +37,21 @@ from acl import ACLDB, ACLTags
 class Proxy(Registry):
     def __reginit__(self, proxy_client):
         self.client = proxy_client.chan
-        tags = ACLTags()
-        tags.update(proxy_client.pwdb.get_site_tags())
-        tags.update(proxy_client.pwdb.tags)
-        self.tags = tags
+        self.tags = {
+                'client': proxy_client.pwdb.get_client_tags(),
+                'site': proxy_client.pwdb.get_site_tags(),
+                'proxy': proxy_client.pwdb.tags,
+                }
         self.proxy_client = proxy_client
-        self.name = '%s@%s' % (self.tags.login, self.tags.name)
+        self.msg = self.proxy_client.msg
+        self.name = '%s@%s' % (self.tags['site'].login,
+                               self.tags['site'].name)
         now = time.ctime()
         log.info("Connecting to %s by %s on %s" %
                     (self.name, proxy_client.pwdb.get_client().username, now))
         try:
-            self.transport = paramiko.Transport((tags.ip_address,
-                                                 int(tags.port)))
+            self.transport = paramiko.Transport((self.tags['site'].ip_address,
+                                                 int(self.tags['site'].port)))
             # XXX: debugging code follows
             #self.transport.set_hexdump(1)
 
@@ -69,10 +72,39 @@ class Proxy(Registry):
         log.info("Connected to %s by %s on %s\n" %
                                     (self.name, proxy_client.username, now))
 
+############################################################################
+
+    def kill(self):
+        self.transport.close()
+
+    def handle_message(self):
+        msg = self.msg.read()
+
+        parts = msg.split(':', 1)
+        if hasattr(self, 'msg_%s' % parts[0]):
+            if len(parts) > 1:
+                message = parts[1]
+            else:
+                message = ''
+            return getattr(self, 'msg_%s' % parts[0])(message)
+
+    def msg_alert(self, msg):
+        self.msg_announce('\007%s' % msg)
+
+    def msg_announce(self, msg):
+        self.client.send(chanfmt(msg))
+
+    def msg_kill(self, msg):
+        if not msg:
+            msg = ("\n\nOn administrative request, "
+                   "your session is immediately closed.\n\n")
+        self.msg_alert(msg)
+        self.kill()
+
+############################################################################
 
     def connect(self):
-        tags = self.tags
-        hostkey = tags.get('hostkey', None) or None
+        hostkey = self.tags['proxy'].get('hostkey', None) or None
         transport = self.transport
 
         transport.start_client()
@@ -89,19 +121,19 @@ class Proxy(Registry):
             log.info('Server host key verified (%s) for %s' % (key.get_name(), 
                                                            self.name))
 
-        pkey = cipher.decipher(tags.pkey)
-        password = cipher.decipher(tags.password)
+        pkey = cipher.decipher(self.tags['site'].pkey)
+        password = cipher.decipher(self.tags['site'].password)
         if pkey:
             pkey = util.get_dss_key_from_string(pkey)
             try:
-                transport.auth_publickey(tags.login, pkey)
+                transport.auth_publickey(self.tags['site'].login, pkey)
                 return True
             except AuthenticationException:
                 log.warning('PKey for %s was not accepted' % self.name)
 
         if password:
             try:
-                transport.auth_password(tags.login, password)
+                transport.auth_password(self.tags['site'].login, password)
                 return True
             except AuthenticationException:
                 log.error('Password for %s is not valid' % self.name)
@@ -114,10 +146,10 @@ class Proxy(Registry):
 class ProxyScp(Proxy):
     _class_id = 'ProxyScp'
     def open_connection(self):
-        log.info('Executing: scp %s %s' % (self.tags.scp_args, 
-                                           self.tags.scp_path))
-        self.chan.exec_command('scp %s %s' % (self.tags.scp_args,
-                                              self.tags.scp_path))
+        log.info('Executing: scp %s %s' % (self.tags['proxy'].scp_args, 
+                                           self.tags['proxy'].scp_path))
+        self.chan.exec_command('scp %s %s' % (self.tags['proxy'].scp_args, 
+                                              self.tags['proxy'].scp_path))
 
     def loop(self):
         if not hasattr(self, 'transport'):
@@ -132,7 +164,8 @@ class ProxyScp(Proxy):
     
             size = 4096
             while t.is_active() and client.active and not chan.eof_received:
-                r, w, e = select.select([chan, client], [chan, client], [], 0.2)
+                r, w, e = select.select([self.msg, chan, client],
+                                        [chan, client], [], 0.2)
 
                 if chan in r:
                     if client.out_window_size > 0:
@@ -148,6 +181,8 @@ class ProxyScp(Proxy):
                     if len(x) == 0 or client.closed or client.eof_received:
                         log.info("Connection closed by client")
                         break
+                if self.msg in r:
+                    self.handle_message()
         finally:
             pass
         return util.CLOSE
@@ -158,12 +193,12 @@ ProxyScp.register()
 class ProxyCmd(Proxy):
     _class_id = 'ProxyCmd'
     def open_connection(self):
-        log.info('Executing: %s' % (self.tags.cmdline))
+        log.info('Executing: %s' % (self.tags['proxy'].cmdline))
         if hasattr(self.proxy_client, 'term'):
             self.chan.get_pty(self.proxy_client.term,
                               self.proxy_client.width,
                               self.proxy_client.height)
-        self.chan.exec_command(self.tags.cmdline)
+        self.chan.exec_command(self.tags['proxy'].cmdline)
 
     def loop(self):
         if not hasattr(self, 'transport'):
@@ -178,8 +213,17 @@ class ProxyCmd(Proxy):
     
             size = 40960
             while t.is_active() and client.active and not chan.eof_received:
-                r, w, e = select.select([chan, client], [chan, client], [], 0.2)
+                try:
+                    r, w, e = select.select([self.msg, chan, client],
+                                        [chan, client], [], 2)
 
+                except KeyboardInterrupt:
+                    log.warning('ERROR ProxyCmd: select.select() was interrupted')
+                    continue
+                except select.error:
+                    # this happens when a signal was caught
+                    log.warning('ERROR ProxyCmd: select.select() failed')
+                    continue
                 if chan in r:
                     if client.out_window_size > 0:
                         x = chan.recv(size)
@@ -194,6 +238,8 @@ class ProxyCmd(Proxy):
                     if len(x) == 0 or client.closed or client.eof_received:
                         log.info("Connection closed by client")
                         break
+                if self.msg in r:
+                    self.handle_message()
         finally:
             pass
         return util.CLOSE
@@ -223,10 +269,13 @@ class ProxyShell(Proxy):
     
             while t.is_active() and client.active and not chan.eof_received:
                 try:
-                    r, w, e = select.select([chan, client], [], [], 0.2)
+                    r, w, e = select.select([self.msg, chan, client], [], [], 2)
+                except KeyboardInterrupt:
+                    log.warning('ERROR: select.select() was interrupted')
+                    continue
                 except select.error:
-                    # this happens sometimes when returning from console
-                    log.exception('ERROR: select.select() failed')
+                    # this happens when a signal was caught
+                    log.warning('ERROR: select.select() failed')
                     continue
                 if chan in r:
                     try:
@@ -244,7 +293,7 @@ class ProxyShell(Proxy):
                         break
                     if x == keys.CTRL_X:
                         if not ACLDB().check('console_session',
-                                                            client=self.tags):
+                                                    **self.tags):
                             client.send(chanfmt("ERROR: You are not allowed to"
                                                 " open a console session.\n"))
                             continue
@@ -267,11 +316,13 @@ class ProxyShell(Proxy):
                                                        name, self.tags)
                         continue
                     chan.send(x)
+                if self.msg in r:
+                    self.handle_message()
     
         finally:
             now = time.ctime()
             log.info("Disconnected from %s by %s the %s" %
-                                    (self.name, self.tags.login, now))
+                                    (self.name, self.tags['site'].login, now))
 
         return util.CLOSE
             

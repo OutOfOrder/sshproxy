@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 09, 17:15:21 by david
+# Last modified: 2006 Jul 15, 10:51:31 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -64,6 +64,9 @@ class Backend(Registry):
     def get_client(self, username=None, **kw):
         return self.clientdb.get_user_info(username=username, **kw)
 
+
+    def get_client_tags(self):
+        return self.clientdb.get_tags()
 
     def get_site_tags(self):
         return self.sitedb.get_tags()
