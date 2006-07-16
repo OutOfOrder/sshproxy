@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 14, 16:09:36 by david
+# Last modified: 2006 Jul 16, 02:11:12 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,7 +24,7 @@ from ConfigParser import NoSectionError, SafeConfigParser as ConfigParser
 
 from sshproxy.config import Config, ConfigSection, path, get_config
 from sshproxy.acl import ACLDB
-from sshproxy.client import ClientInfo
+from sshproxy.client import ClientDB, ClientInfo
 from sshproxy.site import SiteDB, SiteInfo
 from sshproxy import log
 
@@ -88,6 +88,8 @@ class FileClientInfo(ClientInfo):
         if not file:
             return
 
+        if not file.has_section(self.username):
+            file.add_section(self.username)
         for key, value in self.tokens.items():
             file.set(self.username, key, value)
 
@@ -97,12 +99,44 @@ class FileClientInfo(ClientInfo):
         fd.close()
         os.rename(clientfile+'.new', clientfile)
         
+    def delete(self, username):
+        file = self.get_config_file()
+        if not file:
+            return
+
+        if file.has_section(username):
+            file.remove_section(username)
 
     def auth_token_order(self):
         return ('pkey', 'password')
 
+    def exists(self, username):
+        file = self.get_config_file()
+        if not file:
+            return
+
+        return file.has_section(username)
 
 
+class FileClientDB(ClientDB):
+    def exists(self, username, **tokens):
+        return self.clientinfo.exists(username)
+
+    def add_client(self, username, **tokens):
+        if self.exists(username):
+            return 'Client %s does already exist'
+        client = ClientInfo(username, **tokens)
+        client.save()
+        return 'Client %s added' % username
+
+    def del_client(self, username, **tokens):
+        if not self.exists(username):
+            return 'Client %s does not exist'
+
+        self.clientinfo.delete(username)
+        self.clientinfo.save()
+
+        return 'Client %s deleted.' % username
 
 class FileACLDB(ACLDB):
     def load_rules(self):

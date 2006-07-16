@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 14, 21:08:45 by david
+# Last modified: 2006 Jul 16, 02:55:08 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -506,6 +506,9 @@ class ACLTags(Registry):
 
     def __getitem__(self, tag):
         return self.tags[str(tag)]
+
+    def __delitem__(self, tag):
+        del self.tags[str(tag)]
 
     def get(self, tag, default=None):
         return self.tags.get(tag, default)

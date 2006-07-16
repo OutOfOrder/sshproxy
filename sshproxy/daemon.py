@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 15, 23:09:26 by david
+# Last modified: 2006 Jul 16, 02:01:34 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -134,7 +134,11 @@ class Daemon(Registry):
             # don't kill ourself
             if pid == id:
                 continue
-            cid = '%s@%s' % (client.username, client.ip_addr[0])
+            if hasattr(client, 'username'):
+                username = client.username
+            else:
+                username = '_'
+            cid = '%s@%s' % (username, client.ip_addr[0])
             if hasattr(client, 'name'):
                 sid = '%s@%s' % (client.login, client.name)
             else:

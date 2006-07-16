@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 15, 21:29:46 by david
+# Last modified: 2006 Jul 16, 02:46:26 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -83,16 +83,6 @@ class Console(cmd.Cmd):
     #############################################################
     # PUBLIC METHODS - COMMANDS
     #############################################################
-    def do_db(self, arg):
-        """access to the sshproxy database management console"""
-        if not self.need_admin(): return
-        from backend import get_backend
-        console = get_backend().get_console()
-        if console:
-            console.cmdloop()
-        else:
-            print 'Sorry, there is no database console on this backend.'
-        
     def do_EOF(self, arg):
         """exit the console if there are no open connections left"""
         return self.do_exit(arg)
@@ -113,14 +103,6 @@ class Console(cmd.Cmd):
         self.ctrlfd.setblocking()
         err = self.ctrlfd.read(4096)
         print err
-
-    def do_watch(self, arg):
-        """watch"""
-        print self.ctrlfd.request('watch')
-
-    def do_kill_client(self, arg):
-        """kill_client username@ip_addr"""
-        print self.ctrlfd.request('kill_client %s' % arg)
 
     def do_sites(self, arg):
         """sites"""
@@ -162,5 +144,55 @@ class Console(cmd.Cmd):
     def do_whoami(self, arg):
         """identify me"""
         print self._whoami()
+
+############################################################################
+    def do_admin(self, arg):
+        print self.ctrlfd.request('admin %s' % arg)
+
+    def set_password(self, user):
+        import termios, getpass
+        pass1 = ""
+        pass2 = " "
+        print 'Setting password for user %s' % user
+        try:
+            while (pass1 != pass2):
+                pass1 = getpass.getpass("Enter new password: ")
+                pass2 = getpass.getpass("Confirm password: ")
+            if pass1 == '':
+                raise termios.error
+        except EOFError:
+            print 'Abort'
+            return
+        except termios.error:
+            print 'Warning: Could not set password, setting random password:'
+            import string, random
+            pass1 = [ random.choice(string.ascii_letters + string.digits)
+                                                        for x in range(8) ]
+            pass1 = ''.join(pass1)
+            print pass1
+        return pass1
+
+    def do_list_clients(self, arg):
+        print self.ctrlfd.request('list_clients')
+
+    def do_add_client(self, arg):
+        if not arg:
+            print "Missing username argument"
+            return
+        password = self.set_password(arg)
+        print self.ctrlfd.request('add_client %s password="%s"' %
+                                        (arg, password.replace('"', '\\"')))
+
+    def do_del_client(self, arg):
+        if not arg:
+            print "Missing username argument"
+            return
+        print self.ctrlfd.request('del_client %s' % arg)
+
+    def do_tag_client(self, arg):
+        if not arg:
+            print "Missing username argument"
+            return
+        print self.ctrlfd.request('tag_client %s' % arg)
 
 

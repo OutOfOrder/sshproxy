@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 15, 10:51:31 by david
+# Last modified: 2006 Jul 16, 02:38:15 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -85,6 +85,18 @@ class Backend(Registry):
             if self.authorize(site):
                 allowed_sites.append(site)
         return allowed_sites
+
+    def list_clients(self, **kw):
+        return self.clientdb.list_clients(**kw)
+
+    def add_client(self, username, **tokens):
+        return self.clientdb.add_client(username, **tokens)
+
+    def del_client(self, username, **tokens):
+        return self.clientdb.del_client(username, **tokens)
+
+    def tag_client(self, username, **tokens):
+        return self.clientdb.tag_client(username, **tokens)
 
 
 Backend.register()

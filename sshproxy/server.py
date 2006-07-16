@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 15, 22:30:53 by david
+# Last modified: 2006 Jul 16, 02:48:06 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -29,7 +29,7 @@ from registry import Registry
 import util, log, proxy, pool
 from options import OptionParser
 from util import chanfmt
-from backend import get_backend
+from backend import Backend
 from config import get_config
 from message import Message
 from ptywrap import PTYWrapper
@@ -40,7 +40,7 @@ from acl import ACLDB
 class Server(Registry, paramiko.ServerInterface):
     _class_id = "Server"
     def __reginit__(self, client, addr, msg, host_key_file):
-        self.pwdb = get_backend()
+        self.pwdb = Backend()
         self.client = client
         self.client_addr = addr
         self.msg = msg
@@ -682,11 +682,87 @@ class ConsoleBackend(Registry):
         """
         return self.daemon.request(args)
 
-    def cmd_watch(self, args):
-        return self.daemon.request('watch')
+    def cmd_list_clients(self, args):
+        import shlex
+        try:
+            args = shlex.split(args)
+        except:
+            return 'parse error'
+        tokens = {}
+        for arg in args:
+            t = arg.split('=', 1)
+            if len(t) > 1:
+                value = t[1]
+                if value and value[0] == value[-1] == '"':
+                    value = value[1:-1]
 
-    def cmd_kill_client(self, args):
-        return self.daemon.request('kill_client %s' % args)
+            tokens[t[0]] = value
+
+        resp = Backend().list_clients(**tokens)
+        return resp
+
+    def cmd_add_client(self, args):
+        import shlex
+        try:
+            args = shlex.split(args)
+        except:
+            return 'parse error'
+        tokens = {}
+        for arg in args[1:]:
+            t = arg.split('=', 1)
+            if len(t) > 1:
+                value = t[1]
+                if value and value[0] == value[-1] == '"':
+                    value = value[1:-1]
+
+            tokens[t[0]] = value
+
+        resp = Backend().add_client(args[0], **tokens)
+        return resp
+
+    def cmd_del_client(self, args):
+        import shlex
+        try:
+            args = shlex.split(args)
+        except:
+            return 'parse error'
+        tokens = {}
+        for arg in args[1:]:
+            t = arg.split('=', 1)
+            if len(t) > 1:
+                value = t[1]
+                if value and value[0] == value[-1] == '"':
+                    value = value[1:-1]
+
+            tokens[t[0]] = value
+
+        resp = Backend().del_client(args[0], **tokens)
+        return resp
+
+    def cmd_tag_client(self, args):
+        import shlex
+        try:
+            args = shlex.split(args)
+        except:
+            return 'parse error'
+        tokens = {}
+        for arg in args[1:]:
+            t = arg.split('=', 1)
+            if len(t) > 1:
+                value = t[1]
+                if value and value[0] == value[-1] == '"':
+                    value = value[1:-1]
+                
+            else:
+                return 'Parse error around <%s>' % arg
+
+            tokens[t[0]] = value
+
+        tags = Backend().tag_client(args[0], **tokens)
+        resp = []
+        for tag, value in tags.items():
+            resp.append('%s = "%s"' % (tag, value))
+        return '\n'.join(resp)
 
     def close(self):
         self.chan.close()

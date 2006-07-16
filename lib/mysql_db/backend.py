@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 15, 01:02:01 by david
+# Last modified: 2006 Jul 16, 03:52:00 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,7 +24,7 @@ import os, os.path
 
 from sshproxy.config import Config, ConfigSection, path, get_config
 from sshproxy.acl import ACLDB
-from sshproxy.client import ClientInfo
+from sshproxy.client import ClientDB, ClientInfo
 from sshproxy.site import SiteDB, SiteInfo
 
 class MySQLConfigSection(ConfigSection):
@@ -52,7 +52,7 @@ def Q(item):
 
 class MySQLDB(object):
     """
-    This object is a meant to be used as a mixin to open only the
+    This object is meant to be used as a mixin to open only the
     necessary number of connections to the database.
 
     It implements the open_db method, that should be called from __reginit__.
@@ -94,6 +94,18 @@ class MySQLDB(object):
         sql.close()
         return
 
+    def sql_add(self, query):
+        sql = self.db.cursor()
+        sql.execute(query)
+        sql.close()
+        result = self.sql_get('select last_insert_id()')
+        return result
+
+    def sql_del(self, query):
+        sql = self.db.cursor()
+        sql.execute(query)
+        sql.close()
+
     def sql_set(self, table, **fields):
         query = """replace %s set %s"""
         q = []
@@ -129,16 +141,29 @@ class MySQLClientInfo(ClientInfo, MySQLDB):
                                                     and id = %d""" % id
         tags = {}
         for tag, value in self.sql_list(query):
-            tags[tag] = value
+            if len(value):
+                tags[tag] = value
+            else:
+                query = ("delete from acltags where object = 'client'"
+                         " and id = %d and tag = '%s'" % (id, Q(tag)))
+                self.sql_del(query)
 
         self.set_tokens(**tags)
 
     def save(self):
-        for key, value in self.tokens.items():
-            if key in ('username', 'password'):
+        id = self._id
+        if id is None:
+            return
+        for tag, value in self.tokens.items():
+            if tag in ('username', 'password'):
                 continue
-            self.sql_set('acltags', **{'object': 'client', 'id': self._id,
-                                       'tag': key, 'value': value})
+            if value and len(str(value)):
+                self.sql_set('acltags', **{'object': 'client', 'id': id,
+                                       'tag': tag, 'value': str(value)})
+            else:
+                query = ("delete from acltags where object = 'client'"
+                         " and id = %d and tag = '%s'" % (id, Q(tag)))
+                self.sql_del(query)
 
     def auth_token_order(self):
         return ('pkey', 'password')
@@ -155,6 +180,52 @@ class MySQLClientInfo(ClientInfo, MySQLDB):
                 elif self.get_token(token) == tokens[token]:
                     return True
         return False
+
+
+class MySQLClientDB(ClientDB, MySQLDB):
+    _db_handler = 'client_db'
+    def __reginit__(self, **tokens):
+        self.open_db()
+        ClientDB.__reginit__(self, **tokens)
+
+    def exists(self, username, **tokens):
+        query = "select id from client where uid = '%s'" % Q(username)
+        id = self.sql_get(query)
+        if id:
+            return id
+        return False
+
+    def add_client(self, username, **tokens):
+        if self.exists(username, **tokens):
+            return 'Client %s does already exist' % username
+
+        query = "insert into client (uid, password) values ('%s', sha1('%s'))"
+        id = self.sql_add(query % (Q(username), Q(tokens.get('password', ''))))
+        if not id:
+            return 'A problem occured when adding client %s' % username
+        client = ClientInfo(username, **tokens)
+        client.save()
+        return 'Client %s added' % username
+
+    def del_client(self, username, **tokens):
+        id = self.exists(username, **tokens)
+        if not id:
+            return 'Client %s does not exist' % username
+
+        query = "delete from acltags where object = 'client' and id = %d" % id
+        self.sql_del(query)
+
+        query = "delete from client where id = %d" % id
+        self.sql_del(query)
+        return 'Client %s deleted' % username
+
+    def list_clients(self, **kw):
+        query = "select uid from client order by uid"
+        result = []
+        for (username,) in self.sql_list(query):
+            result.append(username)
+        result.append('Total: %d clients' % len(result))
+        return '\n'.join(result)
 
 
 

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 10, 00:42:32 by david
+# Last modified: 2006 Jul 16, 00:41:41 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -27,7 +27,8 @@ def __init_plugin__():
         from backend import FileACLDB
         FileACLDB.register()
     if cfg['client_db'] == 'file_db':
-        from backend import FileClientInfo
+        from backend import FileClientDB, FileClientInfo
+        FileClientDB.register()
         FileClientInfo.register()
     if cfg['site_db'] == 'file_db':
         from backend import FileSiteInfo, FileSiteDB

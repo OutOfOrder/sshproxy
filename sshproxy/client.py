@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 09, 22:54:57 by david
+# Last modified: 2006 Jul 16, 03:52:53 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -168,7 +168,7 @@ class ClientDB(Registry):
     def get_tags(self):
         return self.clientinfo.get_tags()
 
-    def list_users(self, **kw):
+    def list_clients(self, **kw):
         """
         return a list of L{ClientInfo} objects.
 
@@ -176,6 +176,23 @@ class ClientDB(Registry):
         """
 
         return []
+
+    def exists(self, username=None, **tokens):
+        # must be overriden to be useful
+        return False
+
+    def add_client(self, username, **tokens):
+        return 'Not implemented'
+
+    def del_client(self, username, **tokens):
+        return 'Not implemented'
+
+    def tag_client(self, username, **tokens):
+        client = ClientInfo(username, **tokens)
+        if tokens:
+            client.set_tokens(**tokens)
+            client.save()
+        return client.get_tags()
 
 ClientDB.register()
 
