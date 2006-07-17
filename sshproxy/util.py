@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 09, 03:02:45 by david
+# Last modified: 2006 Jul 16, 15:34:04 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -43,7 +43,16 @@ class SSHProxyPluginError(SSHProxyError):
         Exception.__init__(self, "Plugin error: "+msg)
 
 def istrue(s):
-    return s.lower().strip() in ('yes', 'true', 'on', '1')
+    istrue = False
+    if s.lower().strip() in ('yes', 'true', 'on', '1'):
+        istrue = True
+    else:
+        try:
+            if int(s) != 0:
+                istrue = True
+        except ValueError:
+            pass
+    return istrue
 
 def chanfmt(msg):
     # ensure the \n are prefixed with \r

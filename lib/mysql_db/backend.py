@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 16, 03:52:00 by david
+# Last modified: 2006 Jul 16, 18:10:50 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,6 +26,8 @@ from sshproxy.config import Config, ConfigSection, path, get_config
 from sshproxy.acl import ACLDB
 from sshproxy.client import ClientDB, ClientInfo
 from sshproxy.site import SiteDB, SiteInfo
+from sshproxy.util import istrue
+from sshproxy.server import Server
 
 class MySQLConfigSection(ConfigSection):
     section_defaults = {
@@ -126,20 +128,24 @@ class MySQLClientInfo(ClientInfo, MySQLDB):
 
 
     def load(self):
-        query = """select id from client
+        query = """select id, password from client
                     where uid = '%s'""" % Q(self.username)
-        self._id = self.sql_get(query)
+        result = self.sql_get(query)
+        if not result:
+            return
 
-        self.load_tags()
+        self._id, password = result
 
-    def load_tags(self, id=None):
+        self.load_tags(self._id, password=password)
+
+    def load_tags(self, id=None, **tokens):
         if id is None:
             id = self._id
         if id is None:
             return
         query = """select tag, value from acltags where object = 'client'
                                                     and id = %d""" % id
-        tags = {}
+        tags = tokens
         for tag, value in self.sql_list(query):
             if len(value):
                 tags[tag] = value
@@ -155,9 +161,12 @@ class MySQLClientInfo(ClientInfo, MySQLDB):
         if id is None:
             return
         for tag, value in self.tokens.items():
-            if tag in ('username', 'password'):
+            if tag == 'username':
                 continue
-            if value and len(str(value)):
+            elif tag == 'password':
+                self.sql_set('client', **{'id': id, 'uid': self.username,
+                                                'password': str(value)})
+            elif value and len(str(value)):
                 self.sql_set('acltags', **{'object': 'client', 'id': id,
                                        'tag': tag, 'value': str(value)})
             else:
@@ -168,7 +177,31 @@ class MySQLClientInfo(ClientInfo, MySQLDB):
     def auth_token_order(self):
         return ('pkey', 'password')
 
+    def add_pkey(self, pkey, **tokens):
+        ring = self.get_token('pkey', '')
+        if pkey in ring:
+            return False
+
+        ring = [ k.strip() for k in ring.split('\n') if len(k.strip()) ]
+
+        try:
+            nbkey = int(get_config('sshproxy')['auto_add_key'])
+            if len(ring) >= nbkey:
+                return False
+        except ValueError:
+            # auto_add_key is not an integer, so an infinitie
+            # number of keys is allowed
+            pass
+
+        ring = '\n'.join(ring + [ '%s %s@%s' % (pkey, self.username,
+                                        tokens['ip_addr']) ])
+
+        self.set_tokens(pkey=ring)
+        self.save()
+        return True
+
     def authenticate(self, **tokens):
+        resp = False
         for token in self.auth_token_order():
             if token in tokens.keys() and tokens[token] is not None:
                 if token == 'password':
@@ -176,10 +209,28 @@ class MySQLClientInfo(ClientInfo, MySQLDB):
                             sha1('%s') = password""" % (self.username,
                                                         tokens['password'])
                     if self.sql_get(query):
-                        return True
+                        resp = True
+                        break
+                elif token == 'pkey':
+                    pkeys = self.get_token(token, '').split('\n')
+                    pkeys = [ pk.split()[0] for pk in pkeys if len(pk) ]
+                    for pk in pkeys:
+                        if pk == tokens[token]:
+                            resp = True
+                            break
+                    ClientDB()._unauth_pkey = tokens[token]
+
                 elif self.get_token(token) == tokens[token]:
-                    return True
-        return False
+                    resp = True
+                    break
+        pkey = getattr(ClientDB(), '_unauth_pkey', None)
+        if resp and pkey and istrue(get_config('sshproxy')['auto_add_key']):
+            tokens['pkey'] = pkey
+            if self.add_pkey(**tokens):
+                Server().message_client("WARNING: Your public key"
+                                        " has been added")
+            del ClientDB()._unauth_pkey
+        return resp
 
 
 class MySQLClientDB(ClientDB, MySQLDB):
@@ -224,8 +275,7 @@ class MySQLClientDB(ClientDB, MySQLDB):
         result = []
         for (username,) in self.sql_list(query):
             result.append(username)
-        result.append('Total: %d clients' % len(result))
-        return '\n'.join(result)
+        return result
 
 
 
@@ -250,58 +300,101 @@ class MySQLSiteInfo(SiteInfo, MySQLDB):
     _db_handler = 'site_db'
     def __reginit__(self, login, name, **kw):
         self.open_db()
+        self._sid = 0
+        self._lid = 0
         SiteInfo.__reginit__(self, login, name, **kw)
 
     def load(self):
-        tags = {'name': None, 'port': None, 'pkey': None}
-        self.tags.add_tags(tags)
+        tags = {'name': None, 'port': None}
+        self.s_tokens.add_tags(tags)
         query = """select id, name, ip_address, port from site
                                         where name = '%s'""" % Q(self.name)
         site = self.sql_get(query)
         if not site:
             return
-        id, name, ip_address, port = site
+        self._sid, name, ip_address, port = site
 
         query = """select tag, value from acltags where object = 'site'
-                                                    and id = %d""" % id
+                                                and id = %d""" % self._sid
         tags = {}
         for tag, value in self.sql_list(query):
             tags[tag] = value
 
-        self.tags.add_tags(tags)
+        self.s_tokens.add_tags(tags)
 
         # TODO: handle the default case, see also in file backend
         query = """select id, login, password, pkey, priority from login
                     where site_id = %d and ('%s' = 'None' or '%s' = login)
-                    order by priority desc""" % (id, Q(self.login), Q(self.login))
+                    order by priority desc""" % (self._sid, Q(self.login),
+                                                Q(self.login))
 
         login = self.sql_get(query)
-        if not login:
-            self.site = None
-            return
+        if login:
         
-        id, login, password, pkey, priority = login
+            self._lid, login, password, pkey, priority = login
 
-        tags = {'login': login, 'password': password,
-                'priority': priority, 'pkey': pkey}
-        self.tags.add_tags(tags)
+            tags = {'login': login, 'password': password,
+                    'priority': priority, 'pkey': pkey}
+            self.l_tokens.add_tags(tags)
 
-        query = """select tag, value from acltags where object = 'login'
-                                                    and id = %d""" % id
-        tags = {}
-        for tag, value in self.sql_list(query):
-            tags[tag] = value
+            query = """select tag, value from acltags where object = 'login'
+                                                    and id = %d""" % self._lid
+            tags = {}
+            for tag, value in self.sql_list(query):
+                tags[tag] = value
 
-        self.tags.add_tags(tags)
+            self.l_tokens.add_tags(tags)
 
         tags = {'name': name, 'ip_address': ip_address, 'port': port}
-        self.tags.add_tags(tags)
+        self.s_tokens.add_tags(tags)
 
         self.loaded = True
 
 
     def save(self):
-       pass 
+        sid = self._sid
+        if sid is None:
+            return
+        tok = self.s_tokens
+        self.sql_set('site',
+                **{'name': self.name,
+                   'ip_address': tok.get('ip_address', ''),
+                   'port': tok.get('port', '22'),
+                   })
+        for tag, value in self.s_tokens.items():
+            if tag in ('name', 'ip_address', 'port'):
+                continue
+            elif value and len(str(value)):
+                self.sql_set('acltags', **{'object': 'site', 'id': sid,
+                                       'tag': tag, 'value': str(value)})
+            else:
+                query = ("delete from acltags where object = 'site'"
+                         " and id = %d and tag = '%s'" % (sid, Q(tag)))
+                self.sql_del(query)
+        
+        lid = self._lid
+        if not lid:
+            return
+
+        tok = self.l_tokens
+        self.sql_set('login',
+                **{'site_id': sid,
+                   'login': self.login,
+                   'password': tok.get('password', ''),
+                   'pkey': tok.get('pkey', ''),
+                   'priority': tok.get('priority', ''),
+                   })
+        for tag, value in self.l_tokens.items():
+            if tag in ('login', 'password', 'pkey', 'priority',
+                                            'ip_address', 'port'):
+                continue
+            elif value and len(str(value)):
+                self.sql_set('acltags', **{'object': 'login', 'id': lid,
+                                       'tag': tag, 'value': str(value)})
+            else:
+                query = ("delete from acltags where object = 'login'"
+                         " and id = %d and tag = '%s'" % (lid, Q(tag)))
+                self.sql_del(query)
 
 
 class MySQLSiteDB(SiteDB, MySQLDB):
@@ -320,4 +413,20 @@ class MySQLSiteDB(SiteDB, MySQLDB):
                 sites.append(SiteInfo(login, name))
 
         return sites
+
+    def exists(self, sitename, **tokens):
+        login, site = self.split_user_site(sitename)
+
+        query = "select id from site where name = '%s'" % Q(site)
+        id = self.sql_get(query)
+        if not id:
+            return False
+
+        if not login:
+            return id
+
+        query = "select id from login where login = '%s'" % Q(login)
+        id = self.sql_get(query)
+
+        return id or False
 

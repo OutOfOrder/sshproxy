@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 16, 02:55:08 by david
+# Last modified: 2006 Jul 16, 16:54:08 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -484,7 +484,7 @@ class ACLTags(Registry):
             tag = tag[4:]
             value = ACLRule(tag, value)
         else:
-            value = str(value)
+            value = str(value or '')
         self.tags[str(tag)] = value
 
     def add_tags(self, tags):

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 16, 02:46:26 by david
+# Last modified: 2006 Jul 17, 01:55:50 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,6 +22,7 @@
 
 import cmd, os, socket
 
+from sshproxy.registry import Registry
 
 def rwinput(prompt):
     while 1:
@@ -36,22 +37,50 @@ def rwinput(prompt):
 cmd.raw_input = rwinput
 
 
+class Console(Registry, cmd.Cmd):
+    _class_id = 'Console'
 
-
-
-class Console(cmd.Cmd):
-    def __init__(self, ctrlfd, is_admin, stdin=None, stdout=None):
-        self.ctrlfd = ctrlfd
-        self.is_admin = is_admin
+    def __reginit__(self, msg, stdin=None, stdout=None):
+        self.msg = msg
+        self.populate()
         cmd.Cmd.__init__(self, stdin=stdin, stdout=stdout)
-        self.prompt = '\nsshproxy> '
+        self.prompt = 'sshproxy> '
+
+    def populate(self):
+        methods = self.msg.request('public_methods').split('\n')
+        self.methods = {}
+        for line in methods:
+            method, help = line.split(' ', 1)
+            self.methods[method] = help.replace('\\n','\n')
+
+    def completenames(self, text, *ignored):
+        return [ a for a in self.methods.keys() if a.startswith(text) ]
+
+    def do_help(self, arg):
+        if arg:
+            if arg not in self.methods.keys():
+                print 'Unknown command %s' % arg
+            else:
+                print self.methods.get(arg) or 'No help available'
+            return
+        
+        commands = self.methods.keys()
+        commands.sort()
+        self.print_topics(self.doc_header, commands, 15, 80)
+
 
     def default(self, line):
-        action = line.split()[0]
-        args = line[len(action):].strip()
-        resp = self.ctrlfd.request(line)
-        if resp:
-            print resp
+        print self.msg.request(line)
+
+    def emptyline(self):
+        return
+
+Console.register()
+
+
+# XXX: Remove the following obsolete dead code after recycling
+
+class ObsoleteConsole(cmd.Cmd):
 
     def need_admin(self):
         if not self.is_admin:
@@ -112,6 +141,7 @@ class Console(cmd.Cmd):
         if len(sites):
             name_width = max([ len(e[0]) + len(e[1]) for e in sites ])
             for uid, name, priority in sites:
+                priority = priority or '0'
                 sid = '%s@%s' % (uid, name)
                 print sid, ' '*(name_width + 1 - len(sid)), '[%s]' % priority
         print '\nTOTAL: %d ' % len(sites)
@@ -173,7 +203,7 @@ class Console(cmd.Cmd):
         return pass1
 
     def do_list_clients(self, arg):
-        print self.ctrlfd.request('list_clients')
+        print self.ctrlfd.request('list_clients %s' % arg)
 
     def do_add_client(self, arg):
         if not arg:
@@ -195,4 +225,36 @@ class Console(cmd.Cmd):
             return
         print self.ctrlfd.request('tag_client %s' % arg)
 
+    def do_tag_site(self, arg):
+        if not arg:
+            print "Missing sitename argument"
+            return
+        print self.ctrlfd.request('tag_site %s' % arg)
+
+    def do_list_sites(self, arg):
+        result = self.ctrlfd.request('list_sites %s' % arg)
+        print result
+
+
+    def _sites(self):
+        from backend import get_backend
+        pwdb = get_backend()
+        sites=[]
+        login = self._whoami().strip()
+        for site in pwdb.list_allowed_sites():
+            sites.append([site.login, site.name, site.get_tags().priority])
+        return sites
+
+    def do_sites(self, arg):
+        """sites"""
+        from util import CommandLine
+        arg = CommandLine(arg)
+        sites = self._sites()
+        if len(sites):
+            name_width = max([ len(e[0]) + len(e[1]) for e in sites ])
+            for uid, name, priority in sites:
+                priority = priority or '0'
+                sid = '%s@%s' % (uid, name)
+                print sid, ' '*(name_width + 1 - len(sid)), '[%s]' % priority
+        print '\nTOTAL: %d ' % len(sites)
 

@@ -34,23 +34,22 @@ Legend of pictograms:
 
 0.5
     - remote sites will be reachable with keys instead of just password
-    - --cipher ciphers private keys in the database
+    - make Message protocole more robust
+    - backend database schema will be thoroughly simplified with ACLs
     + options can be given on the pssh command line (before sites) to be able
       to optionally get rid of the console (list-sites, add-key, get-pssh)
-    / profiles will be optionally linked to rlogins
     + backend gain more precise ACLs (access based on IP, hour... plugin ?)
-    * backend database schema will be thoroughly simplified with ACLs
-    * add a default pkey in site, if the rlogin does not provide one
+    + add a default pkey in site, if the rlogin does not provide one
+    + make a wizard and a console for the file backend
+    * --cipher ciphers private keys in the database
     * add a hostkey in site, to check identity of remote site
     * split ebuild in server, client and plugins
-    * make Message protocole more robust
     * make it simpler in mysqlbackend to add users in bulk mode
-    * make a wizard and a console for the file backend
     ? make the admin password the cipher key for the solo mode
     ? admin account in the config file
 
 0.6
+    + write good documentation
     * http access to manage the database
-    * write good documentation
     * work on automatic remote command execution plugin (spexpect)
 

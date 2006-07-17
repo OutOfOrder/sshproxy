@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 16, 02:11:12 by david
+# Last modified: 2006 Jul 16, 12:33:21 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -110,6 +110,25 @@ class FileClientInfo(ClientInfo):
     def auth_token_order(self):
         return ('pkey', 'password')
 
+    def authenticate(self, **tokens):
+        for token in self.auth_token_order():
+            if token in tokens.keys() and tokens[token] is not None:
+                if token == 'password':
+                    import sha
+                    if (sha.new(self.get_token(token)).hexdigest()
+                                                           == tokens[token]):
+                        return True
+                elif token == 'pkey':
+                    pkeys = self.get_token(token).split('\n')
+                    pkeys = [ pk.split()[0] for pk in pkeys if len(pk) ]
+                    for pk in pkeys:
+                        if pk == tokens[token]:
+                            return True
+
+                elif self.get_token(token) == tokens[token]:
+                    return True
+        return False
+
     def exists(self, username):
         file = self.get_config_file()
         if not file:
@@ -117,10 +136,19 @@ class FileClientInfo(ClientInfo):
 
         return file.has_section(username)
 
+    def list_clients(self, **kw):
+        file = self.get_config_file()
+        if not file:
+            return
+
+        return file.sections()
 
 class FileClientDB(ClientDB):
     def exists(self, username, **tokens):
         return self.clientinfo.exists(username)
+
+    def list_clients(self, **kw):
+        return self.clientinfo.list_clients(**kw)
 
     def add_client(self, username, **tokens):
         if self.exists(username):

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 16, 02:38:15 by david
+# Last modified: 2006 Jul 16, 16:38:57 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -35,7 +35,9 @@ class Backend(Registry):
         self.authorized = False
         self.clientdb = ClientDB()
         self.acldb = ACLDB()
-        self._site_cache = (None, None)
+        # this one is to do operation on sites from the console
+        # or the command line
+        self._sitedb = SiteDB()
         self.tags = ACLTags()
 
 
@@ -98,6 +100,14 @@ class Backend(Registry):
     def tag_client(self, username, **tokens):
         return self.clientdb.tag_client(username, **tokens)
 
+    def client_exists(self, username, **tokens):
+        return self.clientdb.exists(username, **tokens)
+
+    def site_exists(self, sitename, **tokens):
+        return self._sitedb.exists(sitename, **tokens)
+
+    def tag_site(self, sitename, **tokens):
+        return self._sitedb.tag_site(sitename, **tokens)
 
 Backend.register()
 

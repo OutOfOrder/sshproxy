@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 16, 02:48:06 by david
+# Last modified: 2006 Jul 17, 01:51:14 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,25 +20,24 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 import sys, threading
-import optparse
 
 import paramiko
 from paramiko import AuthenticationException
 
 from registry import Registry
-import util, log, proxy, pool
+import util, log, proxy
 from options import OptionParser
 from util import chanfmt
 from backend import Backend
 from config import get_config
-from message import Message
-from ptywrap import PTYWrapper
-from console import Console
 from acl import ACLDB
+from dispatcher import Dispatcher
 
 
 class Server(Registry, paramiko.ServerInterface):
     _class_id = "Server"
+    _singleton = True
+
     def __reginit__(self, client, addr, msg, host_key_file):
         self.pwdb = Backend()
         self.client = client
@@ -49,6 +48,7 @@ class Server(Registry, paramiko.ServerInterface):
         self.event = threading.Event()
         self.args = []
         self._remotes = {}
+        self.dispatcher = Dispatcher(self.msg)
 
     ### STANDARD PARAMIKO SERVER INTERFACE
 
@@ -109,7 +109,7 @@ class Server(Registry, paramiko.ServerInterface):
 
     ### SSHPROXY SERVER INTERFACE
 
-    def valid_auth(self, username, password=None, pkey=None):
+    def _valid_auth(self, username, password=None, pkey=None):
         if not self.pwdb.authenticate(username=username,
                                       auth_tokens={'password': password,
                                                    'pkey': pkey},
@@ -121,11 +121,38 @@ class Server(Registry, paramiko.ServerInterface):
             if pkey is None and hasattr(self, 'unauth_key'):
                 if util.istrue(get_config('sshproxy')['auto_add_key']):
                     client = self.pwdb.get_client()
-                    client.set_tokens(pkey=self.unauth_key)
+                    client.set_tokens(pkey='%s %s@%s' % (self.unauth_key,
+                                                username, self.client_addr[0]))
                     client.save()
             self.username = username
             self.msg.request('set_client username=%s' % username)
             return True
+
+    def valid_auth(self, username, password=None, pkey=None):
+        if not Backend().authenticate(username=username, auth_tokens={
+                                            'password': password,
+                                            'pkey': pkey,
+                                            'ip_addr': self.client_addr[0]}):
+            return False
+
+        self.username = username
+        self.msg.request('set_client username=%s' % username)
+        return True
+
+    def message_client(self, msg):
+        self.queue_message(msg)
+
+    def queue_message(self, msg=None):
+        chan = getattr(self, 'chan', None)
+        if not hasattr(self, 'qmsg'):
+            self.qmsg = []
+        if msg is not None:
+            self.qmsg.append(msg)
+        if not chan:
+            return
+        while len(self.qmsg): 
+            chan.send(chanfmt(self.qmsg.pop(0)))
+
 
 
     def set_username(self, username):
@@ -208,19 +235,14 @@ class Server(Registry, paramiko.ServerInterface):
         return self.do_console()
 
     def opt_list_sites(self, options, *args):
-        result = []
-        sites = self.pwdb.list_allowed_sites()
-        if len(sites):
-            name_width = max([ len(e.get_tags().login) + len(e.get_tags().name)
-                                            for e in sites ])
-            for site in sites:
-                sid = '%s@%s' % (site.get_tags().login, site.get_tags().name)
-                result.append('%s %s\n' % (sid,
-                                    ' '*(name_width + 1 - len(sid)))) 
-        result.append('\nTOTAL: %d\n' % len(sites))
+        self.chan_send(self.run_cmd('list_sites %s'% ' '.join(args)))
+#        self.chan_send(self.dispatcher.cmd_list_sites(' '.join(args)))
 
-        self.chan.send(chanfmt(''.join(result)))
+    def chan_send(self, s):
+        self.chan.send(chanfmt(s))
 
+    def run_cmd(self, cmd):
+        return self.dispatcher.dispatch(cmd)
 
     def opt_get_pkey(self, options, *args):
         result = []
@@ -310,7 +332,8 @@ class Server(Registry, paramiko.ServerInterface):
                                     " open a console session.\n"))
             return False
         self.msg.request("set_client type=console")
-        return ConsoleBackend(self, conn, self.msg).loop()
+        return self.dispatcher.console(conn)
+        #return ConsoleBackend(self, conn, self.msg).loop()
 
 
     def do_scp(self):
@@ -445,6 +468,8 @@ class Server(Registry, paramiko.ServerInterface):
 
 
     def do_work(self):
+        # empty the message queue now we've got a valid channel
+        self.queue_message()
         # this is a connection to the proxy console
         if not len(self.args):
             return self.do_console()
@@ -481,292 +506,3 @@ class Server(Registry, paramiko.ServerInterface):
 Server.register()
 
 
-class ConsoleBackend(Registry):
-    _class_id = "ConsoleBackend"
-    def __reginit__(self, client, conn=None, msg=None):
-        conf = get_config('sshproxy')
-        self.maxcon = conf['max_connections']
-
-        self.client = client
-        self.chan = client.chan
-
-        self.msg = Message()
-        self.daemon = msg
-
-        self.main_console = PTYWrapper(self.chan, self.PtyConsole, self.msg,
-                                    client.is_admin())
-        self.status = self.msg.get_parent_fd()
-
-        self.cpool = pool.get_connection_pool()
-        self.cid = None
-        if conn is not None:
-            self.cid = self.cpool.add_connection(conn)
-
-    @staticmethod
-    def PtyConsole(*args, **kwargs):
-        Console(*args, **kwargs).cmdloop()
-
-    def loop(self):
-        while True:
-
-            self.status.reset()
-        
-            data = self.main_console.loop()
-            if data is None:
-                break
-            try:
-                action, data = data.split(' ', 1)
-            except ValueError:
-                action = data.strip()
-                data = ''
-
-            method = 'cmd_'+action
-            if hasattr(self, method):
-                method = getattr(self, method)
-                if callable(method):
-                    response = method(data)
-                    if response is None:
-                        break
-            # status.response() absolutely NEEDS to be called once an action
-            # has been processed, otherwise you may experience hang ups.
-                    self.status.response(response)
-                    continue
-            else:
-                response = self.passthru(action, data)
-                if response:
-                    self.status.response(response)
-                    continue
-            # if inexistant or no callable
-            self.status.response('ERROR: Unknown action %s' % action)
-            log.error('ERROR: Unknown action %s' % action)
-
-        self.close()
-
-    def passthru(self, action, data):
-        return self.daemon.request('%s %s' % (action, data))
-
-    def cmd_open(self, args):
-        if self.maxcon and len(self.cpool) >= self.maxcon:
-            return 'ERROR: Max connection count reached'
-        sitename = args.strip()
-        if sitename == "":
-            return 'ERROR: where to?'
-        #try:
-        #    sitename = self.client.set_remote(sitename)
-        #except util.SSHProxyAuthError, msg:
-        if not self.client.pwdb.authorize(sitename):
-            log.error("ERROR(open): %s", msg)
-            return ("ERROR: site does not exist or you don't "
-                            "have sufficient rights")
-
-        conn = proxy.ProxyShell(self.client)
-
-        cid = self.cpool.add_connection(conn)
-        while True:
-            if not conn:
-                ret = 'ERROR: no connection id %s' % cid
-                break
-            try:
-                ret = conn.loop()
-            except:
-                self.chan.send("\r\n ERROR0: It seems you found a bug."
-                               "\r\n Please report this error "
-                               "to your administrator.\r\n\r\n")
-                self.chan.close()
-                raise
-            if ret == util.CLOSE:
-                self.cpool.del_connection(cid)
-            elif ret >= 0:
-                self.cid = cid = ret
-                conn = self.cpool.get_connection(cid)
-                continue
-            ret = 'OK'
-            break
-        if not ret:
-            ret = 'OK'
-        return ret
-
-    def cmd_switch(self, args):
-        # switch between one connection to the other
-        if not self.cpool:
-            return 'ERROR: no opened connection.'
-        args = args.strip()
-        if args:
-            cid = int(args)
-        else:
-            if self.cid is not None:
-                cid = self.cid
-            else:
-                cid = 0
-        while True:
-            conn = self.cpool.get_connection(cid)
-            if not conn:
-                ret = 'ERROR: no id %d found' % cid
-                break
-            ret = conn.loop()
-            if ret == util.CLOSE:
-                self.cpool.del_connection(cid)
-            elif ret >= 0:
-                self.cid = cid = ret
-                continue
-            ret = 'OK'
-            break
-        return ret
-
-    def cmd_close(self, args):
-        # close connections
-        args = args.strip()
-
-        # there must exist open connections
-        if self.cpool:
-            # close all connections
-            if args == 'all':
-                l = len(self.cpool)
-                while len(self.cpool):
-                    self.cpool.del_connection(0)
-                return '%d connections closed' % l
-            # argument must be a digit
-            elif args != "":
-                if args.isdigit():
-                    try:
-                        cid = int(args)
-                        self.cpool.del_connection(cid)
-                        msg="connection %d closed" % cid
-                    except UnboundLocalError:
-                        msg = 'ERROR: unknown connection %s' % args
-                    return msg
-                else:
-                    return 'ERROR: argument must be a digit'
-            else:
-                return 'ERROR: give an argument'
-        else:
-            return 'ERROR: no open connection'
-
-    def cmd_list_conn(self, args):
-        # show opened connections
-        l = []
-        i = 0
-        # list the open connections
-        for c in self.cpool.list_connections():
-            l.append('%d %s\n' % (i, c.name))
-            i = i + 1
-        if not len(l):
-            return 'ERROR: no opened connections'
-        else:
-            # send the connection list
-            return ''.join(l)
-
-    def cmd_whoami(self, args):
-        # whoami command
-        return '%s' % (self.client.username)
-
-    def cmd_exit_verify(self, args):
-        # check open connections for exit
-        if self.cpool:
-            return 'ERROR: close all connections first!'
-        else:
-            return None
-
-    def cmd_sites(self, args):
-        # dump the listing of all sites we're allowed to connect to
-        # TODO: see console.py : Console._sites()
-        return 'OK'
-
-###########################################################################
-
-    def cmd_admin(self, args):
-        """
-        admin command [args]
-
-        Execute administrative commands on the main daemon.
-        """
-        return self.daemon.request(args)
-
-    def cmd_list_clients(self, args):
-        import shlex
-        try:
-            args = shlex.split(args)
-        except:
-            return 'parse error'
-        tokens = {}
-        for arg in args:
-            t = arg.split('=', 1)
-            if len(t) > 1:
-                value = t[1]
-                if value and value[0] == value[-1] == '"':
-                    value = value[1:-1]
-
-            tokens[t[0]] = value
-
-        resp = Backend().list_clients(**tokens)
-        return resp
-
-    def cmd_add_client(self, args):
-        import shlex
-        try:
-            args = shlex.split(args)
-        except:
-            return 'parse error'
-        tokens = {}
-        for arg in args[1:]:
-            t = arg.split('=', 1)
-            if len(t) > 1:
-                value = t[1]
-                if value and value[0] == value[-1] == '"':
-                    value = value[1:-1]
-
-            tokens[t[0]] = value
-
-        resp = Backend().add_client(args[0], **tokens)
-        return resp
-
-    def cmd_del_client(self, args):
-        import shlex
-        try:
-            args = shlex.split(args)
-        except:
-            return 'parse error'
-        tokens = {}
-        for arg in args[1:]:
-            t = arg.split('=', 1)
-            if len(t) > 1:
-                value = t[1]
-                if value and value[0] == value[-1] == '"':
-                    value = value[1:-1]
-
-            tokens[t[0]] = value
-
-        resp = Backend().del_client(args[0], **tokens)
-        return resp
-
-    def cmd_tag_client(self, args):
-        import shlex
-        try:
-            args = shlex.split(args)
-        except:
-            return 'parse error'
-        tokens = {}
-        for arg in args[1:]:
-            t = arg.split('=', 1)
-            if len(t) > 1:
-                value = t[1]
-                if value and value[0] == value[-1] == '"':
-                    value = value[1:-1]
-                
-            else:
-                return 'Parse error around <%s>' % arg
-
-            tokens[t[0]] = value
-
-        tags = Backend().tag_client(args[0], **tokens)
-        resp = []
-        for tag, value in tags.items():
-            resp.append('%s = "%s"' % (tag, value))
-        return '\n'.join(resp)
-
-    def close(self):
-        self.chan.close()
-        log.info('Client exits now!')
-
-
-ConsoleBackend.register()

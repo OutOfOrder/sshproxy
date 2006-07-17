@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 16, 02:01:34 by david
+# Last modified: 2006 Jul 17, 00:24:55 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -81,6 +81,7 @@ class Daemon(Registry):
 ########################################################################
 
     def send_message(self, id, cmd, msg):
+        print self.clients
         self.clients[id].msg.write('%s:\n\n%s\n\n' % (cmd, msg))
 
     def rq_nb_con(self, id, *args):
@@ -190,12 +191,28 @@ class Daemon(Registry):
             return getattr(self, 'rq_%s' % args[0])(id, *args)
         return 'ERROR: unknown command %s' % request
 
+    def get_public_methods(self):
+        methods = []
+        for method in dir(self):
+            if method[:3] != 'rq_':
+                continue
+            methods.append(' '.join(
+                    [ method[3:],
+                      getattr(getattr(self, method), '__doc__') or ''
+                    ]))
+
+        return '\n'.join([ m.replace('\n', '\\n') for m in methods ])
+
+
     def handle_message(self, fd):
         id = self.find_client_pid(fd)
         if not id:
             log.error("A client has sent a message, but I couldn't find it.")
         fd.reset()
         request = fd.read()
+        if request == 'public_methods':
+            fd.response(self.get_public_methods())
+            return
         resp = self.handle_message_request(id, request)
         if resp is None:
             resp = ''
