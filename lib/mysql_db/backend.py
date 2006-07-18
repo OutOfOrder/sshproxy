@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 18, 04:30:45 by david
+# Last modified: 2006 Jul 18, 22:56:10 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -412,8 +412,14 @@ class MySQLSiteDB(SiteDB, MySQLDB):
         for id, name in self.sql_list(query):
             query = """select login from login where site_id = %d 
                                 order by priority desc""" % id
+            logins = []
             for (login,) in self.sql_list(query):
-                sites.append(SiteInfo(login, name))
+                logins.append(SiteInfo(login, name))
+
+            if len(logins):
+                sites += logins
+            else:
+                sites.append(SiteInfo('ORPHAN', name, priority=0))
 
         return sites
 
@@ -461,6 +467,8 @@ class MySQLSiteDB(SiteDB, MySQLDB):
             # if site does not exist and a login was given, exit with an error
             return 'Please create site %s first' % site
         
+        elif not SiteInfo(login, site).get_tags()['ip_address']:
+            return 'Please add an ip_address tag to site %s first' % site
         else:
             if self.exists(sitename, **tokens):
                 return 'Site %s does already exist' % sitename
@@ -480,14 +488,32 @@ class MySQLSiteDB(SiteDB, MySQLDB):
         return 'Site %s added' % sitename
 
     def del_site(self, sitename, **tokens):
-        # XXX this is not finished
-        id = self.exists(sitename, **tokens)
-        if not id:
+        login, site = self.split_user_site(sitename)
+
+        sid = self.exists(sitename, **tokens)
+        if not sid:
             return 'Site %s does not exist' % sitename
 
-        query = "delete from acltags where object = 'site' and id = %d" % id
-        self.sql_del(query)
+        if login:
+            lid = self.exists(sitename, **tokens)
+            if not lid:
+                return 'Site %s does not exist' % sitename
 
-        query = "delete from site where id = %d" % id
-        self.sql_del(query)
-        return 'Site %s deleted' % sitename
+            query = "delete from acltags where object = 'login' and id = %d"
+            self.sql_del(query % lid)
+
+            query = "delete from login where id = %d"
+            self.sql_del(query % lid)
+            return 'Site %s deleted' % sitename
+        else:
+            query = "select count(*) from login where site_id = %d"
+            count = self.sql_get(query % sid)
+            if count > 0:
+                return "Site %s has still %d logins" % (sitename, count)
+
+            query = "delete from acltags where object = 'site' and id = %d"
+            self.sql_del(query % sid)
+
+            query = "delete from site where id = %d"
+            self.sql_del(query % sid)
+

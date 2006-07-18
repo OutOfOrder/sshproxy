@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 18, 04:26:56 by david
+# Last modified: 2006 Jul 18, 22:43:31 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -204,7 +204,8 @@ class Dispatcher(Registry):
 
         sites = []
         for site in Backend().list_site_users(**tokens):
-            sites.append([site.login, site.name, site.get_tags().priority])
+            sites.append([site.login or '', site.name,
+                                            site.get_tags().priority])
 
         resp = []
         if len(sites):

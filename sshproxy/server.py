@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 18, 02:35:23 by david
+# Last modified: 2006 Jul 18, 16:17:22 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -468,6 +468,8 @@ class Server(Registry, paramiko.ServerInterface):
         return self.do_console(conn)
 
 
+    # XXX: stage2: make it easier to extend
+    # make explicit the stage automaton
     def do_work(self):
         # empty the message queue now we've got a valid channel
         self.queue_message()
