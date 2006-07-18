@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 16, 18:10:50 by david
+# Last modified: 2006 Jul 18, 04:30:45 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -305,8 +305,6 @@ class MySQLSiteInfo(SiteInfo, MySQLDB):
         SiteInfo.__reginit__(self, login, name, **kw)
 
     def load(self):
-        tags = {'name': None, 'port': None}
-        self.s_tokens.add_tags(tags)
         query = """select id, name, ip_address, port from site
                                         where name = '%s'""" % Q(self.name)
         site = self.sql_get(query)
@@ -355,46 +353,51 @@ class MySQLSiteInfo(SiteInfo, MySQLDB):
         sid = self._sid
         if sid is None:
             return
-        tok = self.s_tokens
-        self.sql_set('site',
-                **{'name': self.name,
-                   'ip_address': tok.get('ip_address', ''),
-                   'port': tok.get('port', '22'),
-                   })
-        for tag, value in self.s_tokens.items():
-            if tag in ('name', 'ip_address', 'port'):
-                continue
-            elif value and len(str(value)):
-                self.sql_set('acltags', **{'object': 'site', 'id': sid,
-                                       'tag': tag, 'value': str(value)})
-            else:
-                query = ("delete from acltags where object = 'site'"
-                         " and id = %d and tag = '%s'" % (sid, Q(tag)))
-                self.sql_del(query)
-        
-        lid = self._lid
-        if not lid:
-            return
 
-        tok = self.l_tokens
-        self.sql_set('login',
-                **{'site_id': sid,
-                   'login': self.login,
-                   'password': tok.get('password', ''),
-                   'pkey': tok.get('pkey', ''),
-                   'priority': tok.get('priority', ''),
-                   })
-        for tag, value in self.l_tokens.items():
-            if tag in ('login', 'password', 'pkey', 'priority',
-                                            'ip_address', 'port'):
-                continue
-            elif value and len(str(value)):
-                self.sql_set('acltags', **{'object': 'login', 'id': lid,
-                                       'tag': tag, 'value': str(value)})
-            else:
-                query = ("delete from acltags where object = 'login'"
-                         " and id = %d and tag = '%s'" % (lid, Q(tag)))
-                self.sql_del(query)
+        if not self.login:
+            tok = self.s_tokens
+            self.sql_set('site',
+                    **{'id': sid,
+                       'name': self.name,
+                       'ip_address': tok.get('ip_address', ''),
+                       'port': tok.get('port', '22'),
+                       })
+            for tag, value in self.s_tokens.items():
+                if tag in ('name', 'ip_address', 'port'):
+                    continue
+                elif value and len(str(value)):
+                    self.sql_set('acltags', **{'object': 'site', 'id': sid,
+                                           'tag': tag, 'value': str(value)})
+                else:
+                    query = ("delete from acltags where object = 'site'"
+                             " and id = %d and tag = '%s'" % (sid, Q(tag)))
+                    self.sql_del(query)
+        
+        else:
+            lid = self._lid
+            if not lid:
+                return
+    
+            tok = self.l_tokens
+            self.sql_set('login',
+                    **{'id': lid,
+                       'site_id': sid,
+                       'login': self.login,
+                       'password': tok.get('password', ''),
+                       'pkey': tok.get('pkey', ''),
+                       'priority': tok.get('priority', ''),
+                       })
+            for tag, value in self.l_tokens.items():
+                if tag in ('login', 'password', 'pkey', 'priority',
+                                                'ip_address', 'port'):
+                    continue
+                elif value and len(str(value)):
+                    self.sql_set('acltags', **{'object': 'login', 'id': lid,
+                                           'tag': tag, 'value': str(value)})
+                else:
+                    query = ("delete from acltags where object = 'login'"
+                             " and id = %d and tag = '%s'" % (lid, Q(tag)))
+                    self.sql_del(query)
 
 
 class MySQLSiteDB(SiteDB, MySQLDB):
@@ -425,8 +428,66 @@ class MySQLSiteDB(SiteDB, MySQLDB):
         if not login:
             return id
 
-        query = "select id from login where login = '%s'" % Q(login)
-        id = self.sql_get(query)
+        query = "select id from login where login = '%s' and site_id = %d"
+        id = self.sql_get(query % (Q(login), id))
 
         return id or False
 
+    def add_site(self, sitename, **tokens):
+        login, site = self.split_user_site(sitename)
+
+        if not login:
+            if self.exists(site, **tokens):
+                return 'Site %s does already exist' % site
+            # create site
+            port = tokens.get('port', 22)
+            try:
+                port = int(port)
+                if not (0 < port < 65536):
+                    raise ValueError
+            except ValueError:
+                return ('Port must be numeric and have a strictly positive '
+                        'value inferior to 65536')
+
+            query = ("insert into site (name, ip_address, port) "
+                               "values ('%s', '%s', '%s')")
+            sid = self.sql_add(query % (Q(site),
+                                       Q(tokens.get('ip_address', '')),
+                                       port))
+            if not sid:
+                return 'A problem occured when adding site %s' % sitename
+
+        elif not self.exists(site, **tokens):
+            # if site does not exist and a login was given, exit with an error
+            return 'Please create site %s first' % site
+        
+        else:
+            if self.exists(sitename, **tokens):
+                return 'Site %s does already exist' % sitename
+
+            sid = self.sql_get("select id from site where name = '%s'"
+                                                                    % Q(site))
+            query = ("insert into login (site_id, login, password) "
+                               "values (%d, '%s', '%s')")
+            lid = self.sql_add(query % (sid,
+                                       Q(login),
+                                       Q(tokens.get('password', ''))))
+            if not lid:
+                return 'A problem occured when adding site %s' % sitename
+
+        site = SiteInfo(login, site, **tokens)
+        site.save()
+        return 'Site %s added' % sitename
+
+    def del_site(self, sitename, **tokens):
+        # XXX this is not finished
+        id = self.exists(sitename, **tokens)
+        if not id:
+            return 'Site %s does not exist' % sitename
+
+        query = "delete from acltags where object = 'site' and id = %d" % id
+        self.sql_del(query)
+
+        query = "delete from site where id = %d" % id
+        self.sql_del(query)
+        return 'Site %s deleted' % sitename

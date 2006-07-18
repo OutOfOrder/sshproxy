@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 17, 01:51:14 by david
+# Last modified: 2006 Jul 18, 02:35:23 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -132,7 +132,8 @@ class Server(Registry, paramiko.ServerInterface):
         if not Backend().authenticate(username=username, auth_tokens={
                                             'password': password,
                                             'pkey': pkey,
-                                            'ip_addr': self.client_addr[0]}):
+                                            'ip_addr': self.client_addr[0]},
+                                      ip_addr=self.client_addr[0]):
             return False
 
         self.username = username

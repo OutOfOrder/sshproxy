@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 17, 01:55:19 by david
+# Last modified: 2006 Jul 18, 04:26:56 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -217,6 +217,34 @@ class Dispatcher(Registry):
         resp.append('\nTotal: %d' % len(resp))
         return '\n'.join(resp)
 
+    def cmd_add_site(self, *args):
+        tokens = {}
+        for arg in args[1:]:
+            t = arg.split('=', 1)
+            if len(t) > 1:
+                value = t[1]
+                if value and value[0] == value[-1] == '"':
+                    value = value[1:-1]
+
+            tokens[t[0]] = value
+
+        resp = Backend().add_site(args[0], **tokens)
+        return resp
+
+    def cmd_del_site(self, *args):
+        tokens = {}
+        for arg in args[1:]:
+            t = arg.split('=', 1)
+            if len(t) > 1:
+                value = t[1]
+                if value and value[0] == value[-1] == '"':
+                    value = value[1:-1]
+
+            tokens[t[0]] = value
+
+        resp = Backend().del_site(args[0], **tokens)
+        return resp
+
     def cmd_tag_site(self, *args):
         if not Backend().site_exists(args[0]):
             return "Site %s does not exist." % args[0]
@@ -242,6 +270,9 @@ class Dispatcher(Registry):
             
 
         tags = Backend().tag_site(args[0], **tokens)
+        if not hasattr(tags, 'items'):
+            # this is an error message
+            return tags
         resp = []
         for tag, value in tags.items():
             #if tag == 'password':
@@ -252,6 +283,8 @@ class Dispatcher(Registry):
 
     def show_tag_filter(self, object, tag, value):
         value = value or ''
+        # XXX: debug
+        return value
         if object == 'client':
             if tag == 'password' and value:
                 return '*'*len(value)

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 16, 16:38:57 by david
+# Last modified: 2006 Jul 18, 02:42:50 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -103,13 +103,20 @@ class Backend(Registry):
     def client_exists(self, username, **tokens):
         return self.clientdb.exists(username, **tokens)
 
-    def site_exists(self, sitename, **tokens):
-        return self._sitedb.exists(sitename, **tokens)
+    def add_site(self, sitename, **tokens):
+        return self._sitedb.add_site(sitename, **tokens)
+
+    def del_site(self, sitename, **tokens):
+        return self._sitedb.del_site(sitename, **tokens)
 
     def tag_site(self, sitename, **tokens):
         return self._sitedb.tag_site(sitename, **tokens)
 
+    def site_exists(self, sitename, **tokens):
+        return self._sitedb.exists(sitename, **tokens)
+
 Backend.register()
+
 
 def get_backend():
     return Backend()

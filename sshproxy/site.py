@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 16, 18:19:09 by david
+# Last modified: 2006 Jul 18, 04:28:08 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,12 +26,14 @@ from acl import ACLTags, ACLDB
 class SiteInfo(Registry):
     _class_id = 'SiteInfo'
     def __reginit__(self, login, name, **kw):
-        self.s_tokens = ACLTags(kw)
-        self.l_tokens = ACLTags(kw)
         self.login = login
         self.name = name
         self.loaded = False
+        self.s_tokens = ACLTags()
+        self.l_tokens = ACLTags()
         self.load()
+        self.set_tokens(**kw)
+
 
     def load(self):
         pass
@@ -46,8 +48,9 @@ class SiteInfo(Registry):
         tags.add_tag('name', self.name)
         # ip_address and port should not be overriden by the login tags
         tags.add_tag('ip_address', self.s_tokens.get('ip_address', ''))
-        # maybe overriding the port would be useful for port-NATed firewalls ?
-        tags.add_tag('port', self.s_tokens.get('port', '22'))
+        ## maybe overriding the port would be useful for port-NATed firewalls ?
+        ## after all, the admin should know what he does...
+        #tags.add_tag('port', self.s_tokens.get('port', '22'))
         if self.login:
             tags.add_tag('login', self.login)
         return tags
@@ -61,12 +64,12 @@ class SiteInfo(Registry):
         @return: None
         """
         if self.login:
-            tokens = self.l_tokens
+            toks = self.l_tokens
         else:
-            tokens = self.s_tokens
+            toks = self.s_tokens
         for token, value in tokens.items():
             # XXX: how to encrypt the tokens ? encrypt them all ?
-            tokens.add_tag(token, str(value))
+            toks.add_tag(token, str(value))
 
 
 SiteInfo.register()
@@ -99,9 +102,8 @@ class SiteDB(Registry):
         if not siteinfo.loaded:
             return False
 
-        if not ACLDB().check(acl='authorize',
-                                                    client=client.get_tags(),
-                                                    site=siteinfo.get_tags()):
+        if not ACLDB().check(acl='authorize', client=client.get_tags(),
+                                              site=siteinfo.get_tags()):
             return False
 
         self.siteinfo = siteinfo
@@ -126,12 +128,29 @@ class SiteDB(Registry):
     def exists(self, sitename, **tokens):
         return False
 
+    def add_site(self, sitename, **tokens):
+        return "Not implemented"
+
+    def del_site(self, sitename, **tokens):
+        return "Not implemented"
+
     def tag_site(self, sitename, **tokens):
         login, site = self.split_user_site(sitename)
 
+        if 'port' in tokens.keys():
+            port = tokens.get('port')
+            try:
+                port = int(port)
+                if not (0 < port < 65536):
+                    raise ValueError
+            except ValueError:
+                return ('Port must be numeric and have a strictly positive '
+                        'value inferior to 65536')
+        #    tokens['port'] = port
+
         site = SiteInfo(login, site, **tokens)
         if tokens:
-            site.set_tokens(**tokens)
+            #site.set_tokens(**tokens)
             site.save()
         return site.get_tags()
 
