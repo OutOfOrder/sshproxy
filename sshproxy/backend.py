@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 18, 02:42:50 by david
+# Last modified: 2006 Jul 18, 23:37:31 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -76,9 +76,9 @@ class Backend(Registry):
     def get_site(self, user_site=None):
         return SiteDB().get_site(user_site)
 
-    def list_site_users(self):
+    def list_site_users(self, **tokens):
         sitedb = SiteDB()
-        return sitedb.list_site_users()
+        return sitedb.list_site_users(**tokens)
 
     def list_allowed_sites(self):
         sites = self.list_site_users()

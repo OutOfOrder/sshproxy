@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 16, 03:52:53 by david
+# Last modified: 2006 Jul 19, 01:28:36 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -76,7 +76,7 @@ class ClientInfo(Registry):
 
 
     def auth_token_order(self):
-        return ()
+        return ('password')
 
 
     def authenticate(self, **tokens):
@@ -93,6 +93,31 @@ class ClientInfo(Registry):
                 if self.get_token(token) == tokens[token]:
                     return True
         return False
+
+    def add_pkey(self, pkey, **tokens):
+        from sshproxy.config import get_config
+        ring = self.get_token('pkey', '')
+        if pkey in ring:
+            return False
+
+        ring = [ k.strip() for k in ring.split('\n') if len(k.strip()) ]
+
+        nbkey = get_config('sshproxy').get('auto_add_key', 0)
+        try:
+            nbkey = int(nbkey)
+            if len(ring) >= nbkey:
+                return False
+        except ValueError:
+            # auto_add_key is not an integer, so an infinitie
+            # number of keys is allowed
+            pass
+
+        ring = '\n'.join(ring + [ '%s %s@%s' % (pkey, self.username,
+                                        tokens['ip_addr']) ])
+
+        self.set_tokens(pkey=ring)
+        self.save()
+        return True
 
 
 ClientInfo.register()

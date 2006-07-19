@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 18, 22:56:10 by david
+# Last modified: 2006 Jul 19, 02:53:22 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,7 +23,7 @@ import MySQLdb
 import os, os.path
 
 from sshproxy.config import Config, ConfigSection, path, get_config
-from sshproxy.acl import ACLDB
+from sshproxy.acl import ACLDB, ACLRule
 from sshproxy.client import ClientDB, ClientInfo
 from sshproxy.site import SiteDB, SiteInfo
 from sshproxy.util import istrue
@@ -177,28 +177,6 @@ class MySQLClientInfo(ClientInfo, MySQLDB):
     def auth_token_order(self):
         return ('pkey', 'password')
 
-    def add_pkey(self, pkey, **tokens):
-        ring = self.get_token('pkey', '')
-        if pkey in ring:
-            return False
-
-        ring = [ k.strip() for k in ring.split('\n') if len(k.strip()) ]
-
-        try:
-            nbkey = int(get_config('sshproxy')['auto_add_key'])
-            if len(ring) >= nbkey:
-                return False
-        except ValueError:
-            # auto_add_key is not an integer, so an infinitie
-            # number of keys is allowed
-            pass
-
-        ring = '\n'.join(ring + [ '%s %s@%s' % (pkey, self.username,
-                                        tokens['ip_addr']) ])
-
-        self.set_tokens(pkey=ring)
-        self.save()
-        return True
 
     def authenticate(self, **tokens):
         resp = False
@@ -206,8 +184,8 @@ class MySQLClientInfo(ClientInfo, MySQLDB):
             if token in tokens.keys() and tokens[token] is not None:
                 if token == 'password':
                     query = """select id from client where uid='%s' and
-                            sha1('%s') = password""" % (self.username,
-                                                        tokens['password'])
+                            '%s' = password""" % (Q(self.username),
+                                    Q(sha.new(tokens['password']).hexdigest()))
                     if self.sql_get(query):
                         resp = True
                         break
@@ -228,7 +206,7 @@ class MySQLClientInfo(ClientInfo, MySQLDB):
             tokens['pkey'] = pkey
             if self.add_pkey(**tokens):
                 Server().message_client("WARNING: Your public key"
-                                        " has been added")
+                                        " has been added to the keyring\n")
             del ClientDB()._unauth_pkey
         return resp
 
@@ -250,7 +228,7 @@ class MySQLClientDB(ClientDB, MySQLDB):
         if self.exists(username, **tokens):
             return 'Client %s does already exist' % username
 
-        query = "insert into client (uid, password) values ('%s', sha1('%s'))"
+        query = "insert into client (uid, password) values ('%s', '%s')"
         id = self.sql_add(query % (Q(username), Q(tokens.get('password', ''))))
         if not id:
             return 'A problem occured when adding client %s' % username
@@ -259,6 +237,8 @@ class MySQLClientDB(ClientDB, MySQLDB):
         return 'Client %s added' % username
 
     def del_client(self, username, **tokens):
+        if self.clientinfo.username == username:
+            return "Don't delete yourself!"
         id = self.exists(username, **tokens)
         if not id:
             return 'Client %s does not exist' % username
@@ -406,7 +386,7 @@ class MySQLSiteDB(SiteDB, MySQLDB):
         self.open_db()
         SiteDB.__reginit__(self, **kw)
 
-    def list_site_users(self):
+    def list_site_users(self, **tokens):
         sites = []
         query = """select id, name from site order by name"""
         for id, name in self.sql_list(query):
@@ -416,10 +396,20 @@ class MySQLSiteDB(SiteDB, MySQLDB):
             for (login,) in self.sql_list(query):
                 logins.append(SiteInfo(login, name))
 
-            if len(logins):
-                sites += logins
-            else:
-                sites.append(SiteInfo('ORPHAN', name, priority=0))
+            if not len(logins):
+                logins.append(SiteInfo('ORPHAN', name, priority=0))
+
+            sites += logins
+
+        filter = tokens.get('filter', tokens.get('f', None))
+        if filter:
+            siteinfos = []
+            for site in sites:
+                if ACLRule('list_site_users_filter',
+                            filter).eval(namespace={'site':site.get_tags()}):
+                    siteinfos.append(site)
+
+            sites = siteinfos
 
         return sites
 

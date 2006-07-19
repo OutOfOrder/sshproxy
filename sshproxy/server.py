@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 18, 16:17:22 by david
+# Last modified: 2006 Jul 19, 02:58:15 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -237,7 +237,6 @@ class Server(Registry, paramiko.ServerInterface):
 
     def opt_list_sites(self, options, *args):
         self.chan_send(self.run_cmd('list_sites %s'% ' '.join(args)))
-#        self.chan_send(self.dispatcher.cmd_list_sites(' '.join(args)))
 
     def chan_send(self, s):
         self.chan.send(chanfmt(s))

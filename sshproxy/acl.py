@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 18, 02:38:03 by david
+# Last modified: 2006 Jul 19, 00:25:03 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -35,6 +35,8 @@ class Operator(object):
     def __init__(self, left, right):
         self.right = right
         self.left = left
+        self.__str__ = Operator.__str__
+        self.__repr__ = Operator.__repr__
 
     @staticmethod
     def add(cls):
@@ -423,7 +425,7 @@ class ACLRule(Registry):
                 result = o.call(namespace)
             else:
                 result = o.op()
-            log.debug('ACLrule: %s = %s' % (result, o))
+            log.debug('ACLrule %s: %s = %s' % (self.name, result, repr(o)))
             return result
         elif isinstance(tree, Const):
             return tree.item
@@ -463,6 +465,8 @@ class ACLRule(Registry):
             return int(time.time())
         elif tag == 'dow':
             return str(datetime.datetime.now().strftime("%w"))
+        elif tag == 'test':
+            return "test"
         return None
 
 
@@ -565,10 +569,10 @@ class ACLDB(Registry):
                 match = repr(acl.rule)
                 result = acl.eval(namespace)
             else:
-                for rule in self.rules:
-                    if rule[0] == acl:
-                        match = repr(rule[1].rule)
-                        if rule[1].eval(namespace):
+                for rulename, rule in self.rules:
+                    if rulename == acl:
+                        match = repr(rule.rule)
+                        if rule.eval(namespace):
                             result = True
                             break
                         else:

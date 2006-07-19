@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 16, 12:33:21 by david
+# Last modified: 2006 Jul 19, 02:49:34 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,14 +19,16 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
-import os, os.path
+import os, os.path, sha
 from ConfigParser import NoSectionError, SafeConfigParser as ConfigParser
 
 from sshproxy.config import Config, ConfigSection, path, get_config
 from sshproxy.acl import ACLDB
+from sshproxy.server import Server
 from sshproxy.client import ClientDB, ClientInfo
 from sshproxy.site import SiteDB, SiteInfo
 from sshproxy import log
+from sshproxy.util import istrue
 
 class FileClientConfigSection(ConfigSection):
     section_defaults = {
@@ -83,15 +85,22 @@ class FileClientInfo(ClientInfo):
         self.set_tokens(**tokens)
 
 
-    def save(self):
-        file = self.get_config_file()
+    def save(self, file=None):
+        if not file:
+            file = self.get_config_file()
         if not file:
             return
 
         if not file.has_section(self.username):
             file.add_section(self.username)
-        for key, value in self.tokens.items():
-            file.set(self.username, key, value)
+
+        for tag, value in self.tokens.items():
+            if tag in ('username', 'ip_addr'):
+                continue
+            elif value and str(value):
+                file.set(self.username, tag, str(value))
+            elif file.has_option(self.username, tag):
+                file.remove_option(self.username, tag)
 
         clientfile = get_config('client_db.file')['file']
         fd = open(clientfile+'.new', 'w')
@@ -106,28 +115,40 @@ class FileClientInfo(ClientInfo):
 
         if file.has_section(username):
             file.remove_section(username)
+        self.save(file)
 
     def auth_token_order(self):
         return ('pkey', 'password')
 
     def authenticate(self, **tokens):
+        resp = False
         for token in self.auth_token_order():
             if token in tokens.keys() and tokens[token] is not None:
                 if token == 'password':
-                    import sha
-                    if (sha.new(self.get_token(token)).hexdigest()
-                                                           == tokens[token]):
-                        return True
+                    if (sha.new(tokens[token]).hexdigest()
+                                           == self.get_token(token)):
+                        resp = True
+                        break
                 elif token == 'pkey':
-                    pkeys = self.get_token(token).split('\n')
+                    pkeys = self.get_token(token, '').split('\n')
                     pkeys = [ pk.split()[0] for pk in pkeys if len(pk) ]
                     for pk in pkeys:
                         if pk == tokens[token]:
-                            return True
+                            resp = True
+                            break
+                    ClientDB()._unauth_pkey = tokens[token]
 
                 elif self.get_token(token) == tokens[token]:
-                    return True
-        return False
+                    resp = True
+                    break
+        pkey = getattr(ClientDB(), '_unauth_pkey', None)
+        if resp and pkey and istrue(get_config('sshproxy')['auto_add_key']):
+            tokens['pkey'] = pkey
+            if self.add_pkey(**tokens):
+                Server().message_client("WARNING: Your public key"
+                                        " has been added to the keyring\n")
+            del ClientDB()._unauth_pkey
+        return resp
 
     def exists(self, username):
         file = self.get_config_file()
@@ -158,11 +179,12 @@ class FileClientDB(ClientDB):
         return 'Client %s added' % username
 
     def del_client(self, username, **tokens):
+        if self.clientinfo.username == username:
+            return "Don't delete yourself!"
         if not self.exists(username):
             return 'Client %s does not exist'
 
         self.clientinfo.delete(username)
-        self.clientinfo.save()
 
         return 'Client %s deleted.' % username
 

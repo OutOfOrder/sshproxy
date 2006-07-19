@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 18, 22:43:31 by david
+# Last modified: 2006 Jul 19, 02:48:05 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -129,6 +129,9 @@ class Dispatcher(Registry):
         return '\n'.join(resp)
 
     def cmd_add_client(self, *args):
+        if Backend().client_exists(args[0]):
+            return "Client %s does already exist." % args[0]
+
         tokens = {}
         for arg in args[1:]:
             t = arg.split('=', 1)
@@ -136,13 +139,21 @@ class Dispatcher(Registry):
                 value = t[1]
                 if value and value[0] == value[-1] == '"':
                     value = value[1:-1]
+            else:
+                return 'Parse error around <%s>' % arg
 
+            if t[0] == 'password' and str(value).strip():
+                import sha
+                value = sha.new(value).hexdigest()
             tokens[t[0]] = value
 
         resp = Backend().add_client(args[0], **tokens)
         return resp
 
     def cmd_del_client(self, *args):
+        if not Backend().client_exists(args[0]):
+            return "Client %s does not exist." % args[0]
+
         tokens = {}
         for arg in args[1:]:
             t = arg.split('=', 1)
@@ -150,6 +161,8 @@ class Dispatcher(Registry):
                 value = t[1]
                 if value and value[0] == value[-1] == '"':
                     value = value[1:-1]
+            else:
+                return 'Parse error around <%s>' % arg
 
             tokens[t[0]] = value
 
@@ -183,8 +196,6 @@ class Dispatcher(Registry):
         tags = Backend().tag_client(args[0], **tokens)
         resp = []
         for tag, value in tags.items():
-            #if tag == 'password':
-            #    value = '*'*len(value)
             value = self.show_tag_filter('client', tag, value)
             resp.append('%s = "%s"' % (tag, value))
         return '\n'.join(resp)
@@ -195,9 +206,10 @@ class Dispatcher(Registry):
         tokens = {}
         for arg in args:
             t = arg.split('=', 1)
-            if len(t) > 1:
-                value = t[1]
-                if value and value[0] == value[-1] == '"':
+            value = len(t) > 1 and t[1] or ''
+            if value:
+                if (value[0] == value[-1] == '"' or
+                    value[0] == value[-1] == "'"):
                     value = value[1:-1]
 
             tokens[t[0]] = value
@@ -219,6 +231,9 @@ class Dispatcher(Registry):
         return '\n'.join(resp)
 
     def cmd_add_site(self, *args):
+        if Backend().site_exists(args[0]):
+            return "Site %s does already exist." % args[0]
+
         tokens = {}
         for arg in args[1:]:
             t = arg.split('=', 1)
@@ -226,6 +241,8 @@ class Dispatcher(Registry):
                 value = t[1]
                 if value and value[0] == value[-1] == '"':
                     value = value[1:-1]
+            else:
+                return 'Parse error around <%s>' % arg
 
             tokens[t[0]] = value
 
@@ -233,6 +250,9 @@ class Dispatcher(Registry):
         return resp
 
     def cmd_del_site(self, *args):
+        if not Backend().site_exists(args[0]):
+            return "Site %s does not exist." % args[0]
+
         tokens = {}
         for arg in args[1:]:
             t = arg.split('=', 1)
@@ -240,6 +260,8 @@ class Dispatcher(Registry):
                 value = t[1]
                 if value and value[0] == value[-1] == '"':
                     value = value[1:-1]
+            else:
+                return 'Parse error around <%s>' % arg
 
             tokens[t[0]] = value
 
@@ -260,12 +282,9 @@ class Dispatcher(Registry):
             else:
                 return 'Parse error around <%s>' % arg
 
-            if t[0] == 'name':
-                return "'name' is a read-only tag"
+            if t[0] in ('name', 'login'):
+                return "'%s' is a read-only tag" % t[0]
             else:
-                #if t[0] == 'password' and str(value).strip():
-                #    import sha
-                #    value = sha.new(value).hexdigest()
                 tokens[t[0]] = value
 
             
@@ -276,15 +295,13 @@ class Dispatcher(Registry):
             return tags
         resp = []
         for tag, value in tags.items():
-            #if tag == 'password':
-            #    value = '*'*len(value)
             value = self.show_tag_filter('site', tag, value)
             resp.append('%s = "%s"' % (tag, value))
         return '\n'.join(resp)
 
     def show_tag_filter(self, object, tag, value):
         value = value or ''
-        # XXX: debug
+        # XXX: test if the values are already crypted or mangled (crypto module)
         return value
         if object == 'client':
             if tag == 'password' and value:
