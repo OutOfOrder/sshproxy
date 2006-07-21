@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 30, 23:38:25 by david
+# Last modified: 2006 Jul 21, 00:32:42 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -40,12 +40,16 @@ def get_engine(cipher_type):
     return engine
 
 def cipher(text, **kw):
+    if not text:
+        text = ''
     engine = _default_engine[0]
     if kw.has_key('type'):
         engine = get_engine(kw['type'])
     return '%s%s' % (engine.prefix(), engine.encrypt(text, **kw))
 
 def decipher(text, **kw):
+    if not text:
+        return text
     # guess the encryption method
     tokens = text.split('$', 2)
 
@@ -223,40 +227,70 @@ def recipher(cipher_type, password_fd, dry_run=False):
     nb_passwords = 0
     nb_pkeys = 0
     total = 0
-    sites = [ pwdb.get_rlogin_site(site['name'])[1]
-                                            for site in pwdb.list_sites() ]
-    site_done = []
-    for siteentry in sites:
-        site = siteentry.sid
-        if site in site_done:
+    sites = pwdb.list_site_users()
+    for site in sites:
+        if not site.login:
             continue
-        site_done.append(site)
-        for rlogin in siteentry.rlogins.values():
-            uid = rlogin.uid
-            password = rlogin.password
-            pkey = rlogin.pkey
-        
+        name = site.name
+        uid = site.login
+
+        password = site.get_token('password')
+        if password:
             # decipher with old secret
             oldpass = decipher(password)
-            oldpkey = decipher(pkey)
+
             # cipher with new secret
-            newpass = cipher(oldpass, type=cipher_type, secret=newsecret)
-            newpkey = cipher(oldpkey, type=cipher_type, secret=newsecret)
-            if ( oldpass != decipher(newpass, secret=newsecret) or
-                oldpkey != decipher(newpkey, secret=newsecret) ):
-                raise KeyError('Problem with %s cipher on user %s@%s!' %
-                                                    (cipher_type, uid, site))
-            if dry_run:
-                print '-- %s@%s [ %s / %s / %s ]' % (uid, site,
+            if oldpass is not None:
+                newpass = cipher(oldpass, type=cipher_type, secret=newsecret)
+
+            # check if we can decipher the new password
+            if (oldpass is not None and
+                oldpass != decipher(newpass, secret=newsecret) ):
+                raise KeyError('Problem with %s cipher on %s@%s password!' %
+                                                    (cipher_type, uid, name))
+
+            # be verbose when in dry-run mode
+            if dry_run and password:
+                print '-- %s@%s [ %s / %s / %s ]' % (uid, name,
                                                    password, oldpass, newpass)
-                print 
+
+            # if the password changed, update it if not in dry-run mode
             if password != newpass:
-                dry_run or pwdb.set_rlogin_password(uid, site, newpass)
+                if not dry_run:
+                    site.set_tokens(password=newpass)
+                    site.save()
                 nb_passwords += 1
+
+        pkey = site.get_token('pkey')
+        if pkey:
+            # decipher with old secret
+            oldpkey = decipher(pkey)
+
+            # cipher with new secret
+            if oldpkey is not None:
+                newpkey = cipher(oldpkey, type=cipher_type, secret=newsecret)
+
+            # check if we can decipher the new password
+            if (oldpkey is not None and
+                oldpkey != decipher(newpkey, secret=newsecret) ):
+                raise KeyError('Problem with %s cipher on %s@%s pkey!' %
+                                                    (cipher_type, uid, name))
+
+            # be verbose when in dry-run mode
+            if dry_run and pkey:
+                print '   %s' % (pkey or '').replace('\n', '\n   ')
+                print '   %s' % (oldpkey or '').replace('\n', '\n   ')
+                print '   %s' % (newpkey or '').replace('\n', '\n   ')
+                print 
+
+            # if the pkey changed, update it if not in dry-run mode
             if pkey != newpkey:
-                dry_run or pwdb.set_rlogin_pkey(uid, site, newpkey)
+                if not dry_run:
+                    site.set_tokens(pkey=newpkey)
+                    site.save()
                 nb_pkeys += 1
-            total += 1
+
+        total += 1
     
     
     if cipher_type == 'blowfish':

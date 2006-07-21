@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 17, 00:24:55 by david
+# Last modified: 2006 Jul 21, 03:09:35 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -81,7 +81,6 @@ class Daemon(Registry):
 ########################################################################
 
     def send_message(self, id, cmd, msg):
-        print self.clients
         self.clients[id].msg.write('%s:\n\n%s\n\n' % (cmd, msg))
 
     def rq_nb_con(self, id, *args):
@@ -337,7 +336,8 @@ Daemon.register()
 
 def bind_server(daemon):
     conf = config.get_config('sshproxy')
-    ip = conf['bindip']
+    # preserve compatibility with 0.4.* (bindip)
+    ip = conf['listen_on'] or conf.get('bindip', '')
     port = conf['port']
 
     try:

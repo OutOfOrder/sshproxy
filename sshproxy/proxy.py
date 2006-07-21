@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 15, 20:04:38 by david
+# Last modified: 2006 Jul 20, 23:17:57 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -121,8 +121,8 @@ class Proxy(Registry):
             log.info('Server host key verified (%s) for %s' % (key.get_name(), 
                                                            self.name))
 
-        pkey = cipher.decipher(self.tags['site'].pkey)
-        password = cipher.decipher(self.tags['site'].password)
+        pkey = cipher.decipher(self.tags['site'].get('pkey', ''))
+        password = cipher.decipher(self.tags['site'].get('password', ''))
         if pkey:
             pkey = util.get_dss_key_from_string(pkey)
             try:
@@ -139,7 +139,8 @@ class Proxy(Registry):
                 log.error('Password for %s is not valid' % self.name)
                 raise
 
-        raise AuthenticationException('No password for %s' % self.name)
+        raise AuthenticationException('No valid authentication token for %s'
+                                                                % self.name)
                 
             
 

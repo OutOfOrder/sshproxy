@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 16, 01:07:35 by david
+# Last modified: 2006 Jul 21, 02:26:40 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,14 +24,14 @@ def __init_plugin__():
     from sshproxy.config import get_config
     cfg = get_config('sshproxy')
     if cfg['acl_db'] == 'mysql_db':
-        from backend import MySQLACLDB
+        from acl import MySQLACLDB
         MySQLACLDB.register()
     if cfg['client_db'] == 'mysql_db':
-        from backend import MySQLClientInfo, MySQLClientDB
+        from client import MySQLClientInfo, MySQLClientDB
         MySQLClientInfo.register()
         MySQLClientDB.register()
     if cfg['site_db'] == 'mysql_db':
-        from backend import MySQLSiteInfo, MySQLSiteDB
+        from site import MySQLSiteInfo, MySQLSiteDB
         MySQLSiteInfo.register()
         MySQLSiteDB.register()
 

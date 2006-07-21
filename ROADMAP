@@ -36,16 +36,22 @@ Legend of pictograms:
     - remote sites will be reachable with keys instead of just password
     - make Message protocole more robust
     - backend database schema will be thoroughly simplified with ACLs
+    - add a default pkey in site, if the login does not provide one
+        Tags make that possible without much work
+    - --cipher ciphers private keys in the database
     + options can be given on the pssh command line (before sites) to be able
       to optionally get rid of the console (list-sites, add-key, get-pssh)
+        This Works, but the --add-key is still missing.
     + backend gain more precise ACLs (access based on IP, hour... plugin ?)
-    + add a default pkey in site, if the rlogin does not provide one
+        This works now, but the ACL rule parser is crappy. Need rewriting with
+        a real parser generator.
     + make a wizard and a console for the file backend
-    * --cipher ciphers private keys in the database
     * add a hostkey in site, to check identity of remote site
     * split ebuild in server, client and plugins
     * make it simpler in mysqlbackend to add users in bulk mode
+        All backend are now unified from this point of view.
     ? make the admin password the cipher key for the solo mode
+        Would be nice, but I don't think it's gonna make it in this release.
     ? admin account in the config file
 
 0.6

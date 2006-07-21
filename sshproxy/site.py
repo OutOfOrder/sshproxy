@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 18, 23:37:41 by david
+# Last modified: 2006 Jul 21, 03:07:45 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -38,21 +38,31 @@ class SiteInfo(Registry):
     def load(self):
         pass
 
+
     def save(self):
         pass
 
-    def get_tags(self):
+
+    def get_token(self, token, default=None):
+        if self.login:
+            toks = self.l_tokens
+        else:
+            toks = self.s_tokens
+        return toks.get(token, default)
+
+
+    def get_tags(self, strict=False):
         tags = ACLTags()
-        tags.update(self.s_tokens)
-        tags.update(self.l_tokens)
-        tags.add_tag('name', self.name)
-        # ip_address and port should not be overriden by the login tags
-        tags.add_tag('ip_address', self.s_tokens.get('ip_address', ''))
-        ## maybe overriding the port would be useful for port-NATed firewalls ?
-        ## after all, the admin should know what he does...
-        #tags.add_tag('port', self.s_tokens.get('port', '22'))
+        if not strict or not self.login:
+            tags.update(self.s_tokens)
+        if not strict or self.login:
+            tags.update(self.l_tokens)
+        if not strict or not self.login:
+            # ip_address should not be overriden by the login tags
+            tags.add_tag('ip_address', self.s_tokens.get('ip_address', ''))
         if self.login:
             tags.add_tag('login', self.login)
+        tags.add_tag('name', self.name)
         return tags
 
     def set_tokens(self, **tokens):
@@ -113,7 +123,6 @@ class SiteDB(Registry):
     def get_tags(self):
         tags = ACLTags()
         tags.update(self.siteinfo.get_tags())
-        #tags.update(self.userinfo.get_tags())
         return tags
 
     def get_site(self, user_site=None):
@@ -152,5 +161,5 @@ class SiteDB(Registry):
         if tokens:
             #site.set_tokens(**tokens)
             site.save()
-        return site.get_tags()
+        return site.get_tags(strict=True)
 

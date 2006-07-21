@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 10, 00:27:02 by david
+# Last modified: 2006 Jul 21, 02:13:37 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -228,7 +228,7 @@ def path(path):
 class SSHproxyConfigSection(ConfigSection):
     section_defaults = {
         'port': 2242,
-        'bindip': '', # listen on all interfaces
+        'listen_on': '', # listen on all IPs, all interfaces
         'max_connections': 0, # default is unlimited
         'auto_add_key': 'no', # do not auto add key when connecting
         'cipher_type': 'blowfish', # see cipher.py for available values

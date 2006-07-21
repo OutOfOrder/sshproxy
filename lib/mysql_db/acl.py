@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 02:15:22 by david
+# Last modified: 2006 Jul 21, 02:36:06 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,19 +19,28 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
+from sshproxy.config import Config, ConfigSection, get_config
+from sshproxy.acl import ACLDB
 
-def __init_plugin__():
-    from sshproxy.config import get_config
-    cfg = get_config('sshproxy')
-    if cfg['acl_db'] == 'file_db':
-        from acl import FileACLDB
-        FileACLDB.register()
-    if cfg['client_db'] == 'file_db':
-        from client import FileClientDB, FileClientInfo
-        FileClientDB.register()
-        FileClientInfo.register()
-    if cfg['site_db'] == 'file_db':
-        from site import FileSiteInfo, FileSiteDB
-        FileSiteInfo.register()
-        FileSiteDB.register()
+from config import MySQLConfigSection
+from mysql import MySQLDB, Q
+
+Config.register_handler('acl_db.mysql', MySQLConfigSection)
+
+class MySQLACLDB(ACLDB, MySQLDB):
+    _db_handler = 'acl_db'
+    def __reginit__(self):
+        self.open_db()
+        ACLDB.__reginit__(self)
+
+    def load_rules(self):
+        query = """select name, rule from aclrules
+                    order by weight desc"""
+        for acl, rule in self.sql_list(query):
+            self.add_rule(acl=acl, rule=rule.strip())
+
+    def save_rules(self):
+        pass
+
+
 
