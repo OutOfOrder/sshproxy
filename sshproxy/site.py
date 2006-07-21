@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 03:07:45 by david
+# Last modified: 2006 Jul 21, 23:38:28 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -97,9 +97,12 @@ class SiteDB(Registry):
     def split_user_site(user_site):
         s = user_site.split('@')
         if len(s) >= 2:
-            return '@'.join(s[:-1]), s[-1]
+            login = '@'.join(s[:-1])
+            if not len(login):
+                login = None
+            return login, s[-1]
         else:
-            return None, s[0]
+            return None, s[-1]
 
 
     def authorize(self, user_site, client, **tokens):
@@ -145,6 +148,9 @@ class SiteDB(Registry):
 
     def tag_site(self, sitename, **tokens):
         login, site = self.split_user_site(sitename)
+
+        if login == '*':
+            return "'*' is not allowed, be more specific."
 
         if 'port' in tokens.keys():
             port = tokens.get('port')

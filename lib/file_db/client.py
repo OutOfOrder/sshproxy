@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 02:24:10 by david
+# Last modified: 2006 Jul 21, 08:36:47 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -151,7 +151,7 @@ class FileClientDB(ClientDB):
 
     def add_client(self, username, **tokens):
         if self.exists(username):
-            return 'Client %s does already exist'
+            return 'Client %s does already exist' % username
         client = ClientInfo(username, **tokens)
         client.save()
         return 'Client %s added' % username

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 02:59:39 by david
+# Last modified: 2006 Jul 21, 08:50:32 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -85,7 +85,7 @@ class FileConfigParser(BaseConfigParser):
 
     def write(self, fp):
         # put _defaults back in place before writing
-        self._defaults = self._mydefaults
+        self._defaults.update(self._mydefaults)
         # write in alpha-sorted order
         BaseConfigParser.write(self, fp)
         # and set it back to an empty dict

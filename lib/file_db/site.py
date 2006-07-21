@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 03:08:35 by david
+# Last modified: 2006 Jul 21, 23:37:56 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -36,24 +36,24 @@ class FileSiteConfigSection(ConfigSection):
 
 Config.register_handler('site_db.file', FileSiteConfigSection)
 
+def get_config_file(name):
+    sitepath = get_config('site_db.file')['db_path']
+    if not os.path.exists(sitepath):
+        os.makedirs(sitepath)
+        # no need to search for the site file
+        return None
+    sitefile = os.path.join(sitepath, name)
+    if not os.path.exists(sitefile):
+        return None
+
+    file = ConfigParser()
+    file.read(sitefile)
+    return file
+
 
 class FileSiteInfo(SiteInfo):
-    def get_config_file(self, sitename):
-        sitepath = get_config('site_db.file')['db_path']
-        if not os.path.exists(sitepath):
-            os.makedirs(sitepath)
-            # no need to search for the site file
-            return None
-        sitefile = os.path.join(sitepath, sitename)
-        if not os.path.exists(sitefile):
-            return None
-
-        file = ConfigParser()
-        file.read(sitefile)
-        return file
-
     def load(self):
-        file = self.get_config_file(self.name)
+        file = get_config_file(self.name)
         if not file:
             return
 
@@ -74,16 +74,18 @@ class FileSiteInfo(SiteInfo):
 
 
     def save(self):
-        file = self.get_config_file(self.name)
+        file = get_config_file(self.name)
         if not file:
             return
 
         if self.login:
-            for key, value in self.l_tokens.items():
-                file.set(self.login, key, str(value or ''))
+            if not file.has_section(self.login):
+                file.add_section(self.login)
+            for tag, value in self.l_tokens.items():
+                file.set(self.login, tag, str(value or ''))
         else:
-            for key, value in self.s_tokens.items():
-                file.set('DEFAULT', key, str(value or ''))
+            for tag, value in self.s_tokens.items():
+                file.set('DEFAULT', tag, str(value or ''))
 
         sitepath = get_config('site_db.file')['db_path']
         sitefile = os.path.join(sitepath, self.name)
@@ -120,8 +122,79 @@ class FileSiteDB(SiteDB):
 
     def exists(self, sitename, **tokens):
         login, name = self.split_user_site(sitename)
+        if login == '*':
+            login = None
         sites = self.list_site_users(**tokens)
         for site in sites:
-            if site.login == login and site.name == name:
+            if login in (None, site.login) and site.name == name:
                 return True
         return False
+
+    def add_site(self, sitename, **tokens):
+        sitepath = get_config('site_db.file')['db_path']
+        if not os.path.exists(sitepath):
+            os.makedirs(sitepath)
+        
+        login, name = self.split_user_site(sitename)
+        if login == '*':
+            return "'*' is not allowed, be more specific."
+
+        if self.exists(sitename, **tokens):
+            return 'Site %s does already exist' % sitename
+
+
+        sitefile = os.path.join(sitepath, name)
+        if not os.path.exists(sitefile):
+            if login:
+                return 'Site %s does not exist. Please create it first.' % name
+            # touch the file
+            open(sitefile, 'w').close()
+
+        siteinfo = SiteInfo(login, name)
+        siteinfo.save()
+        return 'Site %s added' % sitename
+
+
+    def del_site(self, sitename, **tokens):
+        sitepath = get_config('site_db.file')['db_path']
+
+        login, name = self.split_user_site(sitename)
+
+        if login == '*':
+            sitename = name
+
+        if not os.path.exists(sitepath) or not self.exists(sitename, **tokens):
+            return 'Site %s does not exist' % sitename
+
+        sitefile = os.path.join(sitepath, name)
+        file = get_config_file(name)
+
+        if login:
+            ret = False
+            if login == '*':
+                for login in file.sections():
+                    file.remove_section(login)
+                    ret = True
+                sitename = '*@%s' % name
+            else:
+                file.remove_section(login)
+                ret = True
+
+            fd = open(sitefile+'.new', 'w')
+            file.write(fd)
+            fd.close()
+            os.rename(sitefile+'.new', sitefile)
+
+            if not ret:
+                return 'Site %s does not exist' % sitename
+
+            return 'Site %s deleted.' % sitename
+
+        count = len(file.sections())
+        if count > 0:
+            return "Site %s has still %d logins" % (sitename, count)
+
+        os.unlink(sitefile)
+        return 'Site %s deleted' % sitename
+
+

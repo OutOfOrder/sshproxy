@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 02:39:12 by david
+# Last modified: 2006 Jul 21, 23:37:40 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -169,6 +169,9 @@ class MySQLSiteDB(SiteDB, MySQLDB):
     def exists(self, sitename, **tokens):
         login, site = self.split_user_site(sitename)
 
+        if login == '*':
+            login = None
+
         query = "select id from site where name = '%s'" % Q(site)
         id = self.sql_get(query)
         if not id:
@@ -184,6 +187,9 @@ class MySQLSiteDB(SiteDB, MySQLDB):
 
     def add_site(self, sitename, **tokens):
         login, site = self.split_user_site(sitename)
+
+        if login == '*':
+            return "'*' is not allowed, be more specific."
 
         if not login:
             if self.exists(site, **tokens):
@@ -230,24 +236,43 @@ class MySQLSiteDB(SiteDB, MySQLDB):
         site.save()
         return 'Site %s added' % sitename
 
+    del _del_login(self, login_id, **tokens):
+        query = "delete from acltags where object = 'login' and id = %d"
+        self.sql_del(query % login_id)
+
+        query = "delete from login where id = %d"
+        self.sql_del(query % login_id)
+
     def del_site(self, sitename, **tokens):
         login, site = self.split_user_site(sitename)
+
+        if login == '*':
+            sitename = name
 
         sid = self.exists(sitename, **tokens)
         if not sid:
             return 'Site %s does not exist' % sitename
 
         if login:
-            lid = self.exists(sitename, **tokens)
-            if not lid:
+            ret = False
+            if login == '*':
+                query = "select login from login where site_id = %d" % sid
+                for login in self.sql_list(query):
+                    self._del_login(sitename, **tokens)
+                    ret = True
+                sitename = '*@%s' % name
+
+            else:
+                lid = self.exists(sitename, **tokens)
+                if lid:
+                    self._del_login(sitename, **tokens)
+                    ret = True
+
+            if not ret:
                 return 'Site %s does not exist' % sitename
 
-            query = "delete from acltags where object = 'login' and id = %d"
-            self.sql_del(query % lid)
-
-            query = "delete from login where id = %d"
-            self.sql_del(query % lid)
             return 'Site %s deleted' % sitename
+
         else:
             query = "select count(*) from login where site_id = %d"
             count = self.sql_get(query % sid)
