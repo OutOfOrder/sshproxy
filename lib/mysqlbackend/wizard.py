@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 22, 10:07:55 by david
+# Last modified: 2006 Jul 22, 17:55:44 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -210,6 +210,7 @@ class Wizard(object):
         try:
             # create the sshproxy user
             if cfg['user'] != self.adminid:
+                if selfip == '*': selfip = '%'
                 c.execute("GRANT USAGE ON * . * TO '%s'@'%s' "
                         "IDENTIFIED BY '%s' WITH "
                         "MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 "
