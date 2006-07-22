@@ -1,9 +1,10 @@
+-- Database schema for 
 DROP TABLE IF EXISTS `aclrules`;
 CREATE TABLE IF NOT EXISTS `aclrules` (
   `name` varchar(255) NOT NULL default '',
   `weight` tinyint(4) NOT NULL default '0',
   `rule` text NOT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM;
 
 
 DROP TABLE IF EXISTS `acltags`;
@@ -13,7 +14,7 @@ CREATE TABLE IF NOT EXISTS `acltags` (
   `tag` varchar(255) NOT NULL default '',
   `value` text NOT NULL,
   PRIMARY KEY  (`object`,`id`,`tag`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM;
 
 
 DROP TABLE IF EXISTS `client`;
@@ -23,7 +24,7 @@ CREATE TABLE IF NOT EXISTS `client` (
   `password` varchar(255) NOT NULL default '',
   PRIMARY KEY  (`id`),
   UNIQUE KEY `uid` (`uid`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM;
 
 
 DROP TABLE IF EXISTS `login`;
@@ -34,8 +35,9 @@ CREATE TABLE IF NOT EXISTS `login` (
   `password` varchar(255) NOT NULL default '',
   `pkey` text NOT NULL,
   `priority` tinyint(1) unsigned NOT NULL default '0',
-  PRIMARY KEY  (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+  PRIMARY KEY  (`id`),
+  UNIQUE KEY `site_id` (`site_id`,`login`)
+) ENGINE=MyISAM;
 
 
 DROP TABLE IF EXISTS `site`;
@@ -44,6 +46,6 @@ CREATE TABLE IF NOT EXISTS `site` (
   `name` varchar(255) NOT NULL default '',
   `ip_address` varchar(255) NOT NULL default '',
   `port` int(5) unsigned NOT NULL default '22',
-  `location` text NOT NULL,
   PRIMARY KEY  (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+  UNIQUE KEY `name` (`name`)
+) ENGINE=MyISAM;
