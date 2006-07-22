@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 22, 23:01:18 by david
+# Last modified: 2006 Jul 22, 02:15:31 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -249,7 +249,7 @@ CREATE TABLE `site` (
             # create tables
             c.execute(self.db_schema)
         except MySQLError, e:
-            handle_mysql_error(e)
+            self.handle_mysql_error(e)
 
 
     def create_dbuser(self):
