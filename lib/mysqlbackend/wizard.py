@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 22, 02:15:31 by david
+# Last modified: 2006 Jul 22, 10:07:55 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -29,138 +29,86 @@ from sshproxy.config import get_config
 from backend import Q
 
 class Wizard(object):
-    db_schema = """
--- MySQL dump 10.9
---
--- Host: localhost    Database: spy
--- ------------------------------------------------------
--- Server version	4.1.14-log
+    db_schema = {}
+    db_schema['domain'] = """
+        CREATE TABLE domain (
+            id int(10) unsigned NOT NULL auto_increment,
+            name varchar(255) NOT NULL default '',
+            PRIMARY KEY (id)
+        ) ENGINE=MyISAM;
+    """
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8 */;
-/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
-/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
-/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+    db_schema['domain_rlogin'] = """
+        CREATE TABLE domain_rlogin (
+            domain_id int(10) unsigned NOT NULL default '0',
+            rlogin_id int(10) unsigned NOT NULL default '0',
+            PRIMARY KEY (domain_id,rlogin_id)
+        ) ENGINE=MyISAM;
+    """
 
---
--- Table structure for table `domain`
---
+    db_schema['domain_site'] = """
+        CREATE TABLE domain_site (
+            domain_id int(10) unsigned NOT NULL default '0',
+            site_id int(10) unsigned NOT NULL default '0',
+            PRIMARY KEY (domain_id,site_id)
+        ) ENGINE=MyISAM;
+    """
 
-DROP TABLE IF EXISTS `domain`;
-CREATE TABLE `domain` (
-  `id` int(10) unsigned NOT NULL auto_increment,
-  `name` varchar(255) NOT NULL default '',
-  PRIMARY KEY  (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+    db_schema['login'] = """
+        CREATE TABLE login (
+            id mediumint(10) unsigned NOT NULL auto_increment,
+            uid varchar(255) NOT NULL default '',
+            password varchar(255) NOT NULL default '',
+            `key` text NOT NULL,
+            PRIMARY KEY (id)
+        ) ENGINE=MyISAM;
+    """
 
---
--- Table structure for table `domain_rlogin`
---
+    db_schema['login_profile'] = """
+        CREATE TABLE login_profile (
+            login_id int(10) unsigned NOT NULL default '0',
+            profile_id int(10) unsigned NOT NULL default '0',
+            PRIMARY KEY (login_id,profile_id)
+        ) ENGINE=MyISAM;
+    """
 
-DROP TABLE IF EXISTS `domain_rlogin`;
-CREATE TABLE `domain_rlogin` (
-  `domain_id` int(10) unsigned NOT NULL default '0',
-  `rlogin_id` int(10) unsigned NOT NULL default '0',
-  PRIMARY KEY  (`domain_id`,`rlogin_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+    db_schema['profile'] = """
+        CREATE TABLE profile (
+            id int(10) unsigned NOT NULL auto_increment,
+            name varchar(255) NOT NULL default '',
+            admin int(10) unsigned NOT NULL default '0',
+            PRIMARY KEY (id)
+        ) ENGINE=MyISAM;
+    """
 
---
--- Table structure for table `domain_site`
---
+    db_schema['profile_domain'] = """
+        CREATE TABLE profile_domain (
+            profile_id int(10) unsigned NOT NULL default '0',
+            domain_id int(10) unsigned NOT NULL default '0',
+            PRIMARY KEY (profile_id,domain_id)
+        ) ENGINE=MyISAM;
+    """
 
-DROP TABLE IF EXISTS `domain_site`;
-CREATE TABLE `domain_site` (
-  `domain_id` int(10) unsigned NOT NULL default '0',
-  `site_id` int(10) unsigned NOT NULL default '0',
-  PRIMARY KEY  (`domain_id`,`site_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+    db_schema['rlogin'] = """
+        CREATE TABLE rlogin (
+            id int(10) unsigned NOT NULL auto_increment,
+            site_id int(10) unsigned NOT NULL default '0',
+            uid varchar(255) NOT NULL default '',
+            password varchar(255) NOT NULL default '',
+            priority tinyint(1) unsigned NOT NULL default '0',
+            PRIMARY KEY (id)
+        ) ENGINE=MyISAM;
+    """
 
---
--- Table structure for table `login`
---
-
-DROP TABLE IF EXISTS `login`;
-CREATE TABLE `login` (
-  `id` mediumint(10) unsigned NOT NULL auto_increment,
-  `uid` varchar(255) NOT NULL default '',
-  `password` varchar(255) NOT NULL default '',
-  `key` text NOT NULL,
-  PRIMARY KEY  (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
---
--- Table structure for table `login_profile`
---
-
-DROP TABLE IF EXISTS `login_profile`;
-CREATE TABLE `login_profile` (
-  `login_id` int(10) unsigned NOT NULL default '0',
-  `profile_id` int(10) unsigned NOT NULL default '0',
-  PRIMARY KEY  (`login_id`,`profile_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
---
--- Table structure for table `profile`
---
-
-DROP TABLE IF EXISTS `profile`;
-CREATE TABLE `profile` (
-  `id` int(10) unsigned NOT NULL auto_increment,
-  `name` varchar(255) NOT NULL default '',
-  `admin` int(10) unsigned NOT NULL default '0',
-  PRIMARY KEY  (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
---
--- Table structure for table `profile_domain`
---
-
-DROP TABLE IF EXISTS `profile_domain`;
-CREATE TABLE `profile_domain` (
-  `profile_id` int(10) unsigned NOT NULL default '0',
-  `domain_id` int(10) unsigned NOT NULL default '0',
-  PRIMARY KEY  (`profile_id`,`domain_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
---
--- Table structure for table `rlogin`
---
-
-DROP TABLE IF EXISTS `rlogin`;
-CREATE TABLE `rlogin` (
-  `id` int(10) unsigned NOT NULL auto_increment,
-  `site_id` int(10) unsigned NOT NULL default '0',
-  `uid` varchar(255) NOT NULL default '',
-  `password` varchar(255) NOT NULL default '',
-  `priority` tinyint(1) unsigned NOT NULL default '0',
-  PRIMARY KEY  (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
---
--- Table structure for table `site`
---
-
-DROP TABLE IF EXISTS `site`;
-CREATE TABLE `site` (
-  `id` int(10) unsigned NOT NULL auto_increment,
-  `name` varchar(255) NOT NULL default '',
-  `ip_address` varchar(255) NOT NULL default '',
-  `port` int(5) unsigned NOT NULL default '22',
-  `location` text NOT NULL,
-  PRIMARY KEY  (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
-/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
-/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
-/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
-
+    db_schema['site'] = """
+        CREATE TABLE site (
+            id int(10) unsigned NOT NULL auto_increment,
+            name varchar(255) NOT NULL default '',
+            ip_address varchar(255) NOT NULL default '',
+            port int(5) unsigned NOT NULL default '22',
+            location text NOT NULL,
+            PRIMARY KEY (id)
+        ) ENGINE=MyISAM;
     """
 
     def __init__(self, mysql):
@@ -245,11 +193,12 @@ CREATE TABLE `site` (
         except MySQLError, e:
             self.handle_mysql_error(e)
         
-        try:
-            # create tables
-            c.execute(self.db_schema)
-        except MySQLError, e:
-            self.handle_mysql_error(e)
+        for table, statmt in self.db_schema.items():
+            try:
+                # create table
+                c.execute(statmt)
+            except MySQLError, e:
+                self.handle_mysql_error(e, table_name=table)
 
 
     def create_dbuser(self):
@@ -318,8 +267,10 @@ CREATE TABLE `site` (
             return None
 
 
-    def handle_mysql_error(self, e, can_cont=False):
+    def handle_mysql_error(self, e, can_cont=False, table_name=None):
         code, msg = e
+        if table_name:
+            msg = '%s (table: %s)' % (msg, table_name)
         cont = False
         if 0:
             pass
