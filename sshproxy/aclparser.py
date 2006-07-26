@@ -77,7 +77,7 @@ class Parser(object):
 class ACLRuleParser(Registry, Parser):
     _class_id = 'ACLRuleParser'
     def __reginit__(self, namespace=None, **kw):
-        if namespace:
+        if namespace is None:
             self.namespace = {}
         else:
             self.namespace = namespace
@@ -100,12 +100,14 @@ class ACLRuleParser(Registry, Parser):
         if len(args) > 1:
             log.warning("Warning, acl() accepts only one argument")
         if isinstance(args[0], str):
-            subparser = ACLRuleParser(namespace=copy(self.namespace))
-            return subparser.eval(args[0])
-        elif hasattr(args[0], 'eval'):
-            return args[0].eval(self.namespace)
+            aclstr = args[0]
+            subparser = ACLRuleParser(namespace=self.namespace)
+            value = subparser.eval(args[0])
         else:
-            return args[0]
+            aclstr = args[0]
+            value = args[0]
+        log.debug("ACL: %s '%s'" % (bool(value), aclstr))
+        return value
 
     def func_split(self, *args):
         if len(args) > 1 or not isinstance(args[0], str):
@@ -351,7 +353,8 @@ class ACLRuleParser(Registry, Parser):
         try:
             p[0] = self.get_ns()[p[1]][p[3]]
         except LookupError:
-            log.warning("Undefined name '%s'" % ''.join(p[1:]))
+            log.warning("Undefined name '%s.%s'" % (p[1], p[3]))
+            print repr(self.get_ns())
             p[0] = False
 
     def p_error(self, p):
