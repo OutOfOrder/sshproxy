@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 20, 23:52:34 by david
+# Last modified: 2006 Jul 26, 18:41:23 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -28,7 +28,7 @@ from config import get_config
 from message import Message
 from ptywrap import PTYWrapper
 from console import Console
-
+import cipher
 
 
 ###########################################################################
@@ -284,6 +284,8 @@ class Dispatcher(Registry):
 
             if t[0] in ('name', 'login'):
                 return "'%s' is a read-only tag" % t[0]
+            elif t[0] in ('password', 'pkey'):
+                tokens[t[0]] = cipher.cipher(value)
             else:
                 tokens[t[0]] = value
 
