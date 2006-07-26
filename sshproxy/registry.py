@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 12, 00:22:50 by david
+# Last modified: 2006 Jul 23, 16:12:17 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -59,6 +59,7 @@ class Registry(object):
             return obj
 
     def __reginit__(self, *args, **kw):
+        raise NotImplementedError("__reginit__ has not been implemented in %s" % self.__class__.__name__)
         pass
 
 def get_class(class_id):

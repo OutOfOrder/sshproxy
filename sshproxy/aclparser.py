@@ -7,6 +7,9 @@ import ryacc
 import os
 from copy import copy
 
+from registry import Registry
+import log
+
 class Context(object):
     pass
 
@@ -71,16 +74,20 @@ class Parser(object):
         return self.parse_result
 
     
-class ACLRuleParser(Parser):
-    def __init__(self, **kw):
-        self.namespace = kw.get('namespace', { })
+class ACLRuleParser(Registry, Parser):
+    _class_id = 'ACLRuleParser'
+    def __reginit__(self, namespace=None, **kw):
+        if namespace:
+            self.namespace = {}
+        else:
+            self.namespace = namespace
         self.vars = { }
         self.consts = {
                 'True': True,
                 'False': False,
                 'None': None,
                 }
-        Parser.__init__(self, **kw)
+#        Parser.__reginit__(self, **kw)
 
     def get_ns(self):
         ns ={}
@@ -91,23 +98,25 @@ class ACLRuleParser(Parser):
 
     def func_acl(self, *args):
         if len(args) > 1:
-            print "Warning, acl() accepts only one argument"
+            log.warning("Warning, acl() accepts only one argument")
         if isinstance(args[0], str):
             subparser = ACLRuleParser(namespace=copy(self.namespace))
             return subparser.eval(args[0])
+        elif hasattr(args[0], 'eval'):
+            return args[0].eval(self.namespace)
         else:
             return args[0]
 
     def func_split(self, *args):
         if len(args) > 1 or not isinstance(args[0], str):
-            print "Warning, split() accepts only one string argument"
+            log.warning("Warning, split() accepts only one string argument")
         else:
             return args[0].split()
 
     def func(self, func, *args):
         thefunc = getattr(self, 'func_%s' % func, None)
         if thefunc is None:
-            print "Unknown func %s" % func
+            log.warning("Unknown func %s" % func)
             return False
         return thefunc(*args)
 
@@ -179,6 +188,7 @@ class ACLRuleParser(Parser):
         ('left','PLUS','MINUS'),
         ('left','TIMES','DIVIDE'),
         ('left', 'EXP'),
+        ('left','IN'),
         ('right','UMINUS'),
         ]
 
@@ -187,9 +197,8 @@ class ACLRuleParser(Parser):
         try:
             t.value = int(t.value)
         except ValueError:
-            print "Integer value too large", t.value
+            log.warning("Integer value too large %s" % t.value)
             t.value = False
-        #print "parsed number %s" % repr(t.value)
         return t
 
     def t_newline(self, t):
@@ -197,7 +206,7 @@ class ACLRuleParser(Parser):
         t.lineno += t.value.count("\n")
     
     def t_error(self, t):
-        print "Illegal character '%s'" % t.value[0]
+        log.error("Illegal character '%s'" % t.value[0])
         t.skip(1)
 
     # Parsing rules
@@ -334,7 +343,7 @@ class ACLRuleParser(Parser):
         try:
             p[0] = self.get_ns()[p[1]]
         except LookupError:
-            print "Undefined name '%s'" % p[1]
+            log.warning("Undefined name '%s'" % p[1])
             p[0] = False
 
     def p_expression_namespace(self, p):
@@ -342,11 +351,11 @@ class ACLRuleParser(Parser):
         try:
             p[0] = self.get_ns()[p[1]][p[3]]
         except LookupError:
-            #print "Undefined name '%s'" % ''.join(p[1:])
+            log.warning("Undefined name '%s'" % ''.join(p[1:]))
             p[0] = False
 
     def p_error(self, p):
-        print "Syntax error at '%s'" % p.value
+        log.error("Syntax error at '%s'" % p.value)
 
 class String(str):
     def __init__(self, s):
@@ -356,12 +365,15 @@ class String(str):
     def __str__(self):
         return self.string
 
+ACLRuleParser.register()
+
 class ACLRuleParserInteractive(ACLRuleParser):
+    _class_id = 'ACLRuleParserInteractive'
     t_EQUALS  = r'='
-    def __init__(self, **kw):
+    def __reginit__(self, **kw):
         self.tokens.append('EQUALS')
 
-        ACLRuleParser.__init__(self, **kw)
+        ACLRuleParser.__reginit__(self, **kw)
 
     def p_statement_assign(self, p):
         """
@@ -373,9 +385,11 @@ class ACLRuleParserInteractive(ACLRuleParser):
         self.vars[p[1]] = p[3]
         self.parse_result = p[3]
 
+ACLRuleParserInteractive.register()
 
 
 if __name__ == '__main__':
+    # TODO: put this in a separate executable to test ACLs
     ns = {}
     ns['client'] = {
             'username': 'foo',
@@ -394,6 +408,7 @@ if __name__ == '__main__':
             'date': '2006-07-22',
             'n_clients': '3',
             }
+    ns['auth_admin'] = """client.ip_addr == "127.0.0.1" """
 
     if len(sys.argv) > 1:
         aclrule = ACLRuleParser(debug=0, namespace=ns)

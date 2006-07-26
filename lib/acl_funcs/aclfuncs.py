@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 12, 00:58:36 by david
+# Last modified: 2006 Jul 23, 20:50:27 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,18 +20,26 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-from sshproxy.acl import Function, Token
+from sshproxy import get_class
 
 
-class Len(Function):
-    token = 'len'
-    def call(self, namespace):
-        return len(self.left.eval(namespace, self.right))
+class ACLRuleParser(get_class('ACLRuleParser')):
 
-Function.add(Len)
+    def func_len(self, *args):
+        if len(args) != 1:
+            print "Warning: function len takes exactly 1 argument."
+            return
+        return len(args[0])
 
-class Substr(Function):
-    token = 'substr'
+    def func_substr(self, *args):
+        if len(args) != 3:
+            print "Warning: function substr takes exactly 3 arguments."
+            return
+        start = args[0]
+        end = args[1]
+        var = args[2]
+        return var[start:end]
+
     def call(self, namespace):
         # self.right = "start end ns.var"
         try:
@@ -41,6 +49,5 @@ class Substr(Function):
         sub = str(self.left.eval(namespace, Token(str(var))))[int(start):int(end)]
         return sub
 
-Function.add(Substr)
-
+ACLRuleParser.register()
 

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 23, 15:38:07 by david
+# Last modified: 2006 Jul 26, 17:53:15 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -167,12 +167,12 @@ class ACLDB(Registry):
 
     def check(self, acl, **namespaces):
         try:
-            namespace = {}
+            namespace = dict(self.rules)
             for ns in namespaces:
                 if not namespace.has_key(ns):
                     namespace[ns] = ACLTags()
                 namespace[ns].update(namespaces[ns])
-    
+
             result = None
             match = ''
 
