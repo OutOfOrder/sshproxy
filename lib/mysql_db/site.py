@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 23:37:40 by david
+# Last modified: 2006 Jul 27, 22:53:03 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -236,7 +236,7 @@ class MySQLSiteDB(SiteDB, MySQLDB):
         site.save()
         return 'Site %s added' % sitename
 
-    del _del_login(self, login_id, **tokens):
+    def _del_login(self, login_id, **tokens):
         query = "delete from acltags where object = 'login' and id = %d"
         self.sql_del(query % login_id)
 
@@ -257,15 +257,15 @@ class MySQLSiteDB(SiteDB, MySQLDB):
             ret = False
             if login == '*':
                 query = "select login from login where site_id = %d" % sid
-                for login in self.sql_list(query):
-                    self._del_login(sitename, **tokens)
+                for lid in self.sql_list(query):
+                    self._del_login(lid, **tokens)
                     ret = True
                 sitename = '*@%s' % name
 
             else:
                 lid = self.exists(sitename, **tokens)
                 if lid:
-                    self._del_login(sitename, **tokens)
+                    self._del_login(lid, **tokens)
                     ret = True
 
             if not ret:
