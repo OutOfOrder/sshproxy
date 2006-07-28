@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 16, 02:04:22 by david
+# Last modified: 2006 Jul 28, 03:48:09 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -28,7 +28,7 @@ import config
 #plugindir = os.path.join(os.path.dirname(sys.modules[__name__].__file__), 'lib')
 conf = config.get_config('sshproxy')
 plugindir = conf['plugin_dir']
-pluginInfo = []
+plugin_list = []
 
 sys.path.append(plugindir)
 
@@ -44,24 +44,28 @@ enabled = conf['plugin_list'].split()
 for module in os.listdir(plugindir):
     if os.path.isdir(os.path.join(plugindir, module)):
         fn = module
-        if module not in enabled or module in disabled:
-            pluginInfo.append((module, module, module, "", 1))
-        else:
+#        if module not in enabled or module in disabled:
+#            plugin_list.append((module, module, module, "", 1))
+#        else:
+        if not module in disabled:
             m = __import__(module, globals(), locals(), [])
             if hasattr(m, "__pluginname__"):
                 name = m.__pluginname__
             else:
                 name = module
+            name = getattr(m, '__plugin_name__', module)
             if hasattr(m, "__description__"):
                 desc = m.__description__
             else:
                 desc = "No description specified"
-            pluginInfo.append((name, m.__name__, m, desc, 0))
+            desc = getattr(m, '__description__', "No description specified")
+            plugin_list.append([name, m.__name__, m, desc,
+                                module not in enabled])
             log.info("Loaded plugin %s" % name)
 
 
 def init_plugins():
-    for name, dummy, plugin, dummy, disabled in pluginInfo:
+    for name, dummy, plugin, dummy, disabled in plugin_list:
         if not disabled:
             try:
                 plugin.__init_plugin__()

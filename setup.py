@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 12, 01:25:27 by david
+# Last modified: 2006 Jul 28, 00:04:27 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,9 +21,12 @@
 
 import os, os.path
 from distutils.core import setup
+import sshproxy
 
-version = '0.5'
-url = 'http://penguin.fr/sshproxy/'
+version = sshproxy.__version__
+url = sshproxy.__url__
+author = sshproxy.__author__
+author_email = sshproxy.__author_email__
 
 def get_data_files(target, root, path=''):
     l = []
@@ -66,12 +69,12 @@ data_files = ( get_data_files('lib/sshproxy', 'lib')
 setup(name='sshproxy',
       version=version,
       description='pure python implementation of an ssh proxy',
-      author='David Guerizec',
-      author_email='david@guerizec.net',
+      author=author,
+      author_email=author_email,
       url=url,
       download_url='%sdownload/sshproxy-%s.tar.gz' % (url, version),
       packages=['sshproxy'],
-      scripts=['bin/sshproxyd', 'bin/pssh', 'bin/pscp'],
+      scripts=['bin/sshproxyd', 'bin/sshproxy-setup', 'bin/pssh', 'bin/pscp'],
       long_description=long_description,
       data_files=data_files,
       classifiers=classifiers,

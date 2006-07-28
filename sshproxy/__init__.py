@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 12, 00:24:44 by david
+# Last modified: 2006 Jul 28, 00:02:35 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -18,6 +18,25 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+
+
+__author__ = "David Guerizec"
+__author_email__ = "david@guerizec.net"
+__date__ = "$date$"
+__version__ = "0.5.0-beta0"
+__version_info__ = (0, 5, 0, "beta0")
+__license__ = "GNU General Public License (GPL) v2"
+__url__ = "http://penguin.fr/sshproxy/"
+
+import sys
+
+if sys.version_info < (2, 4):
+    raise RuntimeError('You need python >=2.4 for this module.')
+
+import paramiko
+
+if paramiko.__version_info__ < (1, 6, 1):
+    raise RuntimeError('You need paramiko >=1.6.1 for this module.')
 
 
 from registry import get_class

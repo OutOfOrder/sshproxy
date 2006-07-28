@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 23:38:28 by david
+# Last modified: 2006 Jul 28, 02:49:40 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -169,3 +169,4 @@ class SiteDB(Registry):
             site.save()
         return site.get_tags(strict=True)
 
+SiteDB.register()

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 03:06:16 by david
+# Last modified: 2006 Jul 28, 02:17:21 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -70,15 +70,16 @@ class FileACLDB(ACLDB):
             self.add_rule(acl=acl, rule=rule.lstrip())
             line = nline
 
-        try:
-            acl, rule = (' '.join(line)).split(':', 1)
-            if rule is None or not rule.strip():
-                raise ValueError
-            self.add_rule(acl=acl, rule=rule.lstrip())
-        except ValueError:
-            # drop rule, it won't parse anyway
-            log.warning('Dropped unparseable rule %s' % acl)
-            pass
+        if line:
+            try:
+                acl, rule = (' '.join(line)).split(':', 1)
+                if rule is None or not rule.strip():
+                    raise ValueError
+                self.add_rule(acl=acl, rule=rule.lstrip())
+            except ValueError:
+                # drop rule, it won't parse anyway
+                log.warning('Dropped unparseable rule %s' % acl)
+                pass
         fd.close()
 
     def save_rules(self):

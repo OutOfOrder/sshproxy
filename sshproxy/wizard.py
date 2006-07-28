@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 30, 15:52:59 by david
+# Last modified: 2006 Jul 28, 04:02:31 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,9 +22,10 @@
 import sys, os, os.path
 import getpass
 
+
 def setup():
     os.environ['SSHPROXY_WIZARD'] = 'running'
-    from sshproxy import config
+    import config
     configdir = config.inipath
 
     if not os.path.isdir(configdir):
@@ -34,17 +35,48 @@ def setup():
     config.get_config = config.Config(config.inifile)
     cfg = config.get_config('sshproxy')
 
-    cfg['bindip'] = raw_input("Enter the IP address to listen on [%s]: " % (
-                                    cfg['bindip'] or 'any')) or cfg['bindip']
-    if cfg['bindip'] == 'any':
-        cfg['bindip'] = ''
+    cfg['listen_on'] = raw_input("Enter the IP address to listen on [%s]: " % (
+                                cfg['listen_on'] or 'any')) or cfg['listen_on']
+    if cfg['listen_on'] == 'any':
+        cfg['listen_on'] = ''
     
     cfg['port'] = raw_input("Enter the port to listen on [%s]: " % 
                                             cfg['port']) or cfg['port']
     
-    cfg['cipher_type'] = raw_input("Enter the cipher method to crypt passwords"
-                            " in the database (plain/base64/blowfish) [%s]: " % 
-                                    cfg['cipher_type']) or cfg['cipher_type']
+    import plugins
+    while True:
+        i = 0
+        plugin_list = []
+        for name, mname, module, desc, disabled in plugins.plugin_list:
+            if not disabled:
+                name = '*' + name
+                plugin_list.append(mname)
+            print '%d. %s "%s"' % (i, name, desc)
+            i += 1
+        newplugin = raw_input("Select a plugin to add to the list [%s]: "
+                                                    % ' '.join(plugin_list))
+        if not newplugin.strip():
+            cfg['plugin_list'] = ' '.join(plugin_list)
+            break
+        try:
+            n = int(newplugin)
+        except ValueError:
+            continue
+        plugins.plugin_list[n][4] ^= 1
+
+
+
+    import cipher
+    cipher_list = cipher.list_engines()
+
+    while True:
+        cipher_type = raw_input("Enter the cipher method to crypt passwords"
+                            " in the database (%s) [%s]: " % 
+                            (','.join(cipher_list), cfg['cipher_type'])
+                            ) or cfg['cipher_type']
+        if cipher_type in cipher_list:
+            cfg['cipher_type'] = cipher_type
+            break
     
     
     maincfg = cfg
@@ -67,29 +99,21 @@ def setup():
                 break
             else:
                 print "Passphrases don't match"
+
     
-    
-    import plugins
-    plugins.init_plugins()
-    from backend import get_backend
 
     cfg = maincfg
-    while True:
-        cfg['pwdb_backend'] = raw_input("Enter the password database backend "
-                            "you prefer to use (file/mysql) [%s]: " % 
-                                    cfg['pwdb_backend']) or cfg['pwdb_backend']
-        if cfg['pwdb_backend'] == 'file':
-            print ("WARNING: The file backend is insecure for now, "
-                  "because it will let any user to connect to the "
-                  "proxy, and thus to any remote site you "
-                  "configured. This will change in the future, but "
-                  " this backend is for testing purpose until then.")
-            ans = raw_input("Do you really want to continue ? (yes I have "
-                                                        "read the warning)")
-            if ans.lower() == "yes i have read the warning":
+    for db_type in ('client', 'acl', 'site'):
+        db_id = db_type + '_db'
+
+        while True:
+            choice = cfg[db_id].replace('_db', '')
+            choice = raw_input("Enter the password database backend "
+                            "you prefer to use for %ss (file/mysql) [%s]: " % 
+                                    (db_type, choice)) or choice
+            if choice in ('file', 'mysql'):
+                cfg[db_id] = choice + '_db'
                 break
-        elif cfg['pwdb_backend'] == 'mysql':
-            break
 
 
     cfg.write()
@@ -109,6 +133,8 @@ def setup():
             st = os.stat(config.inipath)
             os.chown(host_key_file, st.st_uid, st.st_gid)
 
+    plugins.init_plugins()
+    from backend import get_backend
     be = get_backend()
     wizard = be.get_wizard()
     if wizard:

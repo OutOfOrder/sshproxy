@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 00:32:42 by david
+# Last modified: 2006 Jul 28, 03:18:02 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,6 +30,9 @@ _engine_registry = {}
 
 def register_engine(cls):
     _engine_registry[cls.cipher_id] = cls
+
+def list_engines():
+    return _engine_registry.keys()
 
 def get_engine(cipher_type):
     engine = _engine_registry.get(cipher_type, None)
@@ -100,6 +103,8 @@ class PlainCipher(BaseCipher):
     def decrypt(cls, text, **kw):
         return text
 
+register_engine(PlainCipher)
+
 class Base64Cipher(BaseCipher):
     cipher_id = "base64"
 
@@ -154,7 +159,7 @@ _default_engine = [ PlainCipher ]
 class BlowfishConfigSection(ConfigSection):
     section_defaults = {
         'secret': ('Enoch Root has an old cigar box on his lap.'
-        ' Golden light is shining out of the crack around its lid.'),
+                   ' Golden light is shining out of the crack around its lid.'),
         }
 
     def __setitem__(self, option, value):
