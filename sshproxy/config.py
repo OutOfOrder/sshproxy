@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 02:13:37 by david
+# Last modified: 2006 Jul 31, 02:40:42 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -67,10 +67,13 @@ class ConfigSection(object):
     def has_key(self, option):
         return self._parser.has_option(self._section, option)
 
-    def get(self, option, default=None):
+    def get(self, option, default=None, raw=False):
         if self.has_key(option):
-            return self.types.get(option, str)(self._parser.get(self._section,
-                                                                option))
+            if not raw:
+                return self.types.get(option, str)(
+                            self._parser.get(self._section, option))
+            else:
+                return self._parser.get(self._section, option)
         else:
             return default
 
@@ -92,13 +95,20 @@ class ConfigSection(object):
     def __str__(self):
         return str(self._config)
 
+    @classmethod
+    def register(cls, force=False):
+        Config.register_handler(cls.section_id, cls, force=force)
 
 class Config(object):
     section_handlers = {}
 
 
     @classmethod
-    def register_handler(cls, name, handler):
+    def register_handler(cls, name, handler, force=False):
+        if not force and cls.section_handlers.get(name):
+            # if it happens, don't avoid it but be verbose unless force is True
+            print 'Warning: duplicate registration of ConfigSection %s' % name
+            raise ValueError
         cls.section_handlers[name] = handler
 
 
@@ -197,11 +207,15 @@ class Config(object):
         try:
             ini = open(inifile, 'w')
         except IOError:
+            if os.environ.get('SSHPROXY_WIZARD', None):
+                return
+            print os.environ
+            raise ValueError
             print "Could not write configuration file: %s" % inifile
             print "Make sure %s is writable" % inifile
             print "If this is the first time you're running the program, try"
             print "the following command:"
-            print ' '.join(sys.argv), '--wizard'
+            print 'sshproxy-setup'
             sys.exit(1)
         try:
             #print 'writing', inifile
@@ -226,6 +240,7 @@ def path(path):
     return path
 
 class SSHproxyConfigSection(ConfigSection):
+    section_id = 'sshproxy'
     section_defaults = {
         'port': 2242,
         'listen_on': '', # listen on all IPs, all interfaces
@@ -235,7 +250,7 @@ class SSHproxyConfigSection(ConfigSection):
         'logger_conf': '/usr/share/sshproxy/logger.conf',
         'log_dir': '@log', # defaults in %(inipath)s/log
         'plugin_dir': '/usr/lib/sshproxy',
-        'plugin_list': 'logusers file_db',
+        'plugin_list': 'file_db',
         'client_db': 'file_db', # file or mysql
         'acl_db': 'file_db', # file or mysql
         'site_db': 'file_db', # file or mysql
@@ -249,7 +264,7 @@ class SSHproxyConfigSection(ConfigSection):
         'logger_conf': path,
         }
 
-Config.register_handler('sshproxy', SSHproxyConfigSection)
+SSHproxyConfigSection.register()
 
 inipath = os.environ.get('SSHPROXY_CONFIG', '')
 if not inipath:

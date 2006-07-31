@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 28, 03:48:09 by david
+# Last modified: 2006 Jul 30, 02:13:44 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,6 +24,7 @@ import os, sys
 
 import log
 import config
+from plugin import Plugin
 
 #plugindir = os.path.join(os.path.dirname(sys.modules[__name__].__file__), 'lib')
 conf = config.get_config('sshproxy')
@@ -41,35 +42,22 @@ else:
 
 enabled = conf['plugin_list'].split()
 
-for module in os.listdir(plugindir):
-    if os.path.isdir(os.path.join(plugindir, module)):
-        fn = module
-#        if module not in enabled or module in disabled:
-#            plugin_list.append((module, module, module, "", 1))
-#        else:
-        if not module in disabled:
-            m = __import__(module, globals(), locals(), [])
-            if hasattr(m, "__pluginname__"):
-                name = m.__pluginname__
-            else:
-                name = module
-            name = getattr(m, '__plugin_name__', module)
-            if hasattr(m, "__description__"):
-                desc = m.__description__
-            else:
-                desc = "No description specified"
-            desc = getattr(m, '__description__', "No description specified")
-            plugin_list.append([name, m.__name__, m, desc,
-                                module not in enabled])
+for name in os.listdir(plugindir):
+    if os.path.isdir(os.path.join(plugindir, name)):
+        if not name in disabled:
+            module = __import__(name, globals(), locals(), [])
+            plugin = Plugin(name, module, name in enabled)
+            plugin_list.append(plugin)
             log.info("Loaded plugin %s" % name)
 
+plugin_list.sort(lambda x, y: cmp(x.plugin_name.lower(), y.plugin_name.lower()))
 
 def init_plugins():
-    for name, dummy, plugin, dummy, disabled in plugin_list:
-        if not disabled:
+    for plugin in plugin_list:
+        if plugin.enabled:
             try:
-                plugin.__init_plugin__()
+                plugin.init()
             except:
-                log.exception('init_plugin: plugin %s failed to load' % name)
-                pass
+                log.exception('init_plugins: plugin %s failed to load'
+                                                            % plugin.name)
 

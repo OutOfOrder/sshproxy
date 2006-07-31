@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 08:36:47 by david
+# Last modified: 2006 Jul 31, 02:57:38 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,13 +22,14 @@
 import os, os.path, sha
 from ConfigParser import NoSectionError, SafeConfigParser as ConfigParser
 
-from sshproxy.config import Config, ConfigSection, path, get_config
+from sshproxy.config import ConfigSection, path, get_config
 from sshproxy.server import Server
 from sshproxy.client import ClientDB, ClientInfo
 from sshproxy.util import istrue
 
 
 class FileClientConfigSection(ConfigSection):
+    section_id = 'client_db.file'
     section_defaults = {
         'file': '@client.db',
         }
@@ -36,7 +37,8 @@ class FileClientConfigSection(ConfigSection):
         'file': path,
         }
 
-Config.register_handler('client_db.file', FileClientConfigSection)
+
+FileClientConfigSection.register()
 
 class FileClientInfo(ClientInfo):
     def get_config_file(self):
@@ -144,6 +146,8 @@ class FileClientInfo(ClientInfo):
 
 class FileClientDB(ClientDB):
     def exists(self, username, **tokens):
+        if not getattr(self, 'clientinfo', None):
+            self.clientinfo = ClientInfo('_')
         return self.clientinfo.exists(username)
 
     def list_clients(self, **kw):

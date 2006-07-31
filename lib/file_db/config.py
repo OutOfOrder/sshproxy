@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 30, 23:47:16 by david
+# Last modified: 2006 Jul 29, 14:12:23 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,26 +19,33 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
-from sshproxy.config import Config, ConfigSection
+from sshproxy.config import ConfigSection, path
 
-class MySQLConfigSection(ConfigSection):
+
+class FileClientConfigSection(ConfigSection):
+    section_id = 'client_db.file'
     section_defaults = {
-        'host': 'localhost',
-        'user': 'sshproxy',
-        'password': 'sshproxypw',
-        'db': 'sshproxy',
-        'port': 3306,
+        'file': '@client.db',
         }
     types = {
-        'port': int,
+        'file': path,
         }
 
-class MySQLACLConfigSection(MySQLConfigSection):
-    section_id = 'acl_db.mysql'
+class FileSiteConfigSection(ConfigSection):
+    section_id = 'site_db.file'
+    section_defaults = {
+        'db_path': '@site.db',
+        }
+    types = {
+        'db_path': path,
+        }
 
-class MySQLClientConfigSection(MySQLConfigSection):
-    section_id = 'client_db.mysql'
-
-class MySQLSiteConfigSection(MySQLConfigSection):
-    section_id = 'site_db.mysql'
+class FileACLConfigSection(ConfigSection):
+    section_id = 'acl_db.file'
+    section_defaults = {
+        'file': '@acl.db',
+        }
+    types = {
+        'file': path,
+        }
 

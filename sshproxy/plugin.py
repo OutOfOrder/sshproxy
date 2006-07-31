@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 30, 23:47:16 by david
+# Last modified: 2006 Jul 30, 23:39:09 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,26 +19,23 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
-from sshproxy.config import Config, ConfigSection
 
-class MySQLConfigSection(ConfigSection):
-    section_defaults = {
-        'host': 'localhost',
-        'user': 'sshproxy',
-        'password': 'sshproxypw',
-        'db': 'sshproxy',
-        'port': 3306,
-        }
-    types = {
-        'port': int,
-        }
+class Plugin(object):
+    def __init__(self, name, module, enabled):
+        self.name = name
+        self.module = module
+        self.plugin_name = getattr(module, '__plugin_name__', name)
+        self.description = getattr(module, '__description__', '')
+        self.enabled = enabled and True or False
+        self.backend = getattr(module, '__backend__', False) and True or False
 
-class MySQLACLConfigSection(MySQLConfigSection):
-    section_id = 'acl_db.mysql'
+    def init(self):
+        self.module.__init_plugin__()
 
-class MySQLClientConfigSection(MySQLConfigSection):
-    section_id = 'client_db.mysql'
+    def setup(self, *args, **kw):
+        if getattr(self.module, '__setup__', None):
+            return self.module.__setup__(*args, **kw)
+        return None
 
-class MySQLSiteConfigSection(MySQLConfigSection):
-    section_id = 'site_db.mysql'
+
 

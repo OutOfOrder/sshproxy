@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 23:37:56 by david
+# Last modified: 2006 Jul 29, 12:34:13 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,12 +21,13 @@
 
 import os, os.path
 
-from sshproxy.config import Config, ConfigSection, path, get_config
+from sshproxy.config import ConfigSection, path, get_config
 from sshproxy.site import SiteDB, SiteInfo
 
 from file import NoSectionError, FileConfigParser as ConfigParser
 
 class FileSiteConfigSection(ConfigSection):
+    section_id = 'site_db.file'
     section_defaults = {
         'db_path': '@site.db',
         }
@@ -34,7 +35,7 @@ class FileSiteConfigSection(ConfigSection):
         'db_path': path,
         }
 
-Config.register_handler('site_db.file', FileSiteConfigSection)
+FileSiteConfigSection.register()
 
 def get_config_file(name):
     sitepath = get_config('site_db.file')['db_path']

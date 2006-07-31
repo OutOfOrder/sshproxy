@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 15, 11:15:09 by david
+# Last modified: 2006 Jul 29, 12:37:09 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,10 +22,11 @@
 
 import os.path
 
-from sshproxy.config import get_config, Config, ConfigSection, path
+from sshproxy.config import get_config, ConfigSection, path
 from sshproxy import keys
 
 class LogUsersConfigSection(ConfigSection):
+    section_id = 'logusers'
     section_defaults = {
         'logdir': '@logusers',
         }
@@ -33,7 +34,7 @@ class LogUsersConfigSection(ConfigSection):
         'logdir': path,
         }
 
-Config.register_handler('logusers', LogUsersConfigSection)
+LogUsersConfigSection.register()
 
 class PluginLogUsers(object):
     tr_table = {}

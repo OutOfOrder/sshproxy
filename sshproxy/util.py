@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 16, 15:34:04 by david
+# Last modified: 2006 Jul 30, 03:23:21 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,6 +25,31 @@ import StringIO
 import paramiko
 
 import log
+
+# save the original dict to avoid infinite recursive loops
+# when this class overrides the dict builtin in a module, ie.:
+#   import module
+#   module.__builtins__['dict'] = SortedDict
+odict = dict
+class SortedDict(odict):
+    """
+    This class implements a dict with sorted keys.
+    This is less efficient than dict, but much nicer
+    to read for a human creature.
+    """
+    def items(self):
+        items = odict.items(self)
+        items.sort()
+        return items
+
+    def keys(self):
+        keys = odict.keys(self)
+        keys.sort()
+        return keys
+
+    def __iter__(self):
+        for key in self.keys():
+            yield key
 
 
 class SSHProxyError(Exception):

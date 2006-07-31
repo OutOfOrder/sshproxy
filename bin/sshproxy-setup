@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 28, 01:27:26 by david
+# Last modified: 2006 Jul 31, 03:20:13 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,11 +25,10 @@ from optparse import OptionParser
 from sshproxy import __version__
 
 usage = """
-  %prog [--config-dir CFGDIR] --wizard
-      Launch the wizard for a first installation setup.
+  %prog [--config-dir CFGDIR]
+      Launch sshproxy setup tool.
   
-  %prog [--config-dir CFGDIR] --backend
-      Open the backend console if available.
+  %prog [--config-dir CFGDIR] --add-admin USERNAME
 
   %prog [--config-dir CFGDIR] --cipher ENGINE [--keep] [--dry-run]
       Recipher the database.
@@ -47,12 +46,10 @@ parser.add_option("-c", "--config-dir", dest="config", default=None,
 #parser.add_option("-V", "--version", dest="version", default=None,
 #                    help="Show the version number.")
 
-##### special actions options
-parser.add_option("-w", "--wizard", dest="wizard", default=False,
-                    help="run setup wizard.", action="store_true")
-parser.add_option("-b", "--backend", dest="backend", default=False,
-                    help="run backend console.", action="store_true")
-
+parser.add_option("", "--add-admin", dest="admin", default=None,
+                    help="Add a new admin to the client database. The "
+                         "admin's password will be prompted.",
+                    metavar="USERNAME")
 ##### recipher options
 parser.add_option("", "--cipher", dest="cipher", default=None,
                     help="cipher rlogin passwords with ENGINE. "
@@ -71,10 +68,6 @@ parser.add_option("-n", "--dry-run", dest="dry_run", default=False,
                          "This option has no effect with other options.",
                     action="store_true")
 
-# if there is no options, display help
-if len(sys.argv) == 1:
-    sys.argv.append('--help')
-
 (options, args) = parser.parse_args()
 
 #configdir = os.path.join(os.getcwd(), (options.config
@@ -86,7 +79,7 @@ os.environ['SSHPROXY_CONFIG'] = (options.config
 #    os.environ['SSHPROXY_CONFIG'] = os.path.join(pwd.getpwnam(options.user)[5],
 #                                                    '.sshproxy')
 
-exclusive_options = ('wizard', 'backend', 'cipher')
+exclusive_options = ('add-admin', 'cipher')
 nb_opt = 0
 for opt in exclusive_options:
     if getattr(options, opt.replace('-', '_'), None):
@@ -97,25 +90,29 @@ if nb_opt > 1:
     sys.exit(1)
 
 
-if options.wizard:
-    from sshproxy import wizard
-    wizard.setup()
-
-
-elif options.backend:
+if options.admin:
+    from getpass import getpass
+    import sha
     from sshproxy.plugins import init_plugins
     init_plugins()
-    from sshproxy.backend import get_backend
-    backend = get_backend()
-    console = backend.get_console()
-    if not console:
-        print ("Sorry, but the %s backend has no administration console." % 
-                                                            backend.backend_id)
+    from sshproxy.backend import Backend
+    from sshproxy.acl import ACLDB
+
+    backend = Backend()
+    password = getpass("Enter password:")
+    passwordv = getpass("Enter password (verify):")
+    if password != passwordv:
+        print "Passwords don't match!"
     else:
-        try:
-            console.cmdloop()
-        except KeyboardInterrupt:
-            pass
+        password = sha.new(password).hexdigest()
+        backend.add_client(options.admin, password=password)
+        print "Admin %s added." % options.admin
+        aclrule = 'client.username == "%s"' % options.admin
+        acldb = ACLDB()
+        for acl in ('authenticate', 'authorize', 'admin', 'console_session'):
+            acldb.add_rule(acl, aclrule)
+        acldb.save_rules()
+
 
 elif options.cipher:
     from sshproxy.plugins import init_plugins
@@ -125,4 +122,8 @@ elif options.cipher:
     if '-' in args:
         password = sys.stdin
     cipher.recipher(options.cipher, password, options.dry_run)
+
+else:
+    from sshproxy import wizard
+    wizard.setup()
 

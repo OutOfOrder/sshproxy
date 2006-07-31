@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 02:36:06 by david
+# Last modified: 2006 Jul 30, 23:48:23 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,13 +19,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
-from sshproxy.config import Config, ConfigSection, get_config
+from sshproxy.config import ConfigSection, get_config
 from sshproxy.acl import ACLDB
 
-from config import MySQLConfigSection
+from config import MySQLACLConfigSection
 from mysql import MySQLDB, Q
 
-Config.register_handler('acl_db.mysql', MySQLConfigSection)
+MySQLACLConfigSection.register()
 
 class MySQLACLDB(ACLDB, MySQLDB):
     _db_handler = 'acl_db'

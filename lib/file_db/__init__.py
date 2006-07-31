@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 02:15:22 by david
+# Last modified: 2006 Jul 30, 23:42:05 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,6 +19,14 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
+__plugin_name__ = "File Backend"
+__description__ = """
+    The File backend can handle the client database,
+    the ACL rules database, and the site database.
+    You can optionnaly choose either both three of them,
+    or one or two only.
+"""
+__backend__ = True
 
 def __init_plugin__():
     from sshproxy.config import get_config
@@ -34,4 +42,41 @@ def __init_plugin__():
         from site import FileSiteInfo, FileSiteDB
         FileSiteInfo.register()
         FileSiteDB.register()
+
+def __setup__():
+    from sshproxy import menu
+    from sshproxy.config import get_config
+    import config
+
+    cfg = get_config('sshproxy')
+    items = []
+
+    if cfg['acl_db'] == 'file_db':
+        config.FileACLConfigSection.register(True)
+        def update(value):
+            get_config('acl_db.file')['file'] = value
+        items.append(menu.MenuInput('ACL database file',
+                    "",
+                    get_config('acl_db.file').get('file', raw=True),
+                    cb=update))
+
+    if cfg['client_db'] == 'file_db':
+        config.FileClientConfigSection.register(True)
+        def update(value):
+            get_config('client_db.file')['file'] = value
+        items.append(menu.MenuInput('Client database file',
+                    "",
+                    get_config('client_db.file').get('file', raw=True),
+                    cb=update))
+
+    if cfg['site_db'] == 'file_db':
+        config.FileSiteConfigSection.register(True)
+        def update(value):
+            get_config('site_db.file')['db_path'] = value
+        items.append(menu.MenuInput('Site database directory',
+                    "",
+                    get_config('site_db.file').get('db_path', raw=True),
+                    cb=update))
+
+    return menu.MenuSub("FileDB", "", *items)
 

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 28, 03:18:02 by david
+# Last modified: 2006 Jul 31, 01:17:13 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,7 +23,7 @@
 from Crypto.Cipher import Blowfish
 import base64
 
-from config import Config, ConfigSection, get_config
+from config import ConfigSection, get_config
 
 _engine_registry = {}
 
@@ -157,6 +157,7 @@ register_engine(BlowfishCipher)
 _default_engine = [ PlainCipher ]
 
 class BlowfishConfigSection(ConfigSection):
+    section_id = 'blowfish'
     section_defaults = {
         'secret': ('Enoch Root has an old cigar box on his lap.'
                    ' Golden light is shining out of the crack around its lid.'),
@@ -167,7 +168,7 @@ class BlowfishConfigSection(ConfigSection):
         if option == 'secret':
             reload()
 
-Config.register_handler('blowfish', BlowfishConfigSection)
+BlowfishConfigSection.register()
 
 def _init_cipher():
     cipher_type = get_config('sshproxy')['cipher_type']

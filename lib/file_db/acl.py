@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 28, 02:17:21 by david
+# Last modified: 2006 Jul 31, 03:17:53 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,12 +21,13 @@
 
 import os, os.path
 
-from sshproxy.config import Config, ConfigSection, path, get_config
+from sshproxy.config import ConfigSection, path, get_config
 from sshproxy.acl import ACLDB
 from sshproxy import log
 
 
 class FileACLConfigSection(ConfigSection):
+    section_id = 'acl_db.file'
     section_defaults = {
         'file': '@acl.db',
         }
@@ -34,7 +35,7 @@ class FileACLConfigSection(ConfigSection):
         'file': path,
         }
 
-Config.register_handler('acl_db.file', FileACLConfigSection)
+FileACLConfigSection.register()
 
 class FileACLDB(ACLDB):
     def load_rules(self):
@@ -83,9 +84,14 @@ class FileACLDB(ACLDB):
         fd.close()
 
     def save_rules(self):
+        rulefile = get_config('acl_db.file')['file']
+        if not os.path.exists(rulefile):
+            open(rulefile, 'w').close()
+
         fd = open(rulefile+'.new', 'w')
         for acl, rule in self.rules:
-            fd.write('%s:\n%s\n' % (acl, rule.replace('\n', '\n    ')))
+            fd.write('%s:\n    %s\n\n'
+                                % (acl, rule.rule.replace('\n', '\n    ')))
         fd.close()
-        os.mv(rulefile+'.new', rulefile)
+        os.rename(rulefile+'.new', rulefile)
 
