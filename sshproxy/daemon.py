@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 03:09:35 by david
+# Last modified: 2006 Aug 01, 01:46:15 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -84,7 +84,11 @@ class Daemon(Registry):
         self.clients[id].msg.write('%s:\n\n%s\n\n' % (cmd, msg))
 
     def rq_nb_con(self, id, *args):
-        """Get number of connections"""
+        """
+        nb_con
+
+        Get number of currently active connections.
+        """
         return '%d' % len(self.clients)
 
     def rq_set_client(self, id, *args):
@@ -93,7 +97,11 @@ class Daemon(Registry):
             setattr(self.clients[id], k, v)
 
     def rq_watch(self, id, *args):
-        """Display connected users"""
+        """
+        watch
+
+        Display connected users.
+        """
         s = []
         for pid, client in self.clients.items():
             # don't show ourself
@@ -111,7 +119,11 @@ class Daemon(Registry):
         return '\n'.join(s)
 
     def rq_message(self, id, *args):
-        """Send a message"""
+        """
+        message user@site <message contents>
+
+        Send a message to user@site.
+        """
         if len(args) < 3:
             return 'Need a message'
         for pid, client in self.clients.items():
@@ -128,7 +140,11 @@ class Daemon(Registry):
         return '%s not found' % (args[1])
 
     def rq_kill(self, id, *args):
-        """Kill a connection"""
+        """
+        kill user@site
+
+        Kill all connections to user@site.
+        """
         count = 0
         for pid, client in self.clients.items():
             # don't kill ourself
@@ -195,10 +211,10 @@ class Daemon(Registry):
         for method in dir(self):
             if method[:3] != 'rq_':
                 continue
-            methods.append(' '.join(
-                    [ method[3:],
-                      getattr(getattr(self, method), '__doc__') or ''
-                    ]))
+            doc = getattr(getattr(self, method), '__doc__', None)
+            if not doc:
+                continue
+            methods.append(' '.join([ method[3:], doc]))
 
         return '\n'.join([ m.replace('\n', '\\n') for m in methods ])
 

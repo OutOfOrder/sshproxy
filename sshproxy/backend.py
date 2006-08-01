@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 18, 23:37:31 by david
+# Last modified: 2006 Jul 31, 23:57:29 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -114,6 +114,18 @@ class Backend(Registry):
 
     def site_exists(self, sitename, **tokens):
         return self._sitedb.exists(sitename, **tokens)
+
+    def list_aclrules(self, name=None):
+        return self.acldb.list_rules(name)
+
+    def add_aclrule(self, name, rule, index=None):
+        return self.acldb.add_rule(name, rule, index)
+    
+    def set_aclrule(self, name, rule, index):
+        return self.acldb.set_rule(name, rule, index)
+
+    def del_aclrule(self, name, index):
+        return self.acldb.del_rule(name, index)
 
 Backend.register()
 

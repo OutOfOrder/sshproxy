@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 26, 18:41:23 by david
+# Last modified: 2006 Aug 01, 01:58:09 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -51,14 +51,15 @@ class Dispatcher(Registry):
         for method in dir(self):
             if method[:4] != 'cmd_':
                 continue
-            methods.append(' '.join(
-                    [ method[4:],
-                      getattr(getattr(self, method), '__doc__') or ''
-                    ]))
+            doc = getattr(getattr(self, method), '__doc__', None)
+            if not doc:
+                continue
+            methods.append(' '.join([ method[4:], doc ]))
 
         return '\n'.join([ m.replace('\n', '\\n') for m in methods ])
 
     def dispatch(self, cmdline):
+        self.cmdline = cmdline
         try:
             args = shlex.split(cmdline)
         except:
@@ -106,14 +107,117 @@ class Dispatcher(Registry):
 
 
     def cmd_admin(self, *args):
-        """
-        admin command [args]
-
-        Execute administrative commands on the main daemon.
-        """
+        #"""
+        #admin command [args]
+        #
+        #Execute administrative commands on the main daemon.
+        #"""
         return self.d_msg.request(' '.join(args))
 
+##########################################################################
+
+    def cmd_list_aclrules(self, *args):
+        """
+        list_aclrules [acl_name]
+
+        List ACL rules and display their id.
+        """
+        name = len(args) and args[0] or None
+        resp = []
+        old = ''
+        i = 0
+        aclrules = Backend().list_aclrules(name)
+        aclrules.sort(lambda x, y: cmp(x.name, y.name))
+        for rule in aclrules:
+            if old != rule.name:
+                i = 0
+                resp.append('%s:' % rule.name)
+            resp.append('  [%d] %s' % (i, rule.rule))
+            old = rule.name
+            i += 1
+
+        return '\n'.join(resp)
+
+    def cmd_set_aclrule(self, *args):
+        """
+        set_aclrule acl_name[:id] acl expression
+
+        Add or update an ACL rule. If id is given, it's an update,
+        otherwise the rule is appended to the list.
+
+        # The following is not working yet:
+        # set_aclrule acl_name:oldid :newid
+        #
+        # Reorder an ACL rule. The rule is moved from oldid to newid
+        # and other rules are shifted as needed.
+        """
+        if len(args) < 2:
+            return "Missing parameters"
+
+        # keep quotes in expression
+        args = self.cmdline.split()[1:]
+        name = args[0]
+        if ':' in args[0]:
+            name, id = args[0].split(':', 1)
+            action = 'update'
+        else:
+            name, id = args[0], 0
+            action = 'add'
+
+        try:
+            id = int(id)
+        except ValueError:
+            return "Need numeric id, got %s" % id
+
+        if args[1][0] == ':':
+            try:
+                newid = int(args[1][1:])
+            except ValueError:
+                return "Need numeric id, got %s" % newid
+            action = 'reorder'
+        else:
+            rule = ' '.join(args[1:])
+
+
+        if action == 'add':
+            Backend().add_aclrule(name, rule)
+        elif action == 'update':
+            Backend().set_aclrule(name, rule, id)
+        elif action == 'reorder':
+            Backend().get_aclrule(name, rule, id)
+
+        Backend().acldb.save_rules()
+
+    def cmd_del_aclrule(self, *args):
+        """
+        del_aclrule acl_name[:id] [acl_name[:id] ...]
+
+        Delete ACL rules. If id is omitted, delete all rules
+        from acl_name.
+        """
+        for arg in args:
+            id = None
+            if ':' in arg:
+                try:
+                    arg, id = arg.split(':')
+                    id = int(id)
+                except ValueError:
+                    return "Rule id must be numeric"
+
+            Backend().del_aclrule(arg, id)
+
+        Backend().acldb.save_rules()
+
+
+
+##########################################################################
+
     def cmd_list_clients(self, *args):
+        """
+        list_clients
+
+        List clients.
+        """
         tokens = {}
         for arg in args:
             t = arg.split('=', 1)
@@ -129,6 +233,11 @@ class Dispatcher(Registry):
         return '\n'.join(resp)
 
     def cmd_add_client(self, *args):
+        """
+        add_client username [tag=value ...]
+
+        Add a new client to the client database.
+        """
         if Backend().client_exists(args[0]):
             return "Client %s does already exist." % args[0]
 
@@ -151,6 +260,11 @@ class Dispatcher(Registry):
         return resp
 
     def cmd_del_client(self, *args):
+        """
+        del_client username
+
+        Delete a cleint from the client database.
+        """
         if not Backend().client_exists(args[0]):
             return "Client %s does not exist." % args[0]
 
@@ -170,6 +284,13 @@ class Dispatcher(Registry):
         return resp
 
     def cmd_tag_client(self, *args):
+        """
+        tag_client username [tag=value ...]
+
+        Add or update a client's tags.
+        If no tag is provided, show the client tags.
+        If a tag has no value, it is deleted.
+        """
         if not Backend().client_exists(args[0]):
             return "Client %s does not exist." % args[0]
 
@@ -203,6 +324,11 @@ class Dispatcher(Registry):
 ##########################################################################
 
     def cmd_list_sites(self, *args):
+        """
+        list_sites
+
+        List all sites.
+        """
         tokens = {}
         for arg in args:
             t = arg.split('=', 1)
@@ -231,6 +357,11 @@ class Dispatcher(Registry):
         return '\n'.join(resp)
 
     def cmd_add_site(self, *args):
+        """
+        add_site [user@]site [tag=value ...]
+
+        Add a new site to the site database.
+        """
         if Backend().site_exists(args[0]):
             return "Site %s does already exist." % args[0]
 
@@ -250,6 +381,11 @@ class Dispatcher(Registry):
         return resp
 
     def cmd_del_site(self, *args):
+        """
+        del_site [user@]site
+
+        Delete a site from the site database.
+        """
         if not Backend().site_exists(args[0]):
             return "Site %s does not exist." % args[0]
 
@@ -269,6 +405,13 @@ class Dispatcher(Registry):
         return resp
 
     def cmd_tag_site(self, *args):
+        """
+        tag_site [user@]site [tag=value ...]
+
+        Add or update a site's tags.
+        If no tag is provided, show the site tags.
+        If a tag has no value, it is deleted.
+        """
         if not Backend().site_exists(args[0]):
             return "Site %s does not exist." % args[0]
 
@@ -318,194 +461,3 @@ class Dispatcher(Registry):
 Dispatcher.register()
 
 
-# XXX: Remove the following obsolete dead code after recycling
-
-
-class ObsoleteConsoleBackend(Registry):
-    _class_id = "ConsoleBackend"
-    def __reginit__(self, conn=None):
-        conf = get_config('sshproxy')
-        self.maxcon = conf['max_connections']
-
-        from server import Server
-        self.client = Server()
-        self.chan = self.client.chan
-
-        self.msg = Message()
-
-        self.main_console = PTYWrapper(self.chan, self.PtyConsole, msg=self.msg)
-        self.status = self.msg.get_parent_fd()
-
-        self.cpool = pool.get_connection_pool()
-        self.cid = None
-        if conn is not None:
-            self.cid = self.cpool.add_connection(conn)
-
-    @staticmethod
-    def PtyConsole(*args, **kwargs):
-        Console(*args, **kwargs).cmdloop()
-
-
-    def loop(self):
-        while True:
-
-            self.status.reset()
-        
-            data = self.main_console.loop()
-            if data is None:
-                break
-            try:
-                action, data = data.split(' ', 1)
-            except ValueError:
-                action = data.strip()
-                data = ''
-
-            method = 'cmd_'+action
-            if hasattr(self, method):
-                method = getattr(self, method)
-                if callable(method):
-                    response = method(data)
-                    if response is None:
-                        break
-            # status.response() absolutely NEEDS to be called once an action
-            # has been processed, otherwise you may experience hang ups.
-                    self.status.response(response)
-                    continue
-            # if inexistant or no callable
-            self.status.response('ERROR: Unknown action %s' % action)
-            log.error('ERROR: Unknown action %s' % action)
-
-        self.close()
-
-    def cmd_open(self, args):
-        if self.maxcon and len(self.cpool) >= self.maxcon:
-            return 'ERROR: Max connection count reached'
-        sitename = args.strip()
-        if sitename == "":
-            return 'ERROR: where to?'
-        #try:
-        #    sitename = self.client.set_remote(sitename)
-        #except util.SSHProxyAuthError, msg:
-        if not self.client.pwdb.authorize(sitename):
-            log.error("ERROR(open): %s", msg)
-            return ("ERROR: site does not exist or you don't "
-                            "have sufficient rights")
-
-        conn = proxy.ProxyShell(self.client)
-
-        cid = self.cpool.add_connection(conn)
-        while True:
-            if not conn:
-                ret = 'ERROR: no connection id %s' % cid
-                break
-            try:
-                ret = conn.loop()
-            except:
-                self.chan.send("\r\n ERROR0: It seems you found a bug."
-                               "\r\n Please report this error "
-                               "to your administrator.\r\n\r\n")
-                self.chan.close()
-                raise
-            if ret == util.CLOSE:
-                self.cpool.del_connection(cid)
-            elif ret >= 0:
-                self.cid = cid = ret
-                conn = self.cpool.get_connection(cid)
-                continue
-            ret = 'OK'
-            break
-        if not ret:
-            ret = 'OK'
-        return ret
-
-    def cmd_switch(self, args):
-        # switch between one connection to the other
-        if not self.cpool:
-            return 'ERROR: no opened connection.'
-        args = args.strip()
-        if args:
-            cid = int(args)
-        else:
-            if self.cid is not None:
-                cid = self.cid
-            else:
-                cid = 0
-        while True:
-            conn = self.cpool.get_connection(cid)
-            if not conn:
-                ret = 'ERROR: no id %d found' % cid
-                break
-            ret = conn.loop()
-            if ret == util.CLOSE:
-                self.cpool.del_connection(cid)
-            elif ret >= 0:
-                self.cid = cid = ret
-                continue
-            ret = 'OK'
-            break
-        return ret
-
-    def cmd_close(self, args):
-        # close connections
-        args = args.strip()
-
-        # there must exist open connections
-        if self.cpool:
-            # close all connections
-            if args == 'all':
-                l = len(self.cpool)
-                while len(self.cpool):
-                    self.cpool.del_connection(0)
-                return '%d connections closed' % l
-            # argument must be a digit
-            elif args != "":
-                if args.isdigit():
-                    try:
-                        cid = int(args)
-                        self.cpool.del_connection(cid)
-                        msg="connection %d closed" % cid
-                    except UnboundLocalError:
-                        msg = 'ERROR: unknown connection %s' % args
-                    return msg
-                else:
-                    return 'ERROR: argument must be a digit'
-            else:
-                return 'ERROR: give an argument'
-        else:
-            return 'ERROR: no open connection'
-
-    def cmd_list_conn(self, args):
-        # show opened connections
-        l = []
-        i = 0
-        # list the open connections
-        for c in self.cpool.list_connections():
-            l.append('%d %s\n' % (i, c.name))
-            i = i + 1
-        if not len(l):
-            return 'ERROR: no opened connections'
-        else:
-            # send the connection list
-            return ''.join(l)
-
-    def cmd_whoami(self, args):
-        # whoami command
-        return '%s' % (self.client.username)
-
-    def cmd_exit_verify(self, args):
-        # check open connections for exit
-        if self.cpool:
-            return 'ERROR: close all connections first!'
-        else:
-            return None
-
-    def cmd_sites(self, args):
-        # dump the listing of all sites we're allowed to connect to
-        # TODO: see console.py : Console._sites()
-        return 'OK'
-
-    def close(self):
-        self.chan.close()
-        log.info('Client exits now!')
-
-#ConsoleBackend.register()

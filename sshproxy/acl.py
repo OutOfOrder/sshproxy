@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 26, 17:53:15 by david
+# Last modified: 2006 Aug 01, 01:34:21 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,7 +24,7 @@ import time, datetime
 from registry import Registry
 import log
 from aclparser import ACLRuleParser
-
+from util import OrderedDict
 
 class ACLRule(Registry):
     _class_id = 'ACLRule'
@@ -149,7 +149,7 @@ class ACLDB(Registry):
     _singleton = True
     
     def __reginit__(self):
-        self.rules = []
+        self.rules = OrderedDict()
         self.load_rules()
 
     def load_rules(self):
@@ -158,12 +158,58 @@ class ACLDB(Registry):
     def save_rules(self):
         pass
 
-    def add_rule(self, acl, rule):
+    def add_rule(self, acl, rule=None, index=None):
         if rule is None:
             rule = ACLRule(acl, 'False')
         elif not isinstance(rule, ACLRule):
             rule = ACLRule(acl, str(rule))
-        self.rules.append((acl, rule))
+
+        if not self.rules.get(acl, None):
+            self.rules[acl] = []
+
+        if index is None:
+            self.rules[acl].append(rule)
+            return len(self.rules[acl]) - 1
+        else:
+            self.rules[acl].insert(index, rule)
+            return index
+
+    def set_rule(self, acl, rule, index):
+        if not self.rules.get(acl, None):
+            return False
+
+        try:
+            self.rules[acl][index].rule = str(rule)
+            return True
+        except IndexError:
+            return False
+
+    def del_rule(self, acl, index):
+        if not self.rules.get(acl, None):
+            return False
+
+        if index is None:
+            while len(self.rules[acl]):
+                self.del_rule(acl, 0)
+            return True
+        else:
+            try:
+                del self.rules[acl][index]
+            except IndexError:
+                return False
+
+        if not len(self.rules[acl]):
+            del self.rules[acl]
+        return True
+
+    def list_rules(self, name=None):
+        aclrules = []
+        for rulename in self.rules.keys():
+            for rule in self.rules[rulename]:
+                if name in (None, rulename):
+                    aclrules.append(rule)
+        return aclrules
+
 
     def check(self, acl, **namespaces):
         try:
@@ -180,14 +226,15 @@ class ACLDB(Registry):
                 match = repr(acl.rule)
                 result = acl.eval(namespace)
             else:
-                for rulename, rule in self.rules:
-                    if rulename == acl:
-                        match = repr(rule.rule)
-                        if rule.eval(namespace):
-                            result = True
-                            break
-                        else:
-                            result = False
+                for rulename in self.rules.keys():
+                    for rule in self.rules[rulename]:
+                        if rulename == acl:
+                            match = repr(rule.rule)
+                            if rule.eval(namespace):
+                                result = True
+                                break
+                            else:
+                                result = False
     
             if result is None:
                 result = False

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 02:32:52 by david
+# Last modified: 2006 Aug 01, 01:08:04 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -81,10 +81,13 @@ class MySQLDB(object):
         result = self.sql_get('select last_insert_id()')
         return result
 
-    def sql_del(self, query):
+    def sql_update(self, query):
         sql = self.db.cursor()
         sql.execute(query)
         sql.close()
+
+    # same content
+    sql_del = sql_update
 
     def sql_set(self, table, **fields):
         query = """replace %s set %s"""

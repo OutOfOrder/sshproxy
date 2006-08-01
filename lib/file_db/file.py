@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 21, 08:50:32 by david
+# Last modified: 2006 Jul 31, 22:36:56 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,29 +20,29 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 from ConfigParser import NoSectionError, SafeConfigParser as BaseConfigParser
+from sshproxy.util import SortedDict
 
-
-# save the original dict to avoid infinite recursive loops
-odict = dict
-class SortedDict(odict):
-    """
-    This class implements a dict with sorted keys.
-    This is less efficient than dict, but nicer to
-    read when written to a config file.
-    """
-    def items(self):
-        items = odict.items(self)
-        items.sort()
-        return items
-
-    def keys(self):
-        keys = odict.keys(self)
-        keys.sort()
-        return keys
-
-    def __iter__(self):
-        for key in self.keys():
-            yield key
+## save the original dict to avoid infinite recursive loops
+#odict = dict
+#class SortedDict(odict):
+#    """
+#    This class implements a dict with sorted keys.
+#    This is less efficient than dict, but nicer to
+#    read when written to a config file.
+#    """
+#    def items(self):
+#        items = odict.items(self)
+#        items.sort()
+#        return items
+#
+#    def keys(self):
+#        keys = odict.keys(self)
+#        keys.sort()
+#        return keys
+#
+#    def __iter__(self):
+#        for key in self.keys():
+#            yield key
         
 
 class FileConfigParser(BaseConfigParser):

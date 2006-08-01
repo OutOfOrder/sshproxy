@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 30, 03:23:21 by david
+# Last modified: 2006 Aug 01, 00:05:03 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -37,6 +37,11 @@ class SortedDict(odict):
     This is less efficient than dict, but much nicer
     to read for a human creature.
     """
+    def values(self):
+        items = odict.items(self)
+        items.sort()
+        return [ odict.__getitem__(self, item) for item in items ]
+
     def items(self):
         items = odict.items(self)
         items.sort()
@@ -51,6 +56,33 @@ class SortedDict(odict):
         for key in self.keys():
             yield key
 
+class OrderedDict(odict):
+    """
+    This class implements a dict with ordered keys.
+    This means that key insertion order is respected.
+    """
+    def __init__(self, *args, **kw):
+        self._keys = []
+        odict.__init__(self, *args, **kw)
+
+    def __setitem__(self, item, value):
+        self._keys.append(item)
+        odict.__setitem__(self, item, value)
+
+    def values(self):
+        return [ odict.__getitem__(self, key) for key in self._keys ]
+
+    def items(self):
+        return [ (key, odict.__getitem__(self, key)) for key in self._keys ]
+
+    def keys(self):
+        return self._keys[:]
+
+    def __iter__(self):
+        return iter(self._keys)
+
+    def __delitem__(self, item):
+        self._keys.remove(item)
 
 class SSHProxyError(Exception):
     def __init__(self, msg):

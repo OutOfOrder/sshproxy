@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 31, 03:17:53 by david
+# Last modified: 2006 Jul 31, 23:28:15 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -89,8 +89,9 @@ class FileACLDB(ACLDB):
             open(rulefile, 'w').close()
 
         fd = open(rulefile+'.new', 'w')
-        for acl, rule in self.rules:
-            fd.write('%s:\n    %s\n\n'
+        for acl in self.rules.keys():
+            for rule in self.rules[acl]:
+                fd.write('%s:\n    %s\n\n'
                                 % (acl, rule.rule.replace('\n', '\n    ')))
         fd.close()
         os.rename(rulefile+'.new', rulefile)
