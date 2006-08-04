@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 29, 12:34:13 by david
+# Last modified: 2006 Aug 04, 21:32:37 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -151,7 +151,7 @@ class FileSiteDB(SiteDB):
             # touch the file
             open(sitefile, 'w').close()
 
-        siteinfo = SiteInfo(login, name)
+        siteinfo = SiteInfo(login, name, **tokens)
         siteinfo.save()
         return 'Site %s added' % sitename
 
