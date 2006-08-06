@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 01, 01:58:09 by david
+# Last modified: 2006 Aug 07, 01:13:22 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -180,11 +180,12 @@ class Dispatcher(Registry):
 
 
         if action == 'add':
-            Backend().add_aclrule(name, rule)
+            Backend().add_aclrule(name, rule.replace('\\n', '\n'))
         elif action == 'update':
-            Backend().set_aclrule(name, rule, id)
+            Backend().set_aclrule(name, rule.replace('\\n', '\n'), id)
         elif action == 'reorder':
-            Backend().get_aclrule(name, rule, id)
+            return "Reordering rules is not yet available"
+        #    Backend().get_aclrule(name, id)
 
         Backend().acldb.save_rules()
 
@@ -245,7 +246,7 @@ class Dispatcher(Registry):
         for arg in args[1:]:
             t = arg.split('=', 1)
             if len(t) > 1:
-                value = t[1]
+                value = t[1].replace("\\n", "\n")
                 if value and value[0] == value[-1] == '"':
                     value = value[1:-1]
             else:
@@ -298,7 +299,7 @@ class Dispatcher(Registry):
         for arg in args[1:]:
             t = arg.split('=', 1)
             if len(t) > 1:
-                value = t[1]
+                value = t[1].replace("\\n", "\n")
                 if value and value[0] == value[-1] == '"':
                     value = value[1:-1]
             else:
@@ -369,7 +370,7 @@ class Dispatcher(Registry):
         for arg in args[1:]:
             t = arg.split('=', 1)
             if len(t) > 1:
-                value = t[1]
+                value = t[1].replace("\\n", "\n")
                 if value and value[0] == value[-1] == '"':
                     value = value[1:-1]
             else:
@@ -419,7 +420,7 @@ class Dispatcher(Registry):
         for arg in args[1:]:
             t = arg.split('=', 1)
             if len(t) > 1:
-                value = t[1]
+                value = t[1].replace("\\n", "\n")
                 if value and value[0] == value[-1] == '"':
                     value = value[1:-1]
             else:
