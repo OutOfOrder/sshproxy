@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 31, 02:40:42 by david
+# Last modified: 2006 Aug 06, 21:46:22 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,6 +24,9 @@ import os, os.path, sys
 from ConfigParser import ConfigParser
 from StringIO import StringIO
 
+from sshproxy import __version__, __version_info__
+
+minimum_version = (0, 5)
 
 class ConfigSection(object):
     section_defaults = {}
@@ -275,5 +278,26 @@ if not os.environ.has_key('SSHPROXY_WIZARD'):
     get_config = Config(inifile)
 
     # make sure we catch errors early
-    get_config('sshproxy')
+    cfg = get_config('sshproxy')
+
+    if not cfg.has_key('version'):
+        if cfg.has_key('pwdb_backend'):
+            print ("This configuration file is not compatible with sshproxy-%s"
+                                                        % __version__)
+            print "Please move it away, and run sshproxy-setup"
+            sys.exit(0)
+        else: # this is 0.5.0-beta0
+            cfg['version'] = '.'.join([ str(v) for v in __version_info__[0:3] ])
+            cfg.write()
+
+
+    cfg_version = tuple([ int(v) for v in cfg['version'].split('.') ])
+
+    if  cfg_version < minimum_version:
+        print "Version mismatch for configuration file"
+        print "Please run sshproxy-setup"
+        sys.exit(0)
+
+
+
 
