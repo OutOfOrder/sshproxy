@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 23, 20:50:27 by david
+# Last modified: 2006 Aug 07, 02:27:53 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,9 +21,11 @@
 
 
 from sshproxy import get_class
+from sshproxy import aclparser
 
+base = get_class('ACLRuleParser')
 
-class ACLRuleParser(get_class('ACLRuleParser')):
+class ACLRuleParser(base):
 
     def func_len(self, *args):
         if len(args) != 1:
