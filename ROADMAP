@@ -42,10 +42,8 @@ Legend of pictograms:
     + options can be given on the pssh command line (before sites) to be able
       to optionally get rid of the console (list-sites, add-key, get-pssh)
         This Works, but the --add-key is still missing.
-    + backend gain more precise ACLs (access based on IP, hour... plugin ?)
-        This works now, but the ACL rule parser is crappy. Need rewriting with
-        a real parser generator.
-    + make a wizard and a console for the file backend
+    - backend gain more precise ACLs (access based on IP, hour... plugin ?)
+    - make a wizard and a console for the file backend
     * add a hostkey in site, to check identity of remote site
     * split ebuild in server, client and plugins
     * make it simpler in mysqlbackend to add users in bulk mode
