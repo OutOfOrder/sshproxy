@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 28, 00:02:35 by david
+# Last modified: 2006 Aug 08, 12:21:44 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,8 +23,8 @@
 __author__ = "David Guerizec"
 __author_email__ = "david@guerizec.net"
 __date__ = "$date$"
-__version__ = "0.5.0-beta0"
-__version_info__ = (0, 5, 0, "beta0")
+__version__ = "0.5.0-beta1"
+__version_info__ = (0, 5, 0, "beta1")
 __license__ = "GNU General Public License (GPL) v2"
 __url__ = "http://penguin.fr/sshproxy/"
 
