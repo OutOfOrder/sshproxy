@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 19, 02:58:15 by david
+# Last modified: 2006 aoû 08, 12:16:57 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -368,7 +368,7 @@ class Server(Registry, paramiko.ServerInterface):
                 'proxy': self.pwdb.tags,
                 }
         # check ACL for the given direction, then if failed, check general ACL
-        if not ((ACLDB().check('scp_' % scpdir, **namespace)) or
+        if not ((ACLDB().check('scp_' + scpdir, **namespace)) or
                 ACLDB().check('scp_transfer', **namespace)):
 #        if not (((upload and ACLDB().check('scp_upload', **namespace)) or
 #                (not upload and ACLDB().check('scp_download', **namespace))) or
