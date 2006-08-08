@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 01, 01:34:21 by david
+# Last modified: 2006 aoû 08, 11:34:44 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -143,6 +143,8 @@ class ACLTags(Registry):
 
 ACLTags.register()
 
+class ACList(list):
+    pass
 
 class ACLDB(Registry):
     _class_id = 'ACLDB'
@@ -165,7 +167,7 @@ class ACLDB(Registry):
             rule = ACLRule(acl, str(rule))
 
         if not self.rules.get(acl, None):
-            self.rules[acl] = []
+            self.rules[acl] = ACList()
 
         if index is None:
             self.rules[acl].append(rule)
@@ -203,7 +205,7 @@ class ACLDB(Registry):
         return True
 
     def list_rules(self, name=None):
-        aclrules = []
+        aclrules = ACList()
         for rulename in self.rules.keys():
             for rule in self.rules[rulename]:
                 if name in (None, rulename):

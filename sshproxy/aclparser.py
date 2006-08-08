@@ -97,9 +97,17 @@ class ACLRuleParser(Registry, Parser):
         return ns
 
     def func_acl(self, *args):
+        from acl import ACList
         if len(args) > 1:
             log.warning("Warning, acl() accepts only one argument")
-        if isinstance(args[0], str):
+        if isinstance(args[0], ACList):
+            if len(args[0]):
+                aclstr = args[0][0].name
+                value = True in [ self.func_acl(arg.rule) for arg in args[0] ]
+            else:
+                aclstr = "None"
+                value = False
+        elif isinstance(args[0], str):
             aclstr = args[0]
             subparser = ACLRuleParser(namespace=self.namespace)
             value = subparser.eval(args[0])
