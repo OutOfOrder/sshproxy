@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 02, 13:41:36 by david
+# Last modified: 2006 aoû 09, 14:24:39 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -467,9 +467,12 @@ def _run_server(daemon, sock):
             pid = os.fork()
             if pid == 0:
                 # just serve in the child
+                sock.close()
                 log.info("Serving %s", addr)
                 service_client(client, addr, host_key_file)
-                os._exit(0)
+                sys.exit(0)
+
+            client.close()
             # (im)probable race condition here !
             servers.append(pid)
     finally:
