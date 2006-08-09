@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 22, 00:28:57 by david
+# Last modified: 2006 Aug 09, 18:11:07 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -31,6 +31,7 @@ class UserData(object):
         self.sitelist = []
         self.sitedict = {}
         self.actions = None
+        self.exit_status = 0
 
     def set_actions(self, actions):
         self.actions = actions

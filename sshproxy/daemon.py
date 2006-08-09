@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 aoû 09, 14:24:39 by david
+# Last modified: 2006 Aug 09, 18:10:59 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -93,6 +93,7 @@ class ProxyServer(paramiko.ServerInterface):
                 # we cannot explain here why the user gets rejected so we
                 # just close the channel
                 log.error('Site %s is not in your scope' % site)
+                channel.send_exit_status(13) # Permission denied
                 channel.close()
                 self.event.set()
                 return False
@@ -112,6 +113,7 @@ class ProxyServer(paramiko.ServerInterface):
             except util.SSHProxyError, msg:
                 channel.send("ERROR: %s does not exist in your scope\r\n" %
                                                                     argv[0])
+                channel.send_exit_status(13) # Permission denied
                 channel.close()
                 self.event.set()
                 return False
@@ -186,11 +188,13 @@ def service_client(client, addr, host_key_file):
     if len(userdata.list_sites()):
         if userdata.get_site().type == 'scp':
             proxy.ProxyScp(userdata).loop()
+            chan.send_exit_status(userdata.exit_status)
             chan.close()
             transport.close()
             return
         if userdata.get_site().type == 'cmd':
             proxy.ProxyCmd(userdata).loop()
+            chan.send_exit_status(userdata.exit_status)
             chan.close()
             transport.close()
             return
@@ -201,12 +205,14 @@ def service_client(client, addr, host_key_file):
         except:
             chan.send("\r\n ERROR: seems you found a bug"
                       "\r\n Please report it to sshproxy-dev@penguin.fr\r\n")
+            chan.send_exit_status(255)
             chan.close()
             raise
         
         if ret == util.CLOSE:
             # if the direct connection closed, then exit cleanly
             conn = None
+            chan.send_exit_status(userdata.exit_status)
             chan.close()
             transport.close()
             log.info("Exiting %s", userdata.get_site().sitename)
@@ -228,6 +234,7 @@ def service_client(client, addr, host_key_file):
             else:
                 chan.send("Unknown option %s\r\n" % action)
 
+        chan.send_exit_status(userdata.exit_status)
         chan.close()
         transport.close()
         return
@@ -235,6 +242,7 @@ def service_client(client, addr, host_key_file):
     console = ConsoleBackend(conn, chan, userdata)
     console.loop()
 
+    chan.send_exit_status(userdata.exit_status)
     transport.close()
 
 class ConsoleBackend(object):
@@ -316,6 +324,7 @@ class ConsoleBackend(object):
             except:
                 self.chan.send("\r\n ERROR: seems you found a bug"
                       "\r\n Please report it to sshproxy-dev@penguin.fr\r\n")
+                self.chan.send_exit_status(255)
                 self.chan.close()
                 raise
             if ret == util.CLOSE:
@@ -417,6 +426,7 @@ class ConsoleBackend(object):
         return 'OK'
 
     def close(self):
+        self.chan.send_exit_status(self.userdata.exit_status)
         self.chan.close()
         log.info('Client exits now!')
 
@@ -470,7 +480,11 @@ def _run_server(daemon, sock):
                 sock.close()
                 log.info("Serving %s", addr)
                 service_client(client, addr, host_key_file)
-                sys.exit(0)
+                try:
+                    sys.exit(0)
+                except SystemExit:
+                    # avoid exception
+                    pass
 
             client.close()
             # (im)probable race condition here !

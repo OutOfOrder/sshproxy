@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 01, 18:55:45 by david
+# Last modified: 2006 Aug 09, 18:11:16 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -81,7 +81,8 @@ class ProxyScp(object):
                         log.info("Connection closed by client")
                         break
         finally:
-            pass
+            exit_status = chan.recv_exit_status()
+            self.userdata.exit_status = exit_status
         return util.CLOSE
 
 
@@ -119,7 +120,8 @@ class ProxyCmd(ProxyScp):
                         log.info("Connection closed by client")
                         break
         finally:
-            pass
+            exit_status = chan.recv_exit_status()
+            self.userdata.exit_status = exit_status
         return util.CLOSE
 
 
@@ -128,6 +130,7 @@ class ProxyClient(object):
     def __init__(self, userdata, sitename=None):
         self.client = userdata.channel
         self.sitedata = sitedata = userdata.get_site(sitename)
+        self.userdata = userdata
         self.name = '%s@%s' % (self.sitedata.username, self.sitedata.sid)
 
         now = time.ctime()
@@ -214,6 +217,8 @@ class ProxyClient(object):
                     chan.send(x)
     
         finally:
+            exit_status = chan.recv_exit_status()
+            self.userdata.exit_status = exit_status
             now = time.ctime()
             log.info("Disconnected from %s by %s on %s" %
                                     (self.name, self.sitedata.username, now))
