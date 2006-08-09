@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 01, 01:46:15 by david
+# Last modified: 2006 Aug 09, 14:37:42 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -293,8 +293,9 @@ class Daemon(Registry):
                                 log.info("Serving %s", addr)
                                 msg = msg.get_child_fd()
                                 self.service_client(client, addr, msg)
-                                os._exit(0)
+                                sys.exit()
 
+                            client.close()
                             # XXX: possible race condition here !
                             msg = msg.get_parent_fd()
                             self.clients[pid] = Client(msg=msg, ip_addr=addr)
