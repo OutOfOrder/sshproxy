@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 20, 23:17:57 by david
+# Last modified: 2006 Aug 09, 18:15:36 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -99,6 +99,7 @@ class Proxy(Registry):
             msg = ("\n\nOn administrative request, "
                    "your session is immediately closed.\n\n")
         self.msg_alert(msg)
+        self.proxy_client.exit_status = 254
         self.kill()
 
 ############################################################################
@@ -185,7 +186,8 @@ class ProxyScp(Proxy):
                 if self.msg in r:
                     self.handle_message()
         finally:
-            pass
+            exit_status = chan.recv_exit_status()
+            self.proxy_client.exit_status = exit_status
         return util.CLOSE
 
 ProxyScp.register()
@@ -242,7 +244,9 @@ class ProxyCmd(Proxy):
                 if self.msg in r:
                     self.handle_message()
         finally:
-            pass
+            exit_status = chan.recv_exit_status()
+            self.proxy_client.exit_status = exit_status
+
         return util.CLOSE
 
 ProxyCmd.register()
@@ -321,6 +325,8 @@ class ProxyShell(Proxy):
                     self.handle_message()
     
         finally:
+            exit_status = chan.recv_exit_status()
+            self.proxy_client.exit_status = exit_status
             now = time.ctime()
             log.info("Disconnected from %s by %s the %s" %
                                     (self.name, self.tags['site'].login, now))

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 aoû 08, 12:16:57 by david
+# Last modified: 2006 Aug 09, 18:15:43 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -49,6 +49,7 @@ class Server(Registry, paramiko.ServerInterface):
         self.args = []
         self._remotes = {}
         self.dispatcher = Dispatcher(self.msg)
+        self.exit_status = 0
 
     ### STANDARD PARAMIKO SERVER INTERFACE
 
@@ -313,6 +314,8 @@ class Server(Registry, paramiko.ServerInterface):
         try:
             self.do_work()
         finally:
+            if self.chan.active:
+                self.chan.send_exit_status(self.exit_status)
             # close what we can
             for item in ('chan', 'transport', 'msg'):
                 try:
