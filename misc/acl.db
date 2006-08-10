@@ -3,7 +3,7 @@
 # authenticate is for client authentication to the proxy
 authenticate:
     # only clients connecting from these IPs are allowed
-    (client.ip_addr in list("127.0.0.1 192.168.1.7"))
+    (client.ip_addr in split("127.0.0.1 192.168.1.7"))
     # username begining (:=) with 'guest' are denied
     and (client.username := "guest" ) = False
     # check also the custom ACL called level_auth
@@ -24,19 +24,19 @@ level_auth:
 # admin is for administration access
 admin:
     # if the client tag "groups" contains the word "admin"
-    "admin" in list(client.groups)
+    "admin" in split(client.groups)
 
 
 authorize:
     # localnet group members are allowed to connect to local network only
-    ("localnet" in list(client.groups) and site.ip_address := "192.168.1.")
+    ("localnet" in split(client.groups) and site.ip_address := "192.168.1.")
     # or any user must pass the "enforce" ACL attached to sites
     or acl(site.enforce)
 
 # console_session is for the sshproxy console
 console_session:
     # allow admin group members only
-    "admin" in list(client.groups)
+    "admin" in split(client.groups)
 
 # shell_session controls normal ssh session
 shell_session:
@@ -87,6 +87,6 @@ opt_list_sites:
 #  $ pssh --get-pkey root@host
 opt_get_pkey:
     # only admins can get the public key of a site login
-    "admin" in list(client.groups)
+    "admin" in split(client.groups)
 
 
