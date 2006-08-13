@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 07, 01:13:22 by david
+# Last modified: 2006 Aug 12, 11:36:42 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -253,8 +253,20 @@ class Dispatcher(Registry):
                 return 'Parse error around <%s>' % arg
 
             if t[0] == 'password' and str(value).strip():
-                import sha
-                value = sha.new(value).hexdigest()
+                while True:
+                    i = 0
+                    for c in value:
+                        if not ('0' <= c <= '9') and not ('a' <= c <= 'f'):
+                            break
+                        i += 1
+                    if i == 40:
+                        # this looks like an sha1 already
+                        # so don't convert it
+                        # who would have a password like this anyway ?
+                        break
+                    import sha
+                    value = sha.new(value).hexdigest()
+                    break
             tokens[t[0]] = value
 
         resp = Backend().add_client(args[0], **tokens)
@@ -264,7 +276,7 @@ class Dispatcher(Registry):
         """
         del_client username
 
-        Delete a cleint from the client database.
+        Delete a client from the client database.
         """
         if not Backend().client_exists(args[0]):
             return "Client %s does not exist." % args[0]
@@ -309,8 +321,20 @@ class Dispatcher(Registry):
                 return "'username' is a read-only tag"
             else:
                 if t[0] == 'password' and str(value).strip():
-                    import sha
-                    value = sha.new(value).hexdigest()
+                    while True:
+                        i = 0
+                        for c in value:
+                            if not ('0' <= c <= '9') and not ('a' <= c <= 'f'):
+                                break
+                            i += 1
+                        if i == 40:
+                            # this looks like an sha1 already
+                            # so don't convert it
+                            # who would have a password like this anyway ?
+                            break
+                        import sha
+                        value = sha.new(value).hexdigest()
+                        break
                 tokens[t[0]] = value
 
             
@@ -429,7 +453,16 @@ class Dispatcher(Registry):
             if t[0] in ('name', 'login'):
                 return "'%s' is a read-only tag" % t[0]
             elif t[0] in ('password', 'pkey'):
-                tokens[t[0]] = cipher.cipher(value)
+                while True:
+                    if tokens[t[0]][0] == '$':
+                        value = tokens[t[0]]
+                        parts = value.split('$')
+                        if len(parts) >= 3 and part[1] in cipher.list_engines():
+                            # this is already ciphered
+                            break
+
+                    tokens[t[0]] = cipher.cipher(value)
+                    break
             else:
                 tokens[t[0]] = value
 

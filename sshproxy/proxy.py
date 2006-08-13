@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 09, 18:15:36 by david
+# Last modified: 2006 Aug 13, 04:23:10 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -143,6 +143,38 @@ class Proxy(Registry):
         raise AuthenticationException('No valid authentication token for %s'
                                                                 % self.name)
                 
+    def rx_tx(self, name, rx, tx, rfds, sz=1024):
+        x = rx.recv(sz)
+        if len(x) == 0 or rx.closed:
+            if rx.closed:
+                log.info("Connection closed by %s" % name)
+                return False
+            elif rx.eof_received:
+                # XXX: logging is commented out for half-close
+                # because select always returns with rx.recv() == '' (EOF)
+                # and this makes too much verbose logs
+                #log.info("Connection half-closed by %s" % name)
+                rx.shutdown_read()
+                tx.shutdown_write()
+                if name == 'client' and rx in rfds:
+                    del rfds[rfds.index(rx)]
+                elif name == 'server':
+                    rx.shutdown_write()
+            return True
+        else:
+            tx.send(x)
+            return True
+
+    server_to_client = rx_tx
+    client_to_server = rx_tx
+
+    def __del__(self):
+        if not hasattr(self, 'chan'):
+            return
+        try:
+            self.chan.close()
+        except ValueError:
+            pass
             
 
 class ProxyScp(Proxy):
@@ -180,14 +212,24 @@ class ProxyScp(Proxy):
                     if chan.out_window_size > 0:
                         x = client.recv(size)
                         chan.send(x)
-                    if len(x) == 0 or client.closed or client.eof_received:
-                        log.info("Connection closed by client")
-                        break
+                    if len(x) == 0:
+                        self.chan.shutdown_write()
+                        if client.closed:
+                            log.info("Connection closed by client")
+                            break
+                        continue
                 if self.msg in r:
                     self.handle_message()
+
         finally:
+            self.chan.shutdown_write()
             exit_status = chan.recv_exit_status()
             self.proxy_client.exit_status = exit_status
+            now = time.ctime()
+            log.info("Disconnected from %s by %s on %s" %
+                                    (self.name, self.tags['site'].login, now))
+
+        self.chan.close()
         return util.CLOSE
 
 ProxyScp.register()
@@ -213,12 +255,13 @@ class ProxyCmd(Proxy):
         try:
             chan.settimeout(0.0)
             client.settimeout(0.0)
-    
+
+            listen_fd = [self.msg, chan, client]
+
             size = 40960
-            while t.is_active() and client.active and not chan.eof_received:
+            while t.is_active():
                 try:
-                    r, w, e = select.select([self.msg, chan, client],
-                                        [chan, client], [], 2)
+                    r, w, e = select.select(listen_fd, [], [], 2)
 
                 except KeyboardInterrupt:
                     log.warning('ERROR ProxyCmd: select.select() was interrupted')
@@ -227,26 +270,28 @@ class ProxyCmd(Proxy):
                     # this happens when a signal was caught
                     log.warning('ERROR ProxyCmd: select.select() failed')
                     continue
+
                 if chan in r:
-                    if client.out_window_size > 0:
-                        x = chan.recv(size)
-                        client.send(x)
-                    if len(x) == 0 or chan.closed or chan.eof_received:
-                        log.info("Connection closed by server")
+                    if not self.server_to_client('server', chan, client,
+                                                        listen_fd, size):
                         break
+
                 if client in r:
-                    if chan.out_window_size > 0:
-                        x = client.recv(size)
-                        chan.send(x)
-                    if len(x) == 0 or client.closed or client.eof_received:
-                        log.info("Connection closed by client")
+                    if not self.client_to_server('client', client, chan,
+                                                        listen_fd, size):
                         break
+
                 if self.msg in r:
                     self.handle_message()
         finally:
+            self.chan.shutdown_write()
             exit_status = chan.recv_exit_status()
             self.proxy_client.exit_status = exit_status
+            now = time.ctime()
+            log.info("Disconnected from %s by %s on %s" %
+                                    (self.name, self.tags['site'].login, now))
 
+        self.chan.close()
         return util.CLOSE
 
 ProxyCmd.register()
@@ -255,11 +300,11 @@ ProxyCmd.register()
 class ProxyShell(Proxy):
     _class_id = 'ProxyShell'
     def open_connection(self):
-        self.chan.get_pty(self.proxy_client.term,
-                          self.proxy_client.width,
-                          self.proxy_client.height)
+        if hasattr(self.proxy_client, 'term'):
+            self.chan.get_pty(self.proxy_client.term,
+                              self.proxy_client.width,
+                              self.proxy_client.height)
         self.chan.invoke_shell()
-
 
     def loop(self):
         if not hasattr(self, 'transport'):
@@ -271,10 +316,11 @@ class ProxyShell(Proxy):
         try:
             chan.settimeout(0.0)
             client.settimeout(0.0)
-    
-            while t.is_active() and client.active and not chan.eof_received:
+            
+            listen_fd = [self.msg, chan, client]
+            while t.is_active():
                 try:
-                    r, w, e = select.select([self.msg, chan, client], [], [], 2)
+                    r, w, e = select.select(listen_fd, [], [], 2)
                 except KeyboardInterrupt:
                     log.warning('ERROR: select.select() was interrupted')
                     continue
@@ -282,65 +328,56 @@ class ProxyShell(Proxy):
                     # this happens when a signal was caught
                     log.warning('ERROR: select.select() failed')
                     continue
+
                 if chan in r:
-                    try:
-                        x = chan.recv(1024)
-                        if len(x) == 0 or chan.closed or chan.eof_received:
-                            log.info("Connection closed by server")
-                            break
-                        client.send(x)
-                    except socket.timeout:
-                        pass
-                if client in r:
-                    x = client.recv(1024)
-                    if len(x) == 0 or client.closed or client.eof_received:
-                        log.info("Connection closed by client")
+                    if not self.server_to_client('server', chan, client,
+                                                            listen_fd):
                         break
-                    if x == keys.CTRL_X:
-                        if not ACLDB().check('console_session',
-                                                    **self.tags):
-                            client.send(chanfmt("ERROR: You are not allowed to"
-                                                " open a console session.\n"))
-                            continue
-                        else:
-                            return util.SUSPEND
-                    hooks.call_hooks('filter-proxy', client, chan,
-                                                          self.tags, x)
-                    # XXX: debuging code following
-                    #if ord(x[0]) < 0x20 or ord(x[0]) > 126:
-                    #    client.send('ctrl char: %s\r\n' % ''.join([
-                    #                    '\\x%02x' % ord(c) for c in x ]))
-                    if x in keys.ALT_NUMBERS:
-                        return keys.get_alt_number(x)
-                    if x == keys.CTRL_K:
-                        client.settimeout(None)
-                        client.send('\r\nEnter script name: ')
-                        name = client.makefile('rU').readline().strip()
-                        client.settimeout(0.0)
-                        hooks.call_hooks('console', client, chan,
-                                                       name, self.tags)
-                        continue
-                    chan.send(x)
+
+                if client in r:
+                    if not self.client_to_server('client', client, chan,
+                                                            listen_fd):
+                        break
+
+                    # TODO: reimplement this for plugin logusers to work
+                    #if x == keys.CTRL_X:
+                    #    if not ACLDB().check('console_session',
+                    #                                **self.tags):
+                    #        client.send(chanfmt("ERROR: You are not allowed to"
+                    #                            " open a console session.\n"))
+                    #        continue
+                    #    else:
+                    #        return util.SUSPEND
+                    #hooks.call_hooks('filter-proxy', client, chan,
+                    #                                      self.tags, x)
+                    ## XXX: debuging code following
+                    ##if ord(x[0]) < 0x20 or ord(x[0]) > 126:
+                    ##    client.send('ctrl char: %s\r\n' % ''.join([
+                    ##                    '\\x%02x' % ord(c) for c in x ]))
+                    #if x in keys.ALT_NUMBERS:
+                    #    return keys.get_alt_number(x)
+                    #if x == keys.CTRL_K:
+                    #    client.settimeout(None)
+                    #    client.send('\r\nEnter script name: ')
+                    #    name = client.makefile('rU').readline().strip()
+                    #    client.settimeout(0.0)
+                    #    hooks.call_hooks('console', client, chan,
+                    #                                   name, self.tags)
+                    #    continue
+                    #chan.send(x)
                 if self.msg in r:
                     self.handle_message()
     
         finally:
+            self.chan.shutdown_write()
             exit_status = chan.recv_exit_status()
             self.proxy_client.exit_status = exit_status
             now = time.ctime()
-            log.info("Disconnected from %s by %s the %s" %
+            log.info("Disconnected from %s by %s on %s" %
                                     (self.name, self.tags['site'].login, now))
 
         return util.CLOSE
             
-
-    def __del__(self):
-        if not hasattr(self, 'chan'):
-            return
-        try:
-            self.chan.close()
-        except ValueError:
-            pass
 
 ProxyShell.register()
     
