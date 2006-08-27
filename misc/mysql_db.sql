@@ -1,4 +1,4 @@
--- Database schema for 
+-- Database schema for sshproxy
 DROP TABLE IF EXISTS `aclrules`;
 CREATE TABLE IF NOT EXISTS `aclrules` (
   `name` varchar(255) NOT NULL default '',
@@ -46,6 +46,6 @@ CREATE TABLE IF NOT EXISTS `site` (
   `name` varchar(255) NOT NULL default '',
   `ip_address` varchar(255) NOT NULL default '',
   `port` int(5) unsigned NOT NULL default '22',
-  PRIMARY KEY  (`id`)
+  PRIMARY KEY  (`id`),
   UNIQUE KEY `name` (`name`)
 ) ENGINE=MyISAM;
