@@ -212,8 +212,6 @@ class Config(object):
         except IOError:
             if os.environ.get('SSHPROXY_WIZARD', None):
                 return
-            print os.environ
-            raise ValueError
             print "Could not write configuration file: %s" % inifile
             print "Make sure %s is writable" % inifile
             print "If this is the first time you're running the program, try"
