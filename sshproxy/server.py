@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 09, 18:15:43 by david
+# Last modified: 2006 Aug 31, 00:06:09 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -48,7 +48,6 @@ class Server(Registry, paramiko.ServerInterface):
         self.event = threading.Event()
         self.args = []
         self._remotes = {}
-        self.dispatcher = Dispatcher(self.msg)
         self.exit_status = 0
 
     ### STANDARD PARAMIKO SERVER INTERFACE
@@ -240,10 +239,46 @@ class Server(Registry, paramiko.ServerInterface):
         self.chan_send(self.run_cmd('list_sites %s'% ' '.join(args)))
 
     def chan_send(self, s):
-        self.chan.send(chanfmt(s))
+        chan = self.chan
+        resp = chanfmt(s)
+        rem = len(resp)
+        while rem:
+            rem = len(resp) - chan.send(resp)
+            if rem:
+                resp = resp[len(resp) - rem:]
 
     def run_cmd(self, cmd):
-        return self.dispatcher.dispatch(cmd)
+        return self.dispatcher.dispatch(cmd) + '\n'
+
+    def readlines(self):
+        buffer = []
+        chan = self.chan
+        chan.setblocking(True)
+        while True:
+            data = chan.recv(4096)
+            if not data:
+                chan.shutdown_read()
+                yield ''.join(buffer)
+                break
+
+            if '\n' in data:
+                yield ''.join(buffer) + data[:data.index('\n')+1]
+                buffer = [ data[data.index('\n')+1:] ]
+
+            else:
+                buffer.append(data)
+
+
+    def console_no_pty(self):
+        from server import Server
+        chan = self.chan
+        for data in self.readlines():
+            if not data:
+                continue
+            response = self.run_cmd(data)
+            self.chan_send(response)
+
+
 
     def opt_get_pkey(self, options, *args):
         result = []
@@ -310,6 +345,8 @@ class Server(Registry, paramiko.ServerInterface):
             sys.exit(1)
 
         self.set_channel(chan)
+        namespace = { 'client': Backend().get_client_tags(), }
+        self.dispatcher = Dispatcher(self.msg, namespace)
         
         try:
             self.do_work()
@@ -326,7 +363,7 @@ class Server(Registry, paramiko.ServerInterface):
         return
 
 
-    def do_console(self, conn=None):
+    def do_console(self):
         namespace = {
                 'client': self.pwdb.clientdb.get_tags(),
                 }
@@ -335,8 +372,10 @@ class Server(Registry, paramiko.ServerInterface):
                                     " open a console session.\n"))
             return False
         self.msg.request("set_client type=console")
-        return self.dispatcher.console(conn)
-        #return ConsoleBackend(self, conn, self.msg).loop()
+        if hasattr(self, 'term'):
+            return self.dispatcher.console()
+        else:
+            return self.console_no_pty()
 
 
     def do_scp(self):
@@ -467,7 +506,7 @@ class Server(Registry, paramiko.ServerInterface):
             log.info("Exiting %s", site)
             return True
         # else go to the console
-        return self.do_console(conn)
+        return self.do_console()
 
 
     # XXX: stage2: make it easier to extend
