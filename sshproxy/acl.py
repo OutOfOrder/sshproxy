@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 aoû 08, 11:34:44 by david
+# Last modified: 2006 Aug 31, 01:50:02 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -42,6 +42,8 @@ ACLRule.register()
 
 class ProxyNamespace(Registry, dict):
     _class_id = 'ProxyNamespace'
+    _class_base = dict
+    _singleton = True
     def __reginit__(self, default_namespace=None, **kw):
         self.defaults = default_namespace or {}
         dict.__init__(self, **kw)
@@ -212,14 +214,33 @@ class ACLDB(Registry):
                     aclrules.append(rule)
         return aclrules
 
+    def get_namespace(self, **namespaces):
+        namespace = dict(self.rules)
+        namespace['proxy'] = ProxyNamespace()
+        for ns in namespaces:
+            if not namespace.has_key(ns):
+                namespace[ns] = ACLTags()
+            namespace[ns].update(namespaces[ns])
+
+        return namespace
+
+    def eval(self, expression, **namespaces):
+        """
+        Evaluate an ACL expression in the namespaces context.
+        """
+
+        aclparser = ACLRuleParser(
+                        namespace=self.get_namespace(**namespaces))
+        return aclparser.eval(expression)
+
 
     def check(self, acl, **namespaces):
+        """
+        Check an ACL rule in the namespaces context.
+        """
+
         try:
-            namespace = dict(self.rules)
-            for ns in namespaces:
-                if not namespace.has_key(ns):
-                    namespace[ns] = ACLTags()
-                namespace[ns].update(namespaces[ns])
+            namespace = self.get_namespace(**namespaces)
 
             result = None
             match = ''
