@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 31, 22:36:56 by david
+# Last modified: 2006 Aug 31, 02:23:07 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,28 +22,7 @@
 from ConfigParser import NoSectionError, SafeConfigParser as BaseConfigParser
 from sshproxy.util import SortedDict
 
-## save the original dict to avoid infinite recursive loops
-#odict = dict
-#class SortedDict(odict):
-#    """
-#    This class implements a dict with sorted keys.
-#    This is less efficient than dict, but nicer to
-#    read when written to a config file.
-#    """
-#    def items(self):
-#        items = odict.items(self)
-#        items.sort()
-#        return items
-#
-#    def keys(self):
-#        keys = odict.keys(self)
-#        keys.sort()
-#        return keys
-#
-#    def __iter__(self):
-#        for key in self.keys():
-#            yield key
-        
+
 
 class FileConfigParser(BaseConfigParser):
     """
@@ -85,7 +64,8 @@ class FileConfigParser(BaseConfigParser):
 
     def write(self, fp):
         # put _defaults back in place before writing
-        self._defaults.update(self._mydefaults)
+        self._mydefaults.update(self._defaults)
+        self._defaults = self._mydefaults
         # write in alpha-sorted order
         BaseConfigParser.write(self, fp)
         # and set it back to an empty dict
