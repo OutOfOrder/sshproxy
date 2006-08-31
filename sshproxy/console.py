@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 07, 01:01:37 by david
+# Last modified: 2006 Aug 31, 01:10:07 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -57,6 +57,7 @@ class Console(Registry, cmd.Cmd):
         return [ a for a in self.methods.keys() if a.startswith(text) ]
 
     def do_help(self, arg):
+        self.populate()
         if arg:
             if arg not in self.methods.keys():
                 print 'Unknown command %s' % arg

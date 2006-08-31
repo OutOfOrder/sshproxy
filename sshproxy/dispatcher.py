@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 12, 11:36:42 by david
+# Last modified: 2006 Aug 31, 02:28:06 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -28,28 +28,44 @@ from config import get_config
 from message import Message
 from ptywrap import PTYWrapper
 from console import Console
+from acl import ACLDB
 import cipher
 
-
 ###########################################################################
+class DispatcherCommandError(Exception):
+    pass
 
 class Dispatcher(Registry):
     _class_id = 'Dispatcher'
     _singleton = True
 
-    def __reginit__(self, daemon_msg):
+    default_acl = True
+
+    def __reginit__(self, daemon_msg, namespace):
         self.d_msg = daemon_msg
         self.d_msg.reset()
-        self.daemon_methods = self.d_msg.request('public_methods').split()
+        self.namespace = namespace
         self.daemon_methods = {}
         for line in self.d_msg.request('public_methods').split('\n'):
             method, help = line.split(' ', 1)
             self.daemon_methods[method] = help.replace('\n', '\\n')
 
+    def is_admin(self):
+        return ACLDB().check('admin', **self.namespace)
+
     def public_methods(self):
-        methods = [ '%s %s' % (m, h) for m, h in self.daemon_methods.items() ]
+        """
+        Return a list of allowed commands.
+        """
+        if self.is_admin():
+            methods = [ '%s %s' % (m, h)
+                                for m, h in self.daemon_methods.items() ]
+        else:
+            methods = []
         for method in dir(self):
             if method[:4] != 'cmd_':
+                continue
+            if not self.check_acl(method[4:], None):
                 continue
             doc = getattr(getattr(self, method), '__doc__', None)
             if not doc:
@@ -58,6 +74,25 @@ class Dispatcher(Registry):
 
         return '\n'.join([ m.replace('\n', '\\n') for m in methods ])
 
+    def check_acl(self, *args):
+        """
+        Check the command's associated ACL rule, if defined.
+
+        argv[0] is the command name, and argv[1:] contains the command's
+        arguments.
+
+        If len(args) == 2 and args[1] is None, public_methods is the caller.
+        """
+        acl = 'acl_' + args[0]
+        if hasattr(self, acl):
+            acl = getattr(self, acl)
+            if isinstance(acl, str):
+                acl = ACLDB().eval(acl, **self.namespace)
+
+            return acl
+        else:
+            return self.default_acl
+
     def dispatch(self, cmdline):
         self.cmdline = cmdline
         try:
@@ -65,22 +100,31 @@ class Dispatcher(Registry):
         except:
             return 'parse error'
 
+        if not len(args):
+            return ''
+
         if args[0] == 'public_methods':
             return self.public_methods()
 
         command = 'cmd_' + args[0]
 
         if not hasattr(self, command):
-            if args[0] in self.daemon_methods.keys():
+            if args[0] in self.daemon_methods.keys() and self.is_admin():
                 return self.d_msg.request(cmdline)
             else:
                 return 'Unknown command %s' % args[0]
 
+        if not self.check_acl(*args):
+            return 'You have not enough rights to do this'
+
         func = getattr(self, command)
 
-        return func(*args[1:])
+        try:
+            return func(*args[1:])
+        except DispatcherCommandError, msg:
+            return msg
 
-    def init_console(self, conn=None):
+    def init_console(self):
         from server import Server
         c_msg = Message()
 
@@ -91,9 +135,8 @@ class Dispatcher(Registry):
 
         self.c_msg = c_msg.get_parent_fd()
 
-    def console(self, conn=None):
-        #console = ConsoleBackend(conn)
-        self.init_console(conn)
+    def console(self):
+        self.init_console()
 
         while True:
             self.c_msg.reset()
@@ -106,13 +149,19 @@ class Dispatcher(Registry):
             self.c_msg.response(response)
 
 
-    def cmd_admin(self, *args):
-        #"""
-        #admin command [args]
-        #
-        #Execute administrative commands on the main daemon.
-        #"""
-        return self.d_msg.request(' '.join(args))
+    def check_args(self, num, args, strict=False):
+        """
+        Check number of arguments.
+        """
+        if strict:
+            if len(args) != num:
+                if num == 0:
+                    num = 'no'
+                raise DispatcherCommandError("This command accepts %s arguments" % num)
+        else:
+            if len(args) < num:
+                raise DispatcherCommandError("This command accepts at least %d arguments"
+                                                                                 % num)
 
 ##########################################################################
 
@@ -122,6 +171,8 @@ class Dispatcher(Registry):
 
         List ACL rules and display their id.
         """
+        self.check_args(0, args)
+
         name = len(args) and args[0] or None
         resp = []
         old = ''
@@ -138,6 +189,7 @@ class Dispatcher(Registry):
 
         return '\n'.join(resp)
 
+    acl_set_aclrule = 'acl(admin)'
     def cmd_set_aclrule(self, *args):
         """
         set_aclrule acl_name[:id] acl expression
@@ -151,8 +203,7 @@ class Dispatcher(Registry):
         # Reorder an ACL rule. The rule is moved from oldid to newid
         # and other rules are shifted as needed.
         """
-        if len(args) < 2:
-            return "Missing parameters"
+        self.check_args(2, args)
 
         # keep quotes in expression
         args = self.cmdline.split()[1:]
@@ -189,6 +240,7 @@ class Dispatcher(Registry):
 
         Backend().acldb.save_rules()
 
+    acl_del_aclrule = "acl(admin)"
     def cmd_del_aclrule(self, *args):
         """
         del_aclrule acl_name[:id] [acl_name[:id] ...]
@@ -196,6 +248,8 @@ class Dispatcher(Registry):
         Delete ACL rules. If id is omitted, delete all rules
         from acl_name.
         """
+        self.check_args(1, args)
+
         for arg in args:
             id = None
             if ':' in arg:
@@ -219,6 +273,8 @@ class Dispatcher(Registry):
 
         List clients.
         """
+        self.check_args(0, args, strict=False)
+
         tokens = {}
         for arg in args:
             t = arg.split('=', 1)
@@ -233,12 +289,15 @@ class Dispatcher(Registry):
         resp.append('\nTotal: %d' % len(resp))
         return '\n'.join(resp)
 
+    acl_add_client = "acl(admin)"
     def cmd_add_client(self, *args):
         """
         add_client username [tag=value ...]
 
         Add a new client to the client database.
         """
+        self.check_args(1, args)
+
         if Backend().client_exists(args[0]):
             return "Client %s does already exist." % args[0]
 
@@ -272,12 +331,15 @@ class Dispatcher(Registry):
         resp = Backend().add_client(args[0], **tokens)
         return resp
 
+    acl_del_client = "acl(admin)"
     def cmd_del_client(self, *args):
         """
         del_client username
 
         Delete a client from the client database.
         """
+        self.check_args(1, args, strict=True)
+
         if not Backend().client_exists(args[0]):
             return "Client %s does not exist." % args[0]
 
@@ -296,6 +358,7 @@ class Dispatcher(Registry):
         resp = Backend().del_client(args[0], **tokens)
         return resp
 
+    acl_tag_client = "acl(admin)"
     def cmd_tag_client(self, *args):
         """
         tag_client username [tag=value ...]
@@ -304,6 +367,8 @@ class Dispatcher(Registry):
         If no tag is provided, show the client tags.
         If a tag has no value, it is deleted.
         """
+        self.check_args(1, args)
+
         if not Backend().client_exists(args[0]):
             return "Client %s does not exist." % args[0]
 
@@ -354,6 +419,8 @@ class Dispatcher(Registry):
 
         List all sites.
         """
+        self.check_args(0, args, strict=False)
+
         tokens = {}
         for arg in args:
             t = arg.split('=', 1)
@@ -381,12 +448,15 @@ class Dispatcher(Registry):
         resp.append('\nTotal: %d' % len(resp))
         return '\n'.join(resp)
 
+    acl_add_site = "acl(admin)"
     def cmd_add_site(self, *args):
         """
         add_site [user@]site [tag=value ...]
 
         Add a new site to the site database.
         """
+        self.check_args(1, args)
+
         if Backend().site_exists(args[0]):
             return "Site %s does already exist." % args[0]
 
@@ -405,12 +475,15 @@ class Dispatcher(Registry):
         resp = Backend().add_site(args[0], **tokens)
         return resp
 
+    acl_del_site = "acl(admin)"
     def cmd_del_site(self, *args):
         """
         del_site [user@]site
 
         Delete a site from the site database.
         """
+        self.check_args(1, args, strict=True)
+
         if not Backend().site_exists(args[0]):
             return "Site %s does not exist." % args[0]
 
@@ -429,6 +502,7 @@ class Dispatcher(Registry):
         resp = Backend().del_site(args[0], **tokens)
         return resp
 
+    acl_tag_site = "acl(admin)"
     def cmd_tag_site(self, *args):
         """
         tag_site [user@]site [tag=value ...]
@@ -437,6 +511,8 @@ class Dispatcher(Registry):
         If no tag is provided, show the site tags.
         If a tag has no value, it is deleted.
         """
+        self.check_args(1, args)
+
         if not Backend().site_exists(args[0]):
             return "Site %s does not exist." % args[0]
 
@@ -453,7 +529,7 @@ class Dispatcher(Registry):
             if t[0] in ('name', 'login'):
                 return "'%s' is a read-only tag" % t[0]
             elif t[0] in ('password', 'pkey'):
-                while True:
+                while len(value):
                     if tokens[t[0]][0] == '$':
                         value = tokens[t[0]]
                         parts = value.split('$')
@@ -480,12 +556,8 @@ class Dispatcher(Registry):
 
     def show_tag_filter(self, object, tag, value):
         value = value or ''
-        # XXX: test if the values are already crypted or mangled (crypto module)
-        return value
-        if object == 'client':
-            if tag == 'password' and value:
-                return '*'*len(value)
-        elif object == 'site':
+        if not self.is_admin() and object == 'site':
+            # mangle sensible data
             if tag in ('password', '_pkey') and value:
                 return ('*'*len(value))[:30]
 
