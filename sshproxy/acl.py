@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 31, 01:50:02 by david
+# Last modified: 2006 Sep 01, 00:07:58 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -249,15 +249,14 @@ class ACLDB(Registry):
                 match = repr(acl.rule)
                 result = acl.eval(namespace)
             else:
-                for rulename in self.rules.keys():
-                    for rule in self.rules[rulename]:
-                        if rulename == acl:
-                            match = repr(rule.rule)
-                            if rule.eval(namespace):
-                                result = True
-                                break
-                            else:
-                                result = False
+                if self.rules.has_key(acl):
+                    for rule in self.rules[acl]:
+                        match = repr(rule.rule)
+                        if rule.eval(namespace):
+                            result = True
+                            break
+                        else:
+                            result = False
     
             if result is None:
                 result = False
