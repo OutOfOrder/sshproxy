@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 31, 01:10:07 by david
+# Last modified: 2006 Aug 31, 23:48:59 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -75,6 +75,10 @@ class Console(Registry, cmd.Cmd):
 
     def emptyline(self):
         return
+
+    def do_exit(self, arg):
+        return True
+
 
 Console.register()
 
