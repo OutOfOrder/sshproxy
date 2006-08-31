@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 31, 03:32:06 by david
+# Last modified: 2006 Aug 31, 00:22:02 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,6 +24,7 @@ class Registry(object):
     _registry = {}
     _singletons = {}
     _singleton = False
+    _class_base = object
 
 
     @classmethod
@@ -49,13 +50,13 @@ class Registry(object):
         if cls._singleton:
             theone = Registry._singletons.get(cls._class_id)
             if theone is None:
-                theone = object.__new__(obj_class)
+                theone = cls._class_base.__new__(obj_class)
                 Registry._singletons[cls._class_id] = theone
                 theone.__reginit__(*args, **kw)
             return theone
             
         else:
-            obj = object.__new__(obj_class)
+            obj = cls._class_base.__new__(obj_class)
             obj.__reginit__(*args, **kw)
             return obj
 
