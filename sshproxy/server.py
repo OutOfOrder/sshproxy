@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 31, 00:06:09 by david
+# Last modified: 2006 Sep 06, 00:55:31 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -240,12 +240,13 @@ class Server(Registry, paramiko.ServerInterface):
 
     def chan_send(self, s):
         chan = self.chan
-        resp = chanfmt(s)
-        rem = len(resp)
-        while rem:
-            rem = len(resp) - chan.send(resp)
-            if rem:
-                resp = resp[len(resp) - rem:]
+        s = chanfmt(s)
+        sz = len(s)
+        while sz:
+            sent = chan.send(s)
+            if sent:
+                s = s[sent:]
+                sz = sz - sent
 
     def run_cmd(self, cmd):
         return self.dispatcher.dispatch(cmd) + '\n'
@@ -388,7 +389,7 @@ class Server(Registry, paramiko.ServerInterface):
             break
         site, path = argv[0].split(':', 1)
 
-        if not self.pwdb.authorize(site):
+        if not self.pwdb.authorize(site, need_login=True):
             self.chan.send(chanfmt("ERROR: %s does not exist in your scope\n" %
                                                                     site))
             return False
@@ -435,7 +436,7 @@ class Server(Registry, paramiko.ServerInterface):
 
     def do_remote_execution(self):
         site = self.args.pop(0)
-        if not self.pwdb.authorize(site):
+        if not self.pwdb.authorize(site, need_login=True):
             self.chan.send(chanfmt("ERROR: %s does not exist in "
                                             "your scope\n" % site))
             return False
@@ -464,7 +465,7 @@ class Server(Registry, paramiko.ServerInterface):
 
     def do_shell_session(self):
         site = self.args.pop(0)
-        if not self.pwdb.authorize(site):
+        if not self.pwdb.authorize(site, need_login=True):
             self.chan.send(chanfmt("ERROR: %s does not exist in "
                                             "your scope\n" % site))
             return False

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 28, 02:49:40 by david
+# Last modified: 2006 Sep 06, 01:30:18 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -105,10 +105,10 @@ class SiteDB(Registry):
             return None, s[-1]
 
 
-    def authorize(self, user_site, client, **tokens):
+    def authorize(self, user_site, client, need_login=False):
         if not isinstance(user_site, SiteInfo):
             user, site = self.split_user_site(user_site)
-            siteinfo = SiteInfo(user, site, **tokens)
+            siteinfo = SiteInfo(user, site)
         else:
             siteinfo = user_site
 
@@ -120,6 +120,9 @@ class SiteDB(Registry):
             return False
 
         self.siteinfo = siteinfo
+        if need_login and siteinfo.login is None:
+            self.select_login()
+
         return True
 
 
@@ -134,7 +137,29 @@ class SiteDB(Registry):
             return SiteInfo(user, site)
         return self.siteinfo
 
+    def select_login(self, login=None):
+        if not self.siteinfo:
+            return
+        if login is None:
+            logins = []
+            for l in self.list_site_users():
+                if l.login and l.name == self.siteinfo.name:
+                    priority = l.get_token('priority')
+                    try:
+                        priority = int(priority)
+                    except ValueError:
+                        pass
+                    logins.append((priority, l))
+            logins.sort(reverse=True)
+            self.siteinfo = logins[0][1]
+        elif self.exists('%s@%s' % (login, self.siteinfo.name)):
+            self.siteinfo = SiteInfo(login, self.siteinfo.name)
+
     def list_site_users(self, **tokens):
+        """
+        List all login@site.
+        Return a list of SiteInfo instances.
+        """
         return []
 
     def exists(self, sitename, **tokens):

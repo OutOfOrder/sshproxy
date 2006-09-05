@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 31, 23:57:29 by david
+# Last modified: 2006 Sep 06, 01:19:45 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -49,9 +49,9 @@ class Backend(Registry):
         return self.authenticated
 
 
-    def authorize(self, user_site):
+    def authorize(self, user_site, need_login=False):
         sitedb = SiteDB()
-        if sitedb.authorize(user_site, self.clientdb):
+        if sitedb.authorize(user_site, self.clientdb, need_login):
             self.authorized = True
             self.sitedb = sitedb
         else:
