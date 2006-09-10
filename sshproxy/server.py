@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 06, 00:55:31 by david
+# Last modified: 2006 Sep 10, 15:48:42 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -453,13 +453,16 @@ class Server(Registry, paramiko.ServerInterface):
         self.msg.request("set_client type=remote_exec login=%s name=%s" % 
                                         (self.pwdb.sitedb.get_tags()['login'],
                                          self.pwdb.sitedb.get_tags()['name']))
+        conn = proxy.ProxyCmd(self)
         try:
-            proxy.ProxyCmd(self).loop()
+            ret = conn.loop()
         except AuthenticationException, msg:
             self.chan.send("\r\n ERROR: %s." % msg +
                       "\r\n Please report this error "
                       "to your administrator.\r\n\r\n")
             return False
+        conn = None
+        log.info("Exiting %s", site)
         return True
 
 

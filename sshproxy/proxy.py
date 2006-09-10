@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 13, 04:23:10 by david
+# Last modified: 2006 Sep 10, 15:24:16 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -37,6 +37,7 @@ from acl import ACLDB, ACLTags
 class Proxy(Registry):
     def __reginit__(self, proxy_client):
         self.client = proxy_client.chan
+        self.client.settimeout(1.0)
         self.tags = {
                 'client': proxy_client.pwdb.get_client_tags(),
                 'site': proxy_client.pwdb.get_site_tags(),
@@ -58,6 +59,7 @@ class Proxy(Registry):
             self.connect()
 
             self.chan = self.transport.open_session()
+            self.chan.settimeout(1.0)
             self.open_connection()
 
         except Exception, e:
@@ -143,7 +145,7 @@ class Proxy(Registry):
         raise AuthenticationException('No valid authentication token for %s'
                                                                 % self.name)
                 
-    def rx_tx(self, name, rx, tx, rfds, sz=1024):
+    def rx_tx(self, name, rx, tx, rfds, sz=4096):
         x = rx.recv(sz)
         if len(x) == 0 or rx.closed:
             if rx.closed:
@@ -162,11 +164,31 @@ class Proxy(Registry):
                     rx.shutdown_write()
             return True
         else:
-            tx.send(x)
+            try:
+                self.chan_send(tx, x)
+            except ValueError:
+                tx.shutdown_write()
+                rx.shutdown_read()
+                if name == 'client' and rx in rfds:
+                    del rfds[rfds.index(rx)]
+                elif name == 'server':
+                    rx.shutdown_write()
             return True
 
     server_to_client = rx_tx
     client_to_server = rx_tx
+
+    def chan_send(self, chan, s):
+        SZ = sz = len(s)
+        while sz:
+            sent = chan.send(s)
+            if sent:
+                s = s[sent:]
+                sz = sz - sent
+            else:
+                # this is a close on chan
+                raise ValueError
+
 
     def __del__(self):
         if not hasattr(self, 'chan'):
@@ -193,9 +215,6 @@ class ProxyScp(Proxy):
         chan = self.chan
         client = self.client
         try:
-            chan.settimeout(0.0)
-            client.settimeout(0.0)
-    
             size = 4096
             while t.is_active() and client.active and not chan.eof_received:
                 r, w, e = select.select([self.msg, chan, client],
@@ -253,9 +272,6 @@ class ProxyCmd(Proxy):
         chan = self.chan
         client = self.client
         try:
-            chan.settimeout(0.0)
-            client.settimeout(0.0)
-
             listen_fd = [self.msg, chan, client]
 
             size = 40960
@@ -291,7 +307,7 @@ class ProxyCmd(Proxy):
             log.info("Disconnected from %s by %s on %s" %
                                     (self.name, self.tags['site'].login, now))
 
-        self.chan.close()
+        #self.chan.close()
         return util.CLOSE
 
 ProxyCmd.register()
@@ -314,9 +330,6 @@ class ProxyShell(Proxy):
         chan = self.chan
         client = self.client
         try:
-            chan.settimeout(0.0)
-            client.settimeout(0.0)
-            
             listen_fd = [self.msg, chan, client]
             while t.is_active():
                 try:
