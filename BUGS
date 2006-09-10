@@ -2,15 +2,10 @@ KNOWN BUGS
 ==========
 
 
-0.4.1 (stable)
---------------
-
-* None known
-
-
-0.5 (dev)
----------
+0.5.0-beta3 (stable, well... almost)
+------------------------------------
 
 * Intermitent error happening: when executing a remote command with pssh,
-  it sometimes quit without displaying the result of the command.
-  The error disappeared when trying to track it down.
+  it sometimes eat some data.
+
+* Lock up with the command run from the console, on some servers only.

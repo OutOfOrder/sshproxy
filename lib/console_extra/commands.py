@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 06, 01:57:08 by david
+# Last modified: 2006 Sep 10, 15:43:49 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -39,6 +39,24 @@ class ConsoleExtra_Dispatcher(base):
 
         server.args = list(args)
         server.do_shell_session()
+
+
+    acl_run = "acl(remote_exec)"
+    def cmd_run(self, *args):
+        """
+        run user@site cmd args...
+
+        Run a command remotely on user@site.
+
+        WARNING: You could experience locks-up using this command with some
+                 SSH servers. I still don't know why but I'm investigating.
+        """
+        self.check_args(2, args)
+
+        server = Server()
+
+        server.args = list(args)
+        server.do_remote_execution()
 
 ConsoleExtra_Dispatcher.register()
 
