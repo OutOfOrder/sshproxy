@@ -1,0 +1,25 @@
+<?xml version = '1.0' encoding = 'UTF-8'?>
+<!DOCTYPE pkgmetadata SYSTEM "http://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+  <herd>net-proxy</herd>
+  <longdescription>
+sshproxy is a pure python implementation of an ssh proxy.
+It allows users to connect to remote sites without having to remember or even
+know the password or key of the remote sites.
+
+There are three possible scenarios which could possibly interest you.
+
+Scenario 1: Solo mode
+If you have a lot of remote servers to administrate, this will relieve you from doing the boring task of opening your password database, copy-paste the IP address, copy-paste the password to connect to a remote site.
+You only have to know one password (to connect to the proxy) and sshproxy will do the rest for you. You can also connect to the proxy with a public key, thus allowing yourself to forget about any password.
+
+Scenario 2: Team mode
+Another, more interesting, example: if you're in charge of a lot of remote sites, and your company has several administrators to do some remote administration tasks, then no user will ever need to know the password or key of the servers he administrates.
+When an employee quits your company, you just have to delete his entry in the proxy database, and he will never be able to connect to the remote site.
+This could well protect your business against turn-over.
+
+Scenario 3: Forwarding mode
+You want to allow some people to connect through your firewall to a range of server inside your DMZ or LAN, but you don't want to open one port for each server.
+What you can do is open the sshproxy port (default 2242), and setup the password database to proxy each external user to it's own desktop, or create groups of users allowed to connect to your DMZ servers.
+  </longdescription>
+</pkgmetadata>
