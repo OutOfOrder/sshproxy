@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 06, 21:46:22 by david
+# Last modified: 2006 Sep 17, 01:36:47 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -47,7 +47,6 @@ class ConfigSection(object):
             if value is None:
                 self.set(k, str(v))
                 self._config.touch()
-        self._config.write()
 
     def get_default(self, option, default=None):
         return self.section_defaults.get(option, default)
@@ -284,9 +283,8 @@ if not os.environ.has_key('SSHPROXY_WIZARD'):
                                                         % __version__)
             print "Please move it away, and run sshproxy-setup"
             sys.exit(0)
-        else: # this is 0.5.0-beta0
+        else:
             cfg['version'] = '.'.join([ str(v) for v in __version_info__[0:3] ])
-            cfg.write()
 
 
     cfg_version = tuple([ int(v) for v in cfg['version'].split('.') ])

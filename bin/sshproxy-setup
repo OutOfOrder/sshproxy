@@ -1,9 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # -*- coding: ISO-8859-15 -*-
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 31, 03:20:13 by david
+# Last modified: 2006 Sep 17, 01:12:00 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,12 +25,13 @@ from optparse import OptionParser
 from sshproxy import __version__
 
 usage = """
-  %prog [--config-dir CFGDIR]
+  %prog [--config-dir CFGDIR] [--user USER]
       Launch sshproxy setup tool.
   
-  %prog [--config-dir CFGDIR] --add-admin USERNAME
+  %prog [--config-dir CFGDIR] [-u USER] --add-admin USERNAME
+      Add an sshproxy administrator.
 
-  %prog [--config-dir CFGDIR] --cipher ENGINE [--keep] [--dry-run]
+  %prog [--config-dir CFGDIR] [-u USER] --cipher ENGINE [--keep] [--dry-run]
       Recipher the database.
 """
 
@@ -42,6 +43,10 @@ parser = OptionParser(usage=usage, version=version)
 parser.add_option("-c", "--config-dir", dest="config", default=None,
                     help="configuration directory (default: ~/.sshproxy).",
                     metavar="CFGDIR")
+
+parser.add_option("-u", "--user", dest="user", default=None,
+                    help="run as user USER.",
+                    metavar="USER")
 
 #parser.add_option("-V", "--version", dest="version", default=None,
 #                    help="Show the version number.")
@@ -70,14 +75,37 @@ parser.add_option("-n", "--dry-run", dest="dry_run", default=False,
 
 (options, args) = parser.parse_args()
 
-#configdir = os.path.join(os.getcwd(), (options.config
-#                                or os.environ.get('SSHPROXY_CONFIG', '')))
-#os.environ['SSHPROXY_CONFIG'] = configdir
 os.environ['SSHPROXY_CONFIG'] = (options.config
                                 or os.environ.get('SSHPROXY_CONFIG', ''))
-#if not os.environ['SSHPROXY_CONFIG'] and options.user:
-#    os.environ['SSHPROXY_CONFIG'] = os.path.join(pwd.getpwnam(options.user)[5],
-#                                                    '.sshproxy')
+if not os.environ['SSHPROXY_CONFIG'] and options.user:
+    os.environ['SSHPROXY_CONFIG'] = os.path.join(pwd.getpwnam(options.user)[5],
+                                                    '.sshproxy')
+
+if os.getuid() != 0:
+    if options.user:
+        print "Error: the --user option has no effect if not run as root."
+        sys.exit(1)
+    run_as_root = False
+else:
+    if not options.user:
+        print "Error: the --user option must be given if run as root."
+        sys.exit(1)
+    elif options.user == 'root':
+        print "Error: for security reasons, you cannot run sshproxy as root."
+        sys.exit(1)
+    run_as_root = True
+
+
+def change_uid(user):
+    if not run_as_root or not user:
+        return
+    from sshproxy import util
+    uid = util.getuid(user)
+    os.setegid(util.getgid(user))
+    os.setgroups(util.getgrouplist(user))
+    os.seteuid(uid)
+    #os.makedirs(os.environ['SSHPROXY_CONFIG'])
+
 
 exclusive_options = ('add-admin', 'cipher')
 nb_opt = 0
@@ -98,9 +126,10 @@ if options.admin:
     from sshproxy.backend import Backend
     from sshproxy.acl import ACLDB
 
+    change_uid(options.user)
     backend = Backend()
-    password = getpass("Enter password:")
-    passwordv = getpass("Enter password (verify):")
+    password = getpass("Enter password for user %s:" % options.admin)
+    passwordv = getpass("Enter password again:")
     if password != passwordv:
         print "Passwords don't match!"
     else:
@@ -118,12 +147,17 @@ elif options.cipher:
     from sshproxy.plugins import init_plugins
     init_plugins()
     from sshproxy import cipher
+
+    change_uid(options.user)
     password = options.keep
     if '-' in args:
         password = sys.stdin
     cipher.recipher(options.cipher, password, options.dry_run)
 
 else:
+    os.environ['SSHPROXY_WIZARD'] = "yes"
     from sshproxy import wizard
-    wizard.setup()
+
+    change_uid(options.user)
+    wizard.setup(options.user)
 

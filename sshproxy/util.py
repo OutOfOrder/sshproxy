@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 01, 00:05:03 by david
+# Last modified: 2006 Sep 16, 18:09:31 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,7 +24,6 @@ import StringIO
 
 import paramiko
 
-import log
 
 # save the original dict to avoid infinite recursive loops
 # when this class overrides the dict builtin in a module, ie.:
@@ -86,16 +85,19 @@ class OrderedDict(odict):
 
 class SSHProxyError(Exception):
     def __init__(self, msg):
+        import log
         log.error("PROXY: "+msg)
         Exception.__init__(self, msg)
 
 class SSHProxyAuthError(SSHProxyError):
     def __init__(self, msg):
+        import log
         log.error("AUTH: "+msg)
         Exception.__init__(self, "Authentication error: "+msg)
 
 class SSHProxyPluginError(SSHProxyError):
     def __init__(self, msg):
+        import log
         log.error("PLUG: "+msg)
         Exception.__init__(self, "Plugin error: "+msg)
 

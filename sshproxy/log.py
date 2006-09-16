@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jun 19, 01:35:33 by david
+# Last modified: 2006 Sep 17, 01:37:29 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -46,8 +46,13 @@ else:
 try:
     os.chdir(log_dir)
 except OSError, msg:
-    print "No such directory: '%s'" % log_dir
-    sys.exit(1)
+    print "No such directory: creating '%s'" % log_dir
+    try:
+        os.makedirs(log_dir)
+    except OSError, msg:
+        print "Could not create directory '%s'" % log_dir
+        if not os.environ.get('SSHPROXY_WIZARD', None):
+            sys.exit(1)
 
 fileConfig(logfile)
 

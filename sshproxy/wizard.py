@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 31, 02:41:06 by david
+# Last modified: 2006 Sep 17, 00:43:26 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -282,7 +282,7 @@ class Wizard(object):
 
 
 
-def setup():
+def setup(user):
     os.environ['SSHPROXY_WIZARD'] = 'running'
     import config
     configdir = config.inipath
@@ -296,8 +296,21 @@ def setup():
 
     Wizard()
     print 'Setup done.'
-    print 'You can now run the following command:'
-    print os.environ.get('INITD_STARTUP',
-                            'sshproxyd -c %s' % (configdir))
+    from backend import Backend
+    from plugins import init_plugins
+    init_plugins()
+    clients = Backend().list_clients()
+    print clients
+    print
+    options = ' -c %s' % configdir
+    if user:
+        options += ' -u ' + user
+    if not len(clients):
+        print 'You can now add an administrator:'
+        print '    sshproxy-setup%s --add-admin admin' % options
+        print
+
+    print 'To start sshproxy daemon, run the following command:'
+    print '    ' + os.environ.get('INITD_STARTUP', 'sshproxyd%s' % (options))
 
 
