@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 01, 01:08:04 by david
+# Last modified: 2006 Sep 17, 01:30:08 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -50,7 +50,7 @@ class MySQLDB(object):
                                                       user=cfg['user'],
                                                       passwd=cfg['password'])
             except:
-                if not os.environ.has_key('SSHPROXY_WIZARD'):
+                if not os.environ.get('SSHPROXY_WIZARD', None):
                     raise
 
         self.db = self.__db[conid]
