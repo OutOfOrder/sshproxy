@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 30, 23:42:05 by david
+# Last modified: 2006 Sep 17, 01:27:11 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -46,13 +46,12 @@ def __init_plugin__():
 def __setup__():
     from sshproxy import menu
     from sshproxy.config import get_config
-    import config
 
     cfg = get_config('sshproxy')
     items = []
 
     if cfg['acl_db'] == 'file_db':
-        config.FileACLConfigSection.register(True)
+        import acl
         def update(value):
             get_config('acl_db.file')['file'] = value
         items.append(menu.MenuInput('ACL database file',
@@ -61,7 +60,7 @@ def __setup__():
                     cb=update))
 
     if cfg['client_db'] == 'file_db':
-        config.FileClientConfigSection.register(True)
+        import client
         def update(value):
             get_config('client_db.file')['file'] = value
         items.append(menu.MenuInput('Client database file',
@@ -70,7 +69,7 @@ def __setup__():
                     cb=update))
 
     if cfg['site_db'] == 'file_db':
-        config.FileSiteConfigSection.register(True)
+        import site
         def update(value):
             get_config('site_db.file')['db_path'] = value
         items.append(menu.MenuInput('Site database directory',
