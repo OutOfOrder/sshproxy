@@ -1,5 +1,5 @@
 -- Database schema for sshproxy
-DROP TABLE IF EXISTS `aclrules`;
+-- DROP TABLE IF EXISTS `aclrules`;
 CREATE TABLE IF NOT EXISTS `aclrules` (
   `name` varchar(255) NOT NULL default '',
   `weight` tinyint(4) NOT NULL default '0',
@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS `aclrules` (
 ) ENGINE=MyISAM;
 
 
-DROP TABLE IF EXISTS `acltags`;
+-- DROP TABLE IF EXISTS `acltags`;
 CREATE TABLE IF NOT EXISTS `acltags` (
   `object` varchar(15) NOT NULL default '',
   `id` int(10) NOT NULL default '0',
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS `acltags` (
 ) ENGINE=MyISAM;
 
 
-DROP TABLE IF EXISTS `client`;
+-- DROP TABLE IF EXISTS `client`;
 CREATE TABLE IF NOT EXISTS `client` (
   `id` int(10) unsigned NOT NULL auto_increment,
   `uid` varchar(255) NOT NULL default '',
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS `client` (
 ) ENGINE=MyISAM;
 
 
-DROP TABLE IF EXISTS `login`;
+-- DROP TABLE IF EXISTS `login`;
 CREATE TABLE IF NOT EXISTS `login` (
   `id` int(10) unsigned NOT NULL auto_increment,
   `site_id` int(10) unsigned NOT NULL default '0',
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS `login` (
 ) ENGINE=MyISAM;
 
 
-DROP TABLE IF EXISTS `site`;
+-- DROP TABLE IF EXISTS `site`;
 CREATE TABLE IF NOT EXISTS `site` (
   `id` int(10) unsigned NOT NULL auto_increment,
   `name` varchar(255) NOT NULL default '',
