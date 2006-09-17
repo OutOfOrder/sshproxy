@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 10, 15:24:16 by david
+# Last modified: 2006 Sep 17, 16:41:39 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -28,7 +28,7 @@ from paramiko.transport import SSHException, DEBUG
 from paramiko import AuthenticationException
 
 from registry import Registry
-import hooks, keys, cipher, util, log
+import cipher, util, log
 from util import chanfmt
 from acl import ACLDB, ACLTags
 
@@ -145,8 +145,7 @@ class Proxy(Registry):
         raise AuthenticationException('No valid authentication token for %s'
                                                                 % self.name)
                 
-    def rx_tx(self, name, rx, tx, rfds, sz=4096):
-        x = rx.recv(sz)
+    def rx_tx(self, x, name, rx, tx, rfds, sz=4096):
         if len(x) == 0 or rx.closed:
             if rx.closed:
                 log.info("Connection closed by %s" % name)
@@ -175,8 +174,13 @@ class Proxy(Registry):
                     rx.shutdown_write()
             return True
 
-    server_to_client = rx_tx
-    client_to_server = rx_tx
+    def server_to_client(self, rx, tx, rfds, sz=4096):
+        x = rx.recv(sz)
+        return self.rx_tx(x, 'server', rx, tx, rfds, sz=4096)
+
+    def client_to_server(self, rx, tx, rfds, sz=4096):
+        x = rx.recv(sz)
+        return self.rx_tx(x, 'client', rx, tx, rfds, sz=4096)
 
     def chan_send(self, chan, s):
         SZ = sz = len(s)
@@ -288,12 +292,12 @@ class ProxyCmd(Proxy):
                     continue
 
                 if chan in r:
-                    if not self.server_to_client('server', chan, client,
+                    if not self.server_to_client(chan, client,
                                                         listen_fd, size):
                         break
 
                 if client in r:
-                    if not self.client_to_server('client', client, chan,
+                    if not self.client_to_server(client, chan,
                                                         listen_fd, size):
                         break
 
@@ -343,41 +347,15 @@ class ProxyShell(Proxy):
                     continue
 
                 if chan in r:
-                    if not self.server_to_client('server', chan, client,
+                    if not self.server_to_client(chan, client,
                                                             listen_fd):
                         break
 
                 if client in r:
-                    if not self.client_to_server('client', client, chan,
+                    if not self.client_to_server(client, chan,
                                                             listen_fd):
                         break
 
-                    # TODO: reimplement this for plugin logusers to work
-                    #if x == keys.CTRL_X:
-                    #    if not ACLDB().check('console_session',
-                    #                                **self.tags):
-                    #        client.send(chanfmt("ERROR: You are not allowed to"
-                    #                            " open a console session.\n"))
-                    #        continue
-                    #    else:
-                    #        return util.SUSPEND
-                    #hooks.call_hooks('filter-proxy', client, chan,
-                    #                                      self.tags, x)
-                    ## XXX: debuging code following
-                    ##if ord(x[0]) < 0x20 or ord(x[0]) > 126:
-                    ##    client.send('ctrl char: %s\r\n' % ''.join([
-                    ##                    '\\x%02x' % ord(c) for c in x ]))
-                    #if x in keys.ALT_NUMBERS:
-                    #    return keys.get_alt_number(x)
-                    #if x == keys.CTRL_K:
-                    #    client.settimeout(None)
-                    #    client.send('\r\nEnter script name: ')
-                    #    name = client.makefile('rU').readline().strip()
-                    #    client.settimeout(0.0)
-                    #    hooks.call_hooks('console', client, chan,
-                    #                                   name, self.tags)
-                    #    continue
-                    #chan.send(x)
                 if self.msg in r:
                     self.handle_message()
     
