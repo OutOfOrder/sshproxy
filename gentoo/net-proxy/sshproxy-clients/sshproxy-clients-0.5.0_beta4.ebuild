@@ -2,7 +2,7 @@
 # Distributed under the terms of the GNU General Public License v2
 # $Header: $
 
-MY_P="sshproxy-0.5.0"
+MY_P="sshproxy-0.5.0-beta4"
 DESCRIPTION="sshproxy is an ssh gateway to apply ACLs on ssh connections"
 HOMEPAGE="http://penguin.fr/sshproxy/"
 SRC_URI="http://penguin.fr/sshproxy/download/${MY_P}.tar.gz"
