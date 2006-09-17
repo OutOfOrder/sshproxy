@@ -8,7 +8,9 @@ depend() {
 start() {
 	ebegin "Starting SSH Proxy daemon"
 	start-stop-daemon --start --exec /usr/bin/sshproxyd -- \
-		--daemon --user sshproxy --pid /var/run/sshproxyd.pid
+		--daemon --user ${SSHPROXYD_USER} \
+        --config-dir ${SSHPROXYD_CONFDIR} \
+        --pid /var/run/sshproxyd.pid
 	eend $?
 }
 

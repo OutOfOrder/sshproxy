@@ -25,8 +25,6 @@ src_install () {
 }
 
 pkg_postinst () {
-	distutils_pkg_postinst
-
 	einfo "You may want to enable plugins with the following command:"
 	einfo "    sshproxy-setup -c /etc/sshproxy -u sshproxy"
 }
