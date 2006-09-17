@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 29, 12:37:09 by david
+# Last modified: 2006 Sep 17, 16:37:37 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,8 +22,10 @@
 
 import os.path
 
+from sshproxy import get_class
 from sshproxy.config import get_config, ConfigSection, path
 from sshproxy import keys
+from sshproxy.proxy import ProxyShell
 
 class LogUsersConfigSection(ConfigSection):
     section_id = 'logusers'
@@ -36,7 +38,10 @@ class LogUsersConfigSection(ConfigSection):
 
 LogUsersConfigSection.register()
 
-class PluginLogUsers(object):
+
+ProxyShell = get_class('ProxyShell')
+
+class LoggedProxyShell(ProxyShell):
     tr_table = {}
     _tr_table = {
             '\r\n':         '\n',
@@ -45,13 +50,14 @@ class PluginLogUsers(object):
             '<':            '<INF>',
             '>':            '<SUP>',
         }
-    def __init__(self):
+    def __reginit__(self, *args, **kw):
         conf = get_config('logusers')
         if not os.path.isdir(conf['logdir']):
             os.makedirs(conf['logdir'])
         
-        self.path = conf['logdir']
+        self.logdir = conf['logdir']
 
+        # fill our translation table
         for key in dir(keys):
             if key[0] == '_' or not isinstance(getattr(keys, key), str):
                 continue
@@ -60,17 +66,26 @@ class PluginLogUsers(object):
         for key, value in self._tr_table.items():
             self.tr_table[key] = value
 
-    def logusers(self, console, chan, tags, char):
-        user = tags['client'].username
-        path = os.path.join(self.path, user)
+        ProxyShell.__reginit__(self, *args, **kw)
+
+        user = self.tags['client'].username
+        path = os.path.join(self.logdir, user)
         if not os.path.isdir(path):
             os.makedirs(path)
 
-        site = '%s@%s' % (tags['site'].login, tags['site'].name)
+        site = '%s@%s' % (self.tags['site'].login, self.tags['site'].name)
         logfile = os.path.join(path, site)
-        log = open(logfile, 'a')
-        log.write(self.translate(char))
-        log.close()
+        self.log = open(logfile, 'a')
+
+    def client_to_server(self, rx, tx, rfds, sz=4096):
+        x = rx.recv(sz)
+        self.log.write(self.translate(x))
+        self.log.flush()
+        return self.rx_tx(x, 'client', rx, tx, rfds, sz=4096)
+
+    def __del__(self):
+        self.log.close()
+        ProxyShell.__del__(self)
 
     def translate(self, char):
         return self.tr_table.get(char, char)

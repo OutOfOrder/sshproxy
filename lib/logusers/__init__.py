@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 29, 12:14:57 by david
+# Last modified: 2006 Sep 17, 16:14:58 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,10 +26,25 @@ __description__ = """
 """
 
 def __init_plugin__():
-    import logusers
-    from sshproxy.hooks import register_hook
-    lu = logusers.PluginLogUsers()
-    register_hook('filter-proxy', lu.logusers)
+    from logusers import LoggedProxyShell
+    LoggedProxyShell.register()
 
-def __wizard__():
-    return []
+
+def __setup__():
+    from sshproxy import menu
+    from sshproxy.config import get_config
+    import logusers
+
+    cfg = get_config('logusers')
+    items = []
+
+    def update(value):
+        cfg['logdir'] = value
+    items.append(menu.MenuInput('Log directory',
+                "",
+                cfg.get('logdir', raw=True),
+                cb=update))
+
+    return items
+
+
