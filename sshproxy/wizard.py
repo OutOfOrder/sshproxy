@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 17, 00:43:26 by david
+# Last modified: 2006 Sep 17, 02:28:18 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -300,7 +300,6 @@ def setup(user):
     from plugins import init_plugins
     init_plugins()
     clients = Backend().list_clients()
-    print clients
     print
     options = ' -c %s' % configdir
     if user:

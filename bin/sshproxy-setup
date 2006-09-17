@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 17, 01:12:00 by david
+# Last modified: 2006 Sep 17, 02:02:02 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -156,8 +156,8 @@ elif options.cipher:
 
 else:
     os.environ['SSHPROXY_WIZARD'] = "yes"
-    from sshproxy import wizard
-
     change_uid(options.user)
+
+    from sshproxy import wizard
     wizard.setup(options.user)
 
