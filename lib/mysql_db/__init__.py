@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 31, 00:04:53 by david
+# Last modified: 2006 Sep 17, 10:47:44 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -64,25 +64,24 @@ def get_menu_items(db_type):
 def __setup__():
     from sshproxy import menu
     from sshproxy.config import get_config
-    import config
 
     cfg = get_config('sshproxy')
     items = []
 
     if cfg['acl_db'] == 'mysql_db':
-        config.MySQLACLConfigSection.register(True)
+        import acl
         items.append(menu.Menu('ACL database',
                     "",
                     *get_menu_items('acl_db')))
 
     if cfg['client_db'] == 'mysql_db':
-        config.MySQLClientConfigSection.register(True)
+        import client
         items.append(menu.Menu('Client database file',
                     "",
                     *get_menu_items('client_db')))
 
     if cfg['site_db'] == 'mysql_db':
-        config.MySQLSiteConfigSection.register(True)
+        import site
         items.append(menu.Menu('Site database directory',
                     "",
                     *get_menu_items('site_db')))

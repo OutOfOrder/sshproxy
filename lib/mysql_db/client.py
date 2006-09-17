@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 27, 12:25:16 by david
+# Last modified: 2006 Sep 17, 10:56:25 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,10 +26,14 @@ from sshproxy.client import ClientDB, ClientInfo
 from sshproxy.util import istrue
 from sshproxy.server import Server
 
-from config import MySQLClientConfigSection
+from config import MySQLConfigSection
 from mysql import MySQLDB, Q
 
+class MySQLClientConfigSection(MySQLConfigSection):
+    section_id = 'client_db.mysql'
+
 MySQLClientConfigSection.register()
+
 
 class MySQLClientInfo(ClientInfo, MySQLDB):
     _db_handler = 'client_db'

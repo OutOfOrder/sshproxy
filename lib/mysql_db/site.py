@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 30, 23:47:34 by david
+# Last modified: 2006 Sep 17, 10:57:05 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,9 +22,11 @@
 from sshproxy.acl import ACLRule
 from sshproxy.site import SiteDB, SiteInfo
 
-from config import MySQLSiteConfigSection
+from config import MySQLConfigSection
 from mysql import MySQLDB, Q
 
+class MySQLSiteConfigSection(MySQLConfigSection):
+    section_id = 'site_db.mysql'
 
 MySQLSiteConfigSection.register()
 

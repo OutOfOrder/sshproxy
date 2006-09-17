@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 30, 23:47:16 by david
+# Last modified: 2006 Sep 17, 10:57:12 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -32,13 +32,4 @@ class MySQLConfigSection(ConfigSection):
     types = {
         'port': int,
         }
-
-class MySQLACLConfigSection(MySQLConfigSection):
-    section_id = 'acl_db.mysql'
-
-class MySQLClientConfigSection(MySQLConfigSection):
-    section_id = 'client_db.mysql'
-
-class MySQLSiteConfigSection(MySQLConfigSection):
-    section_id = 'site_db.mysql'
 
