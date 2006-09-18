@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 31, 02:28:06 by david
+# Last modified: 2006 Sep 18, 22:41:03 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -470,7 +470,18 @@ class Dispatcher(Registry):
             else:
                 return 'Parse error around <%s>' % arg
 
-            tokens[t[0]] = value
+            if t[0] in ('password', 'pkey'):
+                while len(value):
+                    if value[0] == '$':
+                        parts = value.split('$')
+                        if len(parts) >= 3 and part[1] in cipher.list_engines():
+                            # this is already ciphered
+                            break
+
+                    tokens[t[0]] = cipher.cipher(value)
+                    break
+            else:
+                tokens[t[0]] = value
 
         resp = Backend().add_site(args[0], **tokens)
         return resp
@@ -530,8 +541,7 @@ class Dispatcher(Registry):
                 return "'%s' is a read-only tag" % t[0]
             elif t[0] in ('password', 'pkey'):
                 while len(value):
-                    if tokens[t[0]][0] == '$':
-                        value = tokens[t[0]]
+                    if value[0] == '$':
                         parts = value.split('$')
                         if len(parts) >= 3 and part[1] in cipher.list_engines():
                             # this is already ciphered
