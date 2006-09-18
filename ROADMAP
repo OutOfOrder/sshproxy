@@ -8,52 +8,29 @@ Legend of pictograms:
     / task canceled (most probably due to new design)
 
 
-0.3.2
-    - update installdb to make it work with cipher and config
-    - check for mode 600 on config file
-    - hide local user passwords in list_users
-    - make the auto-add-key feature optional via config
-    - encrypt the local users passwords (done with mysql's sha1() function)
-    - make it possible to change the password (and key) for users and rlogins
-
-0.4
-    - make plugin enabling in config file
-    - make a simple file backend
-    - rename sshproxy program to sshproxyd and SSHproxy module to sshproxy
-    - plugin path (defaults to /usr/lib/sshproxy) in the config file
-    - clean installation with setup.py
-    - write an ebuild
-    - database more coherent (rename columns and tables)
-    - replace installdb with an option of sshproxyd (--wizard)
-    - replace managedb with an option of sshproxyd (--backend)
-    - replace cipherdb with an option of sshproxyd (change passphrase / 
-      cipher type) (--cipher)
-    - write an init.d script
-    - make sshproxyd accept three more options: --daemon, --pid and --user
-    - update the web site with acks, docs
-
-0.5
+0.5.0
     - remote sites will be reachable with keys instead of just password
     - make Message protocole more robust
     - backend database schema will be thoroughly simplified with ACLs
     - add a default pkey in site, if the login does not provide one
         Tags make that possible without much work
     - --cipher ciphers private keys in the database
+    - backend gain more precise ACLs (access based on IP, hour... plugin ?)
+    - make a wizard and a console for the file backend
+    - split ebuild in server, client and plugins
+
+0.5.1
+    + finish to write good documentation
     + options can be given on the pssh command line (before sites) to be able
       to optionally get rid of the console (list-sites, add-key, get-pssh)
         This Works, but the --add-key is still missing.
-    - backend gain more precise ACLs (access based on IP, hour... plugin ?)
-    - make a wizard and a console for the file backend
+    * auto-kill dangling connections, maybe with using keep-alive packets.
     * add a hostkey in site, to check identity of remote site
-    * split ebuild in server, client and plugins
-    * make it simpler in mysqlbackend to add users in bulk mode
-        All backend are now unified from this point of view.
+    * work on automatic remote command execution plugin (spexpect)
     ? make the admin password the cipher key for the solo mode
-        Would be nice, but I don't think it's gonna make it in this release.
     ? admin account in the config file
 
 0.6
-    + write good documentation
     * http access to manage the database
-    * work on automatic remote command execution plugin (spexpect)
+    ? "attach" command in the console, to get back to a disconnected session.
 
