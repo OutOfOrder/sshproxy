@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 12, 00:25:51 by david
+# Last modified: 2006 Sep 20, 01:25:51 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -93,12 +93,12 @@ class Server(base_class):
     def opt_get_pssh(self, options, *args):
         user = self.pwdb.get_client().username
         ip_addr, port = self.ip_addr, self.port
-        self.chan.send(chanfmt(pssh % locals()))
+        self.chan.send(pssh % locals())
 
     def opt_get_pscp(self, options, *args):
         user = self.pwdb.get_client().username
         ip_addr, port = self.ip_addr, self.port
-        self.chan.send(chanfmt(pscp % locals()))
+        self.chan.send(pscp % locals())
 
 
 
