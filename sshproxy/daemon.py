@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 09, 14:37:42 by david
+# Last modified: 2006 Sep 20, 01:25:02 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -404,10 +404,11 @@ def run_daemon(daemonize, user, pidfile): # Credits: portions of code from TMDA
 
 
     if os.getuid() == 0:
+        os.seteuid(0)
         uid = util.getuid(user)
-        os.setegid(util.getgid(user))
+        os.setgid(util.getgid(user))
         os.setgroups(util.getgrouplist(user))
-        os.seteuid(uid)
+        os.setuid(uid)
 
     if daemonize:
 #        signal.signal(signal.SIGHUP, signal.SIG_IGN)
