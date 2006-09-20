@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 10, 15:43:49 by david
+# Last modified: 2006 Sep 20, 17:21:55 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,7 +26,7 @@ from sshproxy.server import Server
 base = get_class('Dispatcher')
 
 class ConsoleExtra_Dispatcher(base):
-    acl_open = "acl(shell_session)"
+    acl_open = "acl(cmd_open)"
     def cmd_open(self, *args):
         """
         open user@site
@@ -41,7 +41,7 @@ class ConsoleExtra_Dispatcher(base):
         server.do_shell_session()
 
 
-    acl_run = "acl(remote_exec)"
+    acl_run = "acl(cmd_run)"
     def cmd_run(self, *args):
         """
         run user@site cmd args...
