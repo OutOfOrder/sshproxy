@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 17, 16:41:39 by david
+# Last modified: 2006 Sep 20, 18:20:47 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -66,9 +66,9 @@ class Proxy(Registry):
             log.exception("Unable to set up SSH connection to server")
             try:
                 self.transport.close()
+                del self.transport
             except:
                 pass
-            del self.transport
             return
         now = time.ctime()
         log.info("Connected to %s by %s on %s\n" %
