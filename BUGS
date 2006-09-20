@@ -9,3 +9,6 @@ KNOWN BUGS
   it sometimes eat some data.
 
 * Lock up with the command run from the console, on some servers only.
+
+* Lock with the monitoring commands (watch, kill, message) in the console
+
