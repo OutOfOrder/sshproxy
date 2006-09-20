@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 10, 15:48:42 by david
+# Last modified: 2006 Sep 20, 23:36:03 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,7 +30,7 @@ from options import OptionParser
 from util import chanfmt
 from backend import Backend
 from config import get_config
-from acl import ACLDB
+from acl import ACLDB, ProxyNamespace
 from dispatcher import Dispatcher
 
 
@@ -401,14 +401,14 @@ class Server(Registry, paramiko.ServerInterface):
             upload = False
             scpdir = 'download'
 
-        self.pwdb.tags.add_tag('scp_dir', scpdir)
-        self.pwdb.tags.add_tag('scp_path', path or '.')
-        self.pwdb.tags.add_tag('scp_args', ' '.join(args))
+        proxyns = ProxyNamespace()
+        proxyns['scp_dir'] = scpdir
+        proxyns['scp_path'] = path or '.'
+        proxyns['scp_args'] = ' '.join(args)
 
         namespace = {
                 'client': self.pwdb.clientdb.get_tags(),
                 'site': self.pwdb.sitedb.get_tags(),
-                'proxy': self.pwdb.tags,
                 }
         # check ACL for the given direction, then if failed, check general ACL
         if not ((ACLDB().check('scp_' + scpdir, **namespace)) or
@@ -441,11 +441,11 @@ class Server(Registry, paramiko.ServerInterface):
                                             "your scope\n" % site))
             return False
 
-        self.pwdb.tags.add_tag('cmdline', ' '.join(self.args))
+        proxyns = ProxyNamespace()
+        proxyns['cmdline'] = ' '.join(self.args)
         if not ACLDB().check('remote_exec',
                                 client=self.pwdb.clientdb.get_tags(),
-                                site=self.pwdb.sitedb.get_tags(),
-                                proxy=self.pwdb.tags):
+                                site=self.pwdb.sitedb.get_tags()):
             self.chan.send(chanfmt("ERROR: You are not allowed to"
                                     " exec that command on %s"
                                     "\n" % site))
