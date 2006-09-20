@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 01, 00:07:58 by david
+# Last modified: 2006 Sep 20, 23:16:32 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -51,12 +51,16 @@ class ProxyNamespace(Registry, dict):
     def get(self, tag, default=None):
         if hasattr(self, 'dot_'+tag):
             return getattr(self, 'dot_'+tag)()
+        elif tag in self.keys():
+            return dict.get(self, tag, default)
         else:
             return self.defaults.get(tag, default)
 
     def __getitem__(self, tag):
         if hasattr(self, 'dot_'+tag):
             return getattr(self, 'dot_'+tag)()
+        elif tag in self.keys():
+            return dict.__getitem__(self, tag)
         raise AttributeError('proxy does not have such element: %s' % tag)
 
     def dot_time(self):

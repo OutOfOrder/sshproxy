@@ -40,7 +40,9 @@ class Parser(object):
         self.parser = ryacc.yacc(module=self,
                   debug=self.debug,
                   debugfile=self.debugfile,
-                  tabmodule=self.tabmodule)
+                  tabmodule=self.tabmodule,
+                  write_tables=0,
+                  optimize=1)
 
     def run(self):
         while 1:
@@ -352,17 +354,16 @@ class ACLRuleParser(Registry, Parser):
         'expression : NAME'
         try:
             p[0] = self.get_ns()[p[1]]
-        except LookupError:
-            log.warning("Undefined name '%s'" % p[1])
+        except (LookupError, AttributeError):
+            log.warning("ACL: Undefined name '%s'" % p[1])
             p[0] = False
 
     def p_expression_namespace(self, p):
         'expression : NAME DOT NAME'
         try:
             p[0] = self.get_ns()[p[1]][p[3]]
-        except LookupError:
-            log.warning("Undefined name '%s.%s'" % (p[1], p[3]))
-            print repr(self.get_ns())
+        except (LookupError, AttributeError):
+            log.warning("ACL: Undefined name '%s.%s'" % (p[1], p[3]))
             p[0] = False
 
     def p_error(self, p):
