@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 20, 18:20:47 by david
+# Last modified: 2006 Sep 21, 12:52:18 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,7 +30,7 @@ from paramiko import AuthenticationException
 from registry import Registry
 import cipher, util, log
 from util import chanfmt
-from acl import ACLDB, ACLTags
+from acl import ACLDB, ACLTags, ProxyNamespace
 
 
 
@@ -41,7 +41,7 @@ class Proxy(Registry):
         self.tags = {
                 'client': proxy_client.pwdb.get_client_tags(),
                 'site': proxy_client.pwdb.get_site_tags(),
-                'proxy': proxy_client.pwdb.tags,
+                'proxy': ProxyNamespace(),
                 }
         self.proxy_client = proxy_client
         self.msg = self.proxy_client.msg
@@ -206,10 +206,11 @@ class Proxy(Registry):
 class ProxyScp(Proxy):
     _class_id = 'ProxyScp'
     def open_connection(self):
-        log.info('Executing: scp %s %s' % (self.tags['proxy'].scp_args, 
-                                           self.tags['proxy'].scp_path))
-        self.chan.exec_command('scp %s %s' % (self.tags['proxy'].scp_args, 
-                                              self.tags['proxy'].scp_path))
+        proxy = ProxyNamespace()
+        log.info('Executing: scp %s %s' % (proxy['scp_args'], 
+                                           proxy['scp_path']))
+        self.chan.exec_command('scp %s %s' % (proxy['scp_args'], 
+                                              proxy['scp_path']))
 
     def loop(self):
         if not hasattr(self, 'transport'):
@@ -261,12 +262,13 @@ ProxyScp.register()
 class ProxyCmd(Proxy):
     _class_id = 'ProxyCmd'
     def open_connection(self):
-        log.info('Executing: %s' % (self.tags['proxy'].cmdline))
+        proxy = ProxyNamespace()
+        log.info('Executing: %s' % (proxy['cmdline']))
         if hasattr(self.proxy_client, 'term'):
             self.chan.get_pty(self.proxy_client.term,
                               self.proxy_client.width,
                               self.proxy_client.height)
-        self.chan.exec_command(self.tags['proxy'].cmdline)
+        self.chan.exec_command(proxy['cmdline'])
 
     def loop(self):
         if not hasattr(self, 'transport'):
