@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 21, 02:20:11 by david
+# Last modified: 2006 Sep 21, 02:23:23 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -544,7 +544,7 @@ class Dispatcher(Registry):
                     if value[0] == '$':
                         parts = value.split('$')
                         if (len(parts) >= 3 and 
-                                parts[1] in cipher.list_engines():
+                                parts[1] in cipher.list_engines()):
                             # this is already ciphered
                             break
 
