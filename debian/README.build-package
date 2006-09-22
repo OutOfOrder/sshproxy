@@ -1,0 +1,3 @@
+To build the packages, execute the following command::
+
+    dpkg-buildpackage -rfakeroot -us -uc

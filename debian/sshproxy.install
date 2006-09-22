@@ -1,0 +1,6 @@
+debian/tmp/usr/bin/sshproxy*	usr/bin
+debian/tmp/usr/lib/python*	usr/lib
+debian/tmp/usr/lib/sshproxy/spexpect usr/lib/sshproxy
+debian/tmp/usr/lib/sshproxy/get_client_scripts usr/lib/sshproxy
+debian/tmp/usr/lib/sshproxy/file_db usr/lib/sshproxy
+debian/tmp/usr/share/sshproxy/* usr/share/sshproxy

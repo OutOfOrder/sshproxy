@@ -1,0 +1,35 @@
+#! /bin/bash
+
+CHROOT=/var/lib/sshproxy
+
+mkdir $CHROOT 2> /dev/null
+
+# Check if sshproxy:sshproxy exists and create it otherwise
+chgrp sshproxy $CHROOT 2> /dev/null || \
+      addgroup --system sshproxy
+chown sshproxy $CHROOT 2> /dev/null || \
+      adduser --system --home $CHROOT --no-create-home \
+              --disabled-password --ingroup sshproxy sshproxy
+
+chown sshproxy:sshproxy $CHROOT
+chmod 0750 $CHROOT
+
+mkdir $CHROOT/log 2> /dev/null
+chown sshproxy:sshproxy $CHROOT/log
+chmod 0750 $CHROOT/log
+
+[ ! -d /etc/sshproxy ] && mkdir /etc/sshproxy
+chown sshproxy:sshproxy /etc/sshproxy
+chmod 0700 /etc/sshproxy
+
+[ ! -f /etc/sshproxy/sshproxy.ini ] && {
+  cp /usr/share/doc/sshproxy/sshproxy.ini /etc/sshproxy
+  chown sshproxy:sshproxy /etc/sshproxy/sshproxy.ini
+  chmod 0600 /etc/sshproxy/sshproxy.ini
+  BLOWFISH_SECRET="${RANDOM}${RANDOM}${RANDOM}${RANDOM}"
+  sed -i -e "s/%BLOWFISH_SECRET%/${BLOWFISH_SECRET}/g" \
+            /etc/sshproxy/sshproxy.ini
+}
+
+#DEBHELPER#
+

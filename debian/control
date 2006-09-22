@@ -1,0 +1,46 @@
+Source: sshproxy
+Section: net
+Priority: optional
+Maintainer: Vincent Bernat <bernat@luffy.cx>
+Build-Depends: cdbs (>= 0.4.43), debhelper (>= 5.0.37.2), python-all-dev (>= 2.3.5-11), python-support (>= 0.4)
+Standards-Version: 3.7.2
+
+Package: sshproxy
+Architecture: all
+Depends: ${misc:Depends}, python (>= 2.4), python-paramiko (>= 1.6)
+Provides: ${python:Provides}
+Description: sshproxy is an ssh gateway to apply ACLs on ssh connections
+ sshproxy is a pure python implementation of an ssh proxy.
+ It allows users to connect to remote sites without having to remember
+ the password or key of the remote sites.
+
+Package: sshproxy-backend-mysql
+Architecture: all
+Depends: ${misc:Depends}, python (>= 2.4), sshproxy (= ${Source-Version}), python-mysql
+Description: sshproxy is an ssh gateway to apply ACLs on ssh connections
+ sshproxy is a pure python implementation of an ssh proxy.
+ It allows users to connect to remote sites without having to remember
+ the password or key of the remote sites.
+ .
+ This package provides mysql backend.
+
+Package: sshproxy-client
+Architecture: all
+Depends: ssh-client
+Description: sshproxy is an ssh gateway to apply ACLs on ssh connections
+ sshproxy is a pure python implementation of an ssh proxy.
+ It allows users to connect to remote sites without having to remember
+ the password or key of the remote sites.
+ .
+ This package provides clients to connect to sshproxy.
+
+Package: sshproxy-extra-plugins
+Architecture: all
+Depends: ${misc:Depends}, python (>= 2.4), sshproxy (= ${Source-Version})
+Description: sshproxy is an ssh gateway to apply ACLs on ssh connections
+ sshproxy is a pure python implementation of an ssh proxy.
+ It allows users to connect to remote sites without having to remember
+ the password or key of the remote sites.
+ .
+ This package provides extra plugins : console-extra, acl-funcs and
+ logusers

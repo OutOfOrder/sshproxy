@@ -1,0 +1,25 @@
+#!/usr/bin/make -f
+
+DEB_PYTHON_SYSTEM=pysupport
+
+include /usr/share/cdbs/1/rules/debhelper.mk
+include /usr/share/cdbs/1/class/python-distutils.mk
+
+DEB_PYTHON_PRIVATE_MODULES_DIRS := /usr/lib/sshproxy/acl_funcs /usr/lib/sshproxy/get_client_scripts /usr/lib/sshproxy/mysql_db /usr/lib/sshproxy/console_extra /usr/lib/sshproxy/file_db /usr/lib/sshproxy/logusers /usr/lib/sshproxy/spexpect
+
+clean::
+	rm -rf build
+
+binary-install/sshproxy::
+	echo 2.4- > debian/sshproxy/usr/lib/sshproxy/spexpect/.pyversion
+	echo 2.4- > debian/sshproxy/usr/lib/sshproxy/get_client_scripts/.pyversion
+	echo 2.4- > debian/sshproxy/usr/lib/sshproxy/file_db/.pyversion
+	cp gentoo/net-proxy/sshproxy/files/sshproxy.ini debian/sshproxy/usr/share/doc/sshproxy
+
+binary-install/sshproxy-backend-mysql::
+	echo 2.4- > debian/sshproxy-backend-mysql/usr/lib/sshproxy/mysql_db/.pyversion
+
+binary-install/sshproxy-extra-plugins::
+	echo 2.4- > debian/sshproxy-extra-plugins/usr/lib/sshproxy/acl_funcs/.pyversion
+	echo 2.4- > debian/sshproxy-extra-plugins/usr/lib/sshproxy/console_extra/.pyversion
+	echo 2.4- > debian/sshproxy-extra-plugins/usr/lib/sshproxy/logusers/.pyversion

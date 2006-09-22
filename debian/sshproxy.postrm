@@ -1,0 +1,26 @@
+#!/bin/sh -e
+
+case "$1" in
+    remove)
+        ;;
+
+    upgrade)
+        ;;
+
+    purge)
+        rm -rf /usr/lib/sshproxy
+        rm -rf /etc/sshproxy
+        update-rc.d sshproxy remove >/dev/null
+        userdel sshproxy >/dev/null 2>&1 || true
+        groupdel sshproxy >/dev/null 2>&1 || true
+        ;;
+
+    failed-upgrade|abort-install|abort-upgrade|disappear)
+        ;;
+
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+#DEBHELPER#
