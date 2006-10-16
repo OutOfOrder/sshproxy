@@ -2,14 +2,14 @@
 
 depend() {
 	need net
-	use logger
+	use logger mysql
 }
 
 start() {
 	ebegin "Starting SSH Proxy daemon"
 	start-stop-daemon --start --exec /usr/bin/sshproxyd -- \
-		--daemon --user ${SSHPROXYD_USER} \
-        --config-dir ${SSHPROXYD_CONFDIR} \
+		--daemon --user ${SSHPROXYD_USER:-sshproxy} \
+        --config-dir ${SSHPROXYD_CONFDIR:-/etc/sshproxy} \
         --pid /var/run/sshproxyd.pid
 	eend $?
 }
@@ -19,4 +19,3 @@ stop() {
 	start-stop-daemon --quiet --stop --pidfile /var/run/sshproxyd.pid
 	eend $?
 }
-
