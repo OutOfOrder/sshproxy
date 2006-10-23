@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 21, 12:52:18 by david
+# Last modified: 2006 Oct 23, 02:31:33 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -60,6 +60,17 @@ class Proxy(Registry):
 
             self.chan = self.transport.open_session()
             self.chan.settimeout(1.0)
+            self.x11chan = None
+            self.x11chanc = None
+            if hasattr(self.proxy_client, 'x11'):
+                x = self.proxy_client.x11
+                self.transport.client_object = self
+                self.x11req = self.chan.request_x11(
+                                                x.want_reply,
+                                                x.single_connection,
+                                                x.x11_auth_proto,
+                                                x.x11_auth_cookie,
+                                                x.x11_screen_number)
             self.open_connection()
 
         except Exception, e:
@@ -75,6 +86,20 @@ class Proxy(Registry):
                                     (self.name, proxy_client.username, now))
 
 ############################################################################
+
+    def check_x11_channel_request(self, chanid, origin_addr, origin_port):
+        from paramiko import OPEN_SUCCEEDED
+        from paramiko import OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
+
+        self.x11chanc = self.proxy_client.transport.open_x11_channel(
+                                                (origin_addr, origin_port))
+        if self.x11chanc:
+            return OPEN_SUCCEEDED
+        else:
+            return OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
+
+    def new_x11_channel(self, chan):
+        self.x11chan = chan
 
     def kill(self):
         self.transport.close()
@@ -338,6 +363,12 @@ class ProxyShell(Proxy):
         try:
             listen_fd = [self.msg, chan, client]
             while t.is_active():
+                if self.x11chan and self.x11chan not in listen_fd:
+                    # if there is an x11 channel established,
+                    # add it to the listening fds
+                    listen_fd.append(self.x11chan)
+                    listen_fd.append(self.x11chanc)
+
                 try:
                     r, w, e = select.select(listen_fd, [], [], 2)
                 except KeyboardInterrupt:
@@ -360,6 +391,35 @@ class ProxyShell(Proxy):
 
                 if self.msg in r:
                     self.handle_message()
+
+                try:
+                    # TODO: this block need some cleanup
+                    # TODO: implement this in ProxyCmd too
+                    if self.x11chan in r:
+                        if not self.server_to_client(self.x11chan,
+                                                     self.x11chanc,
+                                                     listen_fd):
+                            if self.x11chanc in listen_fd:
+                                del listen_fd[listen_fd.index(self.x11chanc)]
+                                #listen_fd.remove(listen_fd.index(self.x11chanc))
+                            if self.x11chan in listen_fd:
+                                del listen_fd[listen_fd.index(self.x11chan)]
+                            self.x11chan = self.x11chanc = None
+
+                    if self.x11chanc in r:
+                        if not self.server_to_client(self.x11chanc,
+                                                     self.x11chan,
+                                                     listen_fd):
+                            if self.x11chanc in listen_fd:
+                                del listen_fd[listen_fd.index(self.x11chanc)]
+                            if self.x11chan in listen_fd:
+                                del listen_fd[listen_fd.index(self.x11chan)]
+                            self.x11chan = self.x11chanc = None
+                except Exception, msg:
+                    import traceback, sys
+                    print traceback.format_exception(*sys.exc_info())
+                    raise
+
     
         finally:
             self.chan.shutdown_write()

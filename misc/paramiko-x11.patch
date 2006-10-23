@@ -1,0 +1,161 @@
+=== modified file 'paramiko/channel.py'
+--- paramiko/channel.py	2006-05-11 01:11:40 +0000
++++ paramiko/channel.py	2006-10-23 00:02:25 +0000
+@@ -150,6 +150,55 @@
+         self.transport._send_user_message(m)
+         self._wait_for_event()
+ 
++    def request_x11(self, want_reply=0, single_connection=0,
++                                        x11_auth_proto=None,
++                                        x11_auth_cookie=None,
++                                        x11_screen_number=0):
++        """
++        Request an x11 session on this channel.  If the server allows it,
++        further x11 requests can be made from the server to the client,
++        when an x11 application is run in a shell session.
++        
++        From the RFC4254:
++        It is RECOMMENDED that the 'x11 authentication cookie' that is sent
++        be a fake, random cookie, and that the cookie be checked and replaced
++        by the real cookie when a connection request is received.
++        
++        X11 connection forwarding should stop when the session channel is
++        closed.  However, already opened forwardings should not be
++        automatically closed when the session channel is closed.
++        
++        @param want_reply: if an ACK is needed (openssh do not set it)
++        @type want_reply: bool
++        @param single_connection: if True, only a single connection should be
++            forwarded.  No more connections will be forwarded after the first,
++            or after the session channel has been closed
++        @type single_connection: bool
++        @param x11_auth_proto: the name of the X11 authentication method used,
++            e.g., "MIT-MAGIC-COOKIE-1"
++        @type x11_auth_proto: string
++        @param x11_auth_cookie: MUST be hexadecimal encoded
++        @type x11_auth_cookie: string
++        @param x11_screen_number: the number of the x11 screen
++        @type x11_screen_number: int
++        """
++        if self.closed or self.eof_received or self.eof_sent or not self.active:
++            raise SSHException('Channel is not open')
++
++        m = Message()
++        m.add_byte(chr(MSG_CHANNEL_REQUEST))
++        m.add_int(self.remote_chanid)
++        m.add_string('x11-req')
++        m.add_boolean(want_reply)
++        m.add_boolean(single_connection)
++        m.add_string(x11_auth_proto)
++        m.add_string(x11_auth_cookie)
++        m.add_int(x11_screen_number)
++        self.event.clear()
++        self.transport._send_user_message(m)
++        if want_reply:
++            self._wait_for_event()
++
+     def invoke_shell(self):
+         """
+         Request an interactive shell session on this channel.  If the server
+@@ -905,8 +954,15 @@
+                 ok = server.check_channel_window_change_request(self, width, height, pixelwidth,
+                                                                 pixelheight)
+         else:
+-            self._log(DEBUG, 'Unhandled channel request "%s"' % key)
+-            ok = False
++            # support for unhandled channels in the server
++            if server is None or not hasattr(server,
++                                            'check_unhandled_channel_request'):
++                ok = False
++            else:
++                ok = server.check_unhandled_channel_request(self, key,
++                                                            want_reply, m)
++            if not ok:
++                self._log(DEBUG, 'Unhandled channel request "%s"' % key)
+         if want_reply:
+             m = Message()
+             if ok:
+
+=== modified file 'paramiko/transport.py'
+--- paramiko/transport.py	2006-10-15 01:56:28 +0000
++++ paramiko/transport.py	2006-10-22 23:36:06 +0000
+@@ -589,6 +589,22 @@
+         """
+         return self.open_channel('session')
+ 
++    def open_x11_channel(self, src_addr=None):
++        """
++        Request a new channel to the client, of type C{"x11"}.  This
++        is just an alias for C{open_channel('x11', src_addr=src_addr)}.
++
++        @param src_addr: the source address of the x11 server (port is the
++            x11 port, ie. 6010)
++        @type src_addr: (str, int)
++        @return: a new L{Channel}
++        @rtype: L{Channel}
++        
++        @raise SSHException: if the request is rejected or the session ends
++            prematurely
++        """
++        return self.open_channel('x11', src_addr=src_addr)
++
+     def open_channel(self, kind, dest_addr=None, src_addr=None):
+         """
+         Request a new channel to the server.  L{Channel}s are socket-like
+@@ -634,6 +650,9 @@
+                 m.add_int(dest_addr[1])
+                 m.add_string(src_addr[0])
+                 m.add_int(src_addr[1])
++            elif (kind == 'x11'):
++                m.add_string(src_addr[0])
++                m.add_int(src_addr[1])
+             self.channels[chanid] = chan = Channel(chanid)
+             self.channel_events[chanid] = event = threading.Event()
+             self.channels_seen[chanid] = True
+@@ -1781,7 +1800,33 @@
+         initial_window_size = m.get_int()
+         max_packet_size = m.get_int()
+         reject = False
+-        if not self.server_mode:
++        if kind == 'x11' and hasattr(self, 'client_object'):
++            # handle x11 requests comming from the server
++            # an attribute client_object must be set
++            # the client_object must have a method named
++            # check_x11_channel_request(chanid, orig_addr, orig_port)
++            # where chanid is the newly created channel identifier,
++            # orig_addr and orig_port are the parameters passed from
++            # the x11 server (see open_x11_channel for details)
++            # the client_object must also have a method new_x11_channel()
++            # (see ~55 lines below)
++            self.lock.acquire()
++            try:
++                my_chanid = self.channel_counter
++                while my_chanid in self.channels:
++                    self.channel_counter = (self.channel_counter + 1) & 0xffffff
++                    my_chanid = self.channel_counter
++                self.channel_counter = (self.channel_counter + 1) & 0xffffff
++            finally:
++                self.lock.release()
++            origin_addr = m.get_string()
++            origin_port = m.get_int()
++            reason = self.client_object.check_x11_channel_request(my_chanid,
++                                                    origin_addr, origin_port) 
++            if reason != OPEN_SUCCEEDED:
++                self._log(DEBUG, 'Rejecting "%s" channel request from client.' % kind)
++                reject = True
++        elif not self.server_mode:
+             self._log(DEBUG, 'Rejecting "%s" channel request from server.' % kind)
+             reject = True
+             reason = OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
+@@ -1816,6 +1861,10 @@
+             chan._set_transport(self)
+             chan._set_window(self.window_size, self.max_packet_size)
+             chan._set_remote_channel(chanid, initial_window_size, max_packet_size)
++            if kind == 'x11' and hasattr(self, 'client_object'):
++                # if the channel creation is OK, notify the client
++                # by calling its new_x11_channel() method
++                self.client_object.new_x11_channel(chan)
+         finally:
+             self.lock.release()
+         m = Message()
+

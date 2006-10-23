@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 20, 23:36:03 by david
+# Last modified: 2006 Oct 23, 02:28:51 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -34,6 +34,16 @@ from acl import ACLDB, ProxyNamespace
 from dispatcher import Dispatcher
 
 
+class X11Channel(object):
+    def __init__(self, channel, want_reply, m):
+        self.channel = channel
+        self.want_reply = want_reply
+        self.single_connection = m.get_boolean()
+        self.x11_auth_proto = m.get_string()
+        self.x11_auth_cookie = m.get_string()
+        self.x11_screen_number = m.get_int()
+
+
 class Server(Registry, paramiko.ServerInterface):
     _class_id = "Server"
     _singleton = True
@@ -50,7 +60,33 @@ class Server(Registry, paramiko.ServerInterface):
         self._remotes = {}
         self.exit_status = 0
 
+    def check_x11_request(self, channel, want_reply, m):
+        # from RFC4254, an x11-req message contains the following fields:
+        #
+        #       byte      SSH_MSG_CHANNEL_REQUEST
+        #       uint32    recipient channel
+        #       string    "x11-req"
+        #       boolean   want reply
+        #       boolean   single connection
+        #       string    x11 authentication protocol
+        #       string    x11 authentication cookie
+        #       uint32    x11 screen number
+        #
+        # The first 4 fields have been consumed by Channel._handle_request()
+        # The want_reply parameter is the 4th field, and m contains the rest
+
+        self.x11 = X11Channel(channel, want_reply, m)
+        return True
+
+
     ### STANDARD PARAMIKO SERVER INTERFACE
+    
+    def check_unhandled_channel_request(self, channel, kind, want_reply, m):
+        log.devdebug("check_unhandled_channel_request %s", kind)
+        if kind == 'x11-req':
+            return self.check_x11_request(channel, want_reply, m)
+        return False
+
 
     def check_global_request(self, kind, chanid):
         log.devdebug("check_global_request %s %s", kind, chanid)
@@ -64,7 +100,7 @@ class Server(Registry, paramiko.ServerInterface):
 
     def check_channel_request(self, kind, chanid):
         log.devdebug("check_channel_request %s %s", kind, chanid)
-        if kind in [ 'session', 'direct-tcpip', 'tcpip-forward' ]:
+        if kind in [ 'session', 'direct-tcpip', 'tcpip-forward', 'x11-req' ]:
             return paramiko.OPEN_SUCCEEDED
         log.debug('Ohoh! What is this "%s" channel type ?', kind)
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
