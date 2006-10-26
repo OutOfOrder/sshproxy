@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Oct 23, 02:28:51 by david
+# Last modified: 2006 Oct 26, 00:41:33 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,7 +25,7 @@ import paramiko
 from paramiko import AuthenticationException
 
 from registry import Registry
-import util, log, proxy
+import cipher, util, log, proxy
 from options import OptionParser
 from util import chanfmt
 from backend import Backend
@@ -67,6 +67,7 @@ class Server(Registry, paramiko.ServerInterface):
         #       uint32    recipient channel
         #       string    "x11-req"
         #       boolean   want reply
+        # m ->
         #       boolean   single connection
         #       string    x11 authentication protocol
         #       string    x11 authentication cookie
@@ -519,7 +520,8 @@ class Server(Registry, paramiko.ServerInterface):
         self.msg.request("set_client type=shell_session login=%s name=%s" % 
                                         (self.pwdb.sitedb.get_tags()['login'],
                                          self.pwdb.sitedb.get_tags()['name']))
-        conn = proxy.ProxyShell(self)
+        #conn = proxy.ProxyShell(self)
+        conn = proxy.ProxyShell(self.chan, self.connect_site(), self.msg)
         log.info("Connecting to %s", site)
         try:
             ret = conn.loop()
@@ -586,6 +588,65 @@ class Server(Registry, paramiko.ServerInterface):
 
         # Should never get there
         return False
+
+    def connect_site(self):
+        tags = {
+                'client': Backend().get_client_tags(),
+                'site': Backend().get_site_tags(),
+                'proxy': ProxyNamespace(),
+                }
+        name = '%s@%s' % (tags['site'].login,
+                          tags['site'].name)
+        hostkey = tags['proxy'].get('hostkey', None) or None
+
+        transport = paramiko.Transport((tags['site'].ip_address,
+                                    int(tags['site'].port)))
+        transport.start_client()
+
+        if hostkey is not None:
+            transport._preferred_keys = [ hostkey.get_name() ]
+
+            key = transport.get_remote_server_key()
+            if (key.get_name() != hostkey.get_name() 
+                                                or str(key) != str(hostkey)):
+                log.error('Bad host key from server (%s).' % servername)
+                raise AuthenticationError('Bad host key from server (%s).'
+                                                                % self.name)
+            log.info('Server host key verified (%s) for %s' % (key.get_name(), 
+                                                           self.name))
+
+        pkey = cipher.decipher(tags['site'].get('pkey', ''))
+        password = cipher.decipher(tags['site'].get('password', ''))
+
+        authentified = False
+        if pkey:
+            pkey = util.get_dss_key_from_string(pkey)
+            try:
+                transport.auth_publickey(tags['site'].login, pkey)
+                authentified = True
+            except AuthenticationException:
+                log.warning('PKey for %s was not accepted' % name)
+
+        if not authentified and password:
+            try:
+                transport.auth_password(tags['site'].login, password)
+                authentified = True
+            except AuthenticationException:
+                log.error('Password for %s is not valid' % name)
+                raise
+
+        if not authentified:
+            raise AuthenticationException('No valid authentication token for %s'
+                                                                % name)
+
+        chan = transport.open_session()
+        chan.settimeout(1.0)
+
+        return chan
+
+
+
+
 
 Server.register()
 
