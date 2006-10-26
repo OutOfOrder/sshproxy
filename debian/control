@@ -16,7 +16,7 @@ Description: sshproxy is an ssh gateway to apply ACLs on ssh connections
 
 Package: sshproxy-backend-mysql
 Architecture: all
-Depends: ${misc:Depends}, python (>= 2.4), sshproxy (= ${Source-Version}), python-mysql
+Depends: ${misc:Depends}, python (>= 2.4), sshproxy (= ${Source-Version}), python-mysqldb
 Description: sshproxy is an ssh gateway to apply ACLs on ssh connections
  sshproxy is a pure python implementation of an ssh proxy.
  It allows users to connect to remote sites without having to remember

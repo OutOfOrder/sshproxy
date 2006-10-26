@@ -1,3 +1,7 @@
+# Run sshproxyd at boot?
+
+SSHPROXYD_ENABLED="no"
+
 # Where is your sshproxy.ini file stored?
 
 SSHPROXYD_CONFDIR="/etc/sshproxy"

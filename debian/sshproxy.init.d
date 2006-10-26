@@ -22,6 +22,11 @@ if [ -f /etc/default/sshproxy ] ; then
 	. /etc/default/sshproxy
 fi
 
+if [ "$SSHPROXYD_ENABLED" = "no" ]; then
+	echo 'Please set SSHPROXYD_ENABLED="yes" in /etc/default/sshproxy'
+	exit 0
+fi
+
 set -e
 
 case "$1" in
