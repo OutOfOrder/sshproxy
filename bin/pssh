@@ -11,5 +11,34 @@ if [[ -z "${PROXY_USER}" ]]; then
    fi
 fi
 
-[ -n "$verbose" ] && echo ssh -tp $PROXY_PORT $PROXY_USER@$PROXY_HOST -- "$@"
-exec ssh -tp $PROXY_PORT $PROXY_USER@$PROXY_HOST -- "$@"
+function getfd () {
+    fd=$(ls -l /proc/$1/fd/$2)
+    echo "${fd##* }"
+}
+
+sep=
+opts=( )
+args=( "$@" )
+for arg in "${args[@]}"; do
+    shift
+    if [ "$arg" == "--" ]; then
+        sep=yes
+        break
+    fi
+    opts=( "${opts[@]}" "$arg" )
+done
+
+if [ "$sep" != "yes" ]; then
+    if [ "${#opts}" -gt 0 ]; then
+        set -- "${opts[@]}"
+    fi
+    unset opts
+fi
+
+OPTS="$OPTS ${opts[@]}"
+if tty -s && [ "$(getfd $$ 0)" = "$(getfd $$ 1)" ]; then
+    OPTS="-t $OPTS"
+fi
+
+[ -n "$verbose" ] && echo ssh $OPTS -p $PROXY_PORT $PROXY_USER@$PROXY_HOST -- "$@"
+exec ssh $OPTS -p $PROXY_PORT $PROXY_USER@$PROXY_HOST -- "$@"
