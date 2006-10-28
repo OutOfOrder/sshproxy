@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Oct 26, 00:41:33 by david
+# Last modified: 2006 Oct 29, 01:36:23 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -76,9 +76,25 @@ class Server(Registry, paramiko.ServerInterface):
         # The first 4 fields have been consumed by Channel._handle_request()
         # The want_reply parameter is the 4th field, and m contains the rest
 
+        # We cannot check ACL here since the site is not yet known
         self.x11 = X11Channel(channel, want_reply, m)
         return True
 
+    def check_x11_acl(self):
+        if not hasattr(self, 'x11'):
+            log.debug("X11Forwarding not requested by the client")
+            return False
+        proxyns = ProxyNamespace()
+        namespace = {
+                'client': Backend().get_client_tags(),
+                'site': Backend().get_site_tags(),
+                'proxy': proxyns,
+                }
+        if not (ACLDB().check('x11forwarding', **namespace)):
+            log.debug("X11Forwarding not allowed by ACLs")
+            return False
+        log.debug("X11Forwarding allowed by ACLs")
+        return True
 
     ### STANDARD PARAMIKO SERVER INTERFACE
     
@@ -461,8 +477,9 @@ class Server(Registry, paramiko.ServerInterface):
         self.msg.request("set_client type=scp_%s login=%s name=%s" % (scpdir,
                                          self.pwdb.sitedb.get_tags()['login'],
                                          self.pwdb.sitedb.get_tags()['name']))
+        conn = proxy.ProxyScp(self.chan, self.connect_site(), self.msg)
         try:
-            proxy.ProxyScp(self).loop()
+            conn.loop()
         except AuthenticationException, msg:
             self.chan.send("\r\n ERROR: %s." % msg +
                       "\r\n Please report this error "
@@ -490,7 +507,7 @@ class Server(Registry, paramiko.ServerInterface):
         self.msg.request("set_client type=remote_exec login=%s name=%s" % 
                                         (self.pwdb.sitedb.get_tags()['login'],
                                          self.pwdb.sitedb.get_tags()['name']))
-        conn = proxy.ProxyCmd(self)
+        conn = proxy.ProxyCmd(self.chan, self.connect_site(), self.msg)
         try:
             ret = conn.loop()
         except AuthenticationException, msg:
@@ -520,9 +537,8 @@ class Server(Registry, paramiko.ServerInterface):
         self.msg.request("set_client type=shell_session login=%s name=%s" % 
                                         (self.pwdb.sitedb.get_tags()['login'],
                                          self.pwdb.sitedb.get_tags()['name']))
-        #conn = proxy.ProxyShell(self)
-        conn = proxy.ProxyShell(self.chan, self.connect_site(), self.msg)
         log.info("Connecting to %s", site)
+        conn = proxy.ProxyShell(self.chan, self.connect_site(), self.msg)
         try:
             ret = conn.loop()
         except AuthenticationException, msg:

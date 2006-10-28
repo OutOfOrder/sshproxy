@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 17, 16:37:37 by david
+# Last modified: 2006 Oct 29, 01:13:17 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,6 +26,7 @@ from sshproxy import get_class
 from sshproxy.config import get_config, ConfigSection, path
 from sshproxy import keys
 from sshproxy.proxy import ProxyShell
+from sshproxy.backend import Backend
 
 class LogUsersConfigSection(ConfigSection):
     section_id = 'logusers'
@@ -68,20 +69,29 @@ class LoggedProxyShell(ProxyShell):
 
         ProxyShell.__reginit__(self, *args, **kw)
 
-        user = self.tags['client'].username
+        user = Backend().get_client_tags().username
         path = os.path.join(self.logdir, user)
         if not os.path.isdir(path):
             os.makedirs(path)
 
-        site = '%s@%s' % (self.tags['site'].login, self.tags['site'].name)
+        site_tags = Backend().get_site_tags()
+        site = '%s@%s' % (site_tags.login, site_tags.name)
         logfile = os.path.join(path, site)
         self.log = open(logfile, 'a')
 
-    def client_to_server(self, rx, tx, rfds, sz=4096):
-        x = rx.recv(sz)
-        self.log.write(self.translate(x))
-        self.log.flush()
-        return self.rx_tx(x, 'client', rx, tx, rfds, sz=4096)
+    def client_recv_data(self, source, name):
+        data = ProxyShell.recv_data(self, source, name)
+        #if name == 'client_chan':
+        if True:
+            for x in data:
+                self.log.write(self.translate(x))
+            self.log.flush()
+        return data
+
+    def copy_client(self, source, event, destination,
+                                         recv_data=None, send_data=None):
+        return self.copy(source, event, destination,
+                recv_data=LoggedProxyShell.client_recv_data)
 
     def __del__(self):
         self.log.close()
@@ -89,8 +99,5 @@ class LoggedProxyShell(ProxyShell):
 
     def translate(self, char):
         return self.tr_table.get(char, char)
-        if self.tr_table.has_key(char):
-            return self.tr_table[char]
-        return char
         
 
