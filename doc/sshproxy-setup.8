@@ -1,0 +1,129 @@
+.\" t
+.\" Process this file with
+.\" groff -man -Tascii sshproxy-setup.8
+.\"
+.TH SSHPROXY-SETUP 8 "OCTOBER 2006" Linux "User Manuals"
+
+.SH NAME
+sshproxy-setup \- sshproxy configurator
+
+.SH SYNOPSIS
+
+.B  sshproxy-setup [--config-dir \fIcfgdir\fB] [--user \fIuser\fB]
+    Display a menu to edit configuration.
+
+.B  sshproxy-setup [--config-dir \fIcfgdir\fB] [--user \fIuser\fB] --add-admin \fIadmin\fR
+    Add an administrator to \fIsshproxyd\fR(8) database.
+
+.B  sshproxy-setup [--config-dir \fIcfgdir\fB] [--user \fIuser\fB] --cipher \fIcipher\fR [--keep] [--dry-run]
+    Recipher the site database with a new cipher.
+
+
+.SH DESCRIPTION
+
+.I sshproxy-setup
+is a front-end to configure the \fIsshproxyd\fR daemon.
+
+If no other \fIoptions\fR than --config-dir and --user are given,
+\fIsshproxy-setup\fR will show a menu allowing the administrator to edit the
+\fRsshproxy.ini\fR main configuration file.
+
+.SH OPTIONS
+
+.B "--version"
+.RS
+Show program's version number and exit.
+.RE
+
+.B "--help (-h)"
+.RS
+Display a short help message.
+.RE
+
+.B "--config-dir (-c)"
+.RS
+Specify a configuration directory where lies the main configuration file
+\fIsshproxy.ini\fR and the private DSA private key \fIid_dsa\fR.
+Default value is \fI~/.sshproxy\fR.
+.RE
+
+.B "--user (-u)"
+.RS
+Give configuration files ownership to \fIuser\fR.
+This option is mandatory if \fIsshproxyd\fR(8) is run as root.
+.RE
+
+.B "--add-admin"
+.RS
+Add a new admin in the database. This works by first adding a new user in the
+client database, then it adds a few ACL rules in the ACL database for the new
+\fIadmin\fR to be able to connect to the \fIsshproxyd\fR(8) console with
+\fBunlimited\fR rights. This is not the way to add users!
+.RE
+
+.B "--cipher"
+.RS
+Recipher the site database with a new cipher engine. Reciphering from blowfish
+to blowfish is not supported, so you may want to recipher to base64 first, then to blowfish.
+The \fIcipher\fR engine can be one of \fBplain\fR, \fBbase64\fR or
+\fBblowfish\fR.
+.RE
+
+.B "--keep (-k)" (applies to --cipher only)
+.RS
+When reciphering to blowfish, don't ask for a passphrase but use the one
+already present in \fIsshproxy.ini\fR(5).
+.RE
+
+.B "--dry-run (-n)" (applies to --cipher only)
+.RS
+When reciphering, don't do anything but displays passwords
+(old cipher / plain / new cipher). Useful when developping a new cipher engine.
+.RE
+
+.SH FILES
+
+.I ~/.sshproxy/sshproxy.ini
+.RS
+The main configuration file. See \fIsshproxy.ini\fR for further details.
+.RE
+
+.SH ENVIRONMENT
+
+.IP SSHPROXY_CONFIG
+If non-null the full path to the configuration directory. Equivalent to the
+\fB-c\fR option.
+
+.IP INITD_STARTUP
+The command to restart the proxy. \fIsshproxy-setup\fR will display this
+command at exit to recall the administrator how to restart \fIsshproxyd\fI(8).
+Mainly useful when running sshproxy-setup in the postinstall hook of a
+distribution package.
+
+.SH BUGS
+
+None known.
+
+.RE
+You can report any bug found on the sshproxy mailing list:
+
+.RS
+sshproxy@penguin.fr
+
+.SH AUTHOR
+
+David Guerizec <david@guerizec.net>
+
+.SH "SEE ALSO"
+
+.BR sshproxyd (8),
+.BR sshproxy.ini (5),
+.BR pssh (1),
+.BR pscp (1),
+
+The sshproxy home page: <\fIhttp://penguin.fr/sshproxy/\fR>
+
+The sshproxy online documentation:
+.RS
+<\fIhttp://penguin.fr/sshproxy/wiki/SshProxy/DocV0.5\fR>
+

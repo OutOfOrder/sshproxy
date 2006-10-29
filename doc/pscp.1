@@ -1,0 +1,113 @@
+.\" t
+.\" Process this file with
+.\" groff -man -Tascii pssh.1
+.\"
+.TH SSHPROXY 8 "OCTOBER 2006" Linux "User Manuals"
+
+.SH NAME
+pscp \- sshproxy secure copy (remote file copy program)
+
+.SH SYNOPSIS
+
+.B  pscp [\fIscp-options\fR] [\fIuser\fR@]\fIsite\fR:\fIremote_file\fR \fIlocal_file\fR
+
+.B  pscp [\fIscp-options\fR] \fIlocal_file\fR [\fIuser\fR@]\fIsite\fR:\fIremote_file\fR
+      
+.SH DESCRIPTION
+
+.I pscp
+(sshproxy secure copy client) is a program to securely copy files from/to
+the local machine to/from a remote host, through a special proxy called
+\fIsshproxy\fR. It is actually a \fIbash\fR(1) wrapper around the official
+\fIscp\fR(1) client.
+
+You can give options to the official \fIscp\fR(1) client by putting them on the
+command line.
+
+To give the address of the \fIsshproxy\fR server, you may set some environment
+variables, or copy and edit the \fIpscp\fR script. See the section
+\fBENVIRONMENT\fR below.
+
+To copy files from/to a remote host, you need to know its symbolic name (see
+\fIpssh\fR(1) for details), and put it on the command line as
+\fIuser@site\fR. \fIuser\fR is the remote username, and \fIsite\fR is the
+symbolic name of the remote host. If \fIuser\fR is not given, a default user
+will be chosen by the proxy - this differs from \fIscp\fR(1) which use the
+currently logged in user (id -un).
+
+Unlike \fIscp\fR(1), \fIpscp\fR and \fIsshproxyd\fR(8) do not yet support
+copies between two remote hosts.
+
+.SH OPTIONS
+
+There are no options used by \fIpscp\fR. See \fIscp\fR(1) for a list of
+options.
+
+.SH FILES
+
+.I /usr/bin/pscp
+.RS
+The wrapper script around \fIscp\fR(1) to copy files through \fIsshproxy\fR.
+.RE
+
+.SH ENVIRONMENT
+
+The following environment variables may be set in the user's \fI.bashrc\fR or
+equivalent.
+
+.IP SSHPROXY_HOST
+The host on which the \fIsshproxyd\fR(8) daemon runs.
+Defaults to \fIlocalhost\fR.
+
+.IP SSHPROXY_PORT
+The host port on which the \fIsshproxyd\fR(8) daemon runs.
+Defaults to \fI2242\fR.
+
+.IP SSHPROXY_USER
+The username to authenticate on the \fIsshproxyd\fR(8) daemon.
+Defaults to \fI$USER\fR, or \fIadmin\fR if $USER is not set or empty.
+
+.SH DIAGNOSTICS
+
+In case of problem connecting to the \fIsshproxyd\fR(8) server, one can set
+the environment variable \fI$verbose\fR to check the generated \fIssh\fR(1)
+command line.
+ 
+.SH EXAMPLES
+
+To copy a file to the \fIwebserver\fR remote host:
+
+    pscp ./httpd.conf webmaster@webserver:/etc/apache2/httpd.conf
+
+To copy a file from \fIdb_host\fR as user \fIadmin\fR on the proxy:
+
+    USER=admin pscp root@db_host:/backup/latest.dar /data/backup/db_host/
+
+.SH BUGS
+
+Copies between two remote hosts are not yet supported.
+
+See \fIsshproxyd\fR(8)/BUGS for the current limitations and features of
+\fIsshproxy\fR.
+
+.RE
+You can report any bug found on the sshproxy mailing list:
+
+.RS
+<sshproxy@penguin.fr>
+
+.SH AUTHOR
+David Guerizec <david@guerizec.net>
+
+.SH "SEE ALSO"
+.BR pssh (1),
+.BR sshproxyd (8),
+.BR sshproxy-setup (1),
+.BR sshproxy.ini (5),
+
+The sshproxy home page: <\fIhttp://penguin.fr/sshproxy/\fR>
+
+The sshproxy online documentation:
+.RS
+<\fIhttp://penguin.fr/sshproxy/wiki/SshProxy/DocV0.5\fR>
+
