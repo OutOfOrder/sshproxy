@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 20, 01:25:02 by david
+# Last modified: 2006 Oct 29, 16:09:12 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -85,9 +85,7 @@ class Daemon(Registry):
 
     def rq_nb_con(self, id, *args):
         """
-        nb_con
-
-        Get number of currently active connections.
+        Get number of currently active client connections.
         """
         return '%d' % len(self.clients)
 
@@ -98,8 +96,6 @@ class Daemon(Registry):
 
     def rq_watch(self, id, *args):
         """
-        watch
-
         Display connected users.
         """
         s = []
@@ -189,7 +185,7 @@ class Daemon(Registry):
         args = request.split()
 
         if args[0] == 'help':
-            resp = []
+            resp = ['Available administration commands:\n']
             methnames = [ m for m in dir(self) if m[:3] == 'rq_' ]
             methnames.sort()
             for methname in methnames:
@@ -197,8 +193,11 @@ class Daemon(Registry):
                 doc = getattr(method, '__doc__', None)
                 if doc:
                     # display only documented methods
-                    resp.append('\n%s:' % methname[3:])
-                    resp.append('  '+ '\n  '.join(doc.split('\n')))
+                    resp.append('%s:' % methname[3:])
+                    resp.append('  '+ '\n  '.join([ l.strip()
+                                                    for l in doc.split('\n')
+                                                    if l.strip()]))
+                    resp.append('\n')
 
             return '\n'.join(resp)
 
