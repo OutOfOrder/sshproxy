@@ -28,7 +28,7 @@ stack with the \fBparamiko\fR library.
 .B "--config-dir (-c)"
 .RS
 Specify a configuration directory where \fIsshproxyd\fR will find the main
-configuration file \fIsshproxy.ini\fR and the private DSA private key
+configuration file \fIsshproxy.ini\fR(5) and the private DSA private key
 \fIid_dsa\fR. Default value is \fI~/.sshproxy\fR.
 .RE
 
@@ -41,12 +41,12 @@ in the background and runs forever, waiting for incomming connections.
 .B "--user (-u)"
 .RS
 Run \fIsshproxyd\fR as \fIuser\fR.
-This option is mandatory if \fIsshproxyd\fR(8) is run as root.
+This option is mandatory if \fIsshproxyd\fR is run as root.
 .RE
 
 .B "--pid (-p)"
 .RS
-Record the process id of the daemon in the file \fIpidfile\R. Default is 
+Record the process id of the daemon in the file \fIpidfile\fR. Default is 
 \fI/var/run/sshproxyd.pid\fR.
 .RE
 
