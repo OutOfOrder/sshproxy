@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Oct 29, 01:36:23 by david
+# Last modified: 2006 Nov 08, 00:32:33 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -58,7 +58,7 @@ class Server(Registry, paramiko.ServerInterface):
         self.event = threading.Event()
         self.args = []
         self._remotes = {}
-        self.exit_status = 0
+        self.exit_status = -1
 
     def check_x11_request(self, channel, want_reply, m):
         # from RFC4254, an x11-req message contains the following fields:
@@ -509,7 +509,7 @@ class Server(Registry, paramiko.ServerInterface):
                                          self.pwdb.sitedb.get_tags()['name']))
         conn = proxy.ProxyCmd(self.chan, self.connect_site(), self.msg)
         try:
-            ret = conn.loop()
+            ret, self.exit_status = conn.loop()
         except AuthenticationException, msg:
             self.chan.send("\r\n ERROR: %s." % msg +
                       "\r\n Please report this error "
@@ -540,7 +540,7 @@ class Server(Registry, paramiko.ServerInterface):
         log.info("Connecting to %s", site)
         conn = proxy.ProxyShell(self.chan, self.connect_site(), self.msg)
         try:
-            ret = conn.loop()
+            ret, self.exit_status = conn.loop()
         except AuthenticationException, msg:
             self.chan.send("\r\n ERROR: %s." % msg +
                            "\r\n Please report this error "

@@ -36,8 +36,12 @@ if [ "$sep" != "yes" ]; then
 fi
 
 OPTS="$OPTS ${opts[@]}"
-if tty -s && [ "$(getfd $$ 0)" = "$(getfd $$ 1)" ]; then
-    OPTS="-t $OPTS"
+# force tty allocation if this is a shell session
+if [ "${1#--}" = "$1" -a $# -eq 1 ]; then
+    # don't allocate a tty if there is no local tty
+    if tty -s && [ "$(getfd $$ 0)" = "$(getfd $$ 1)" ]; then
+        OPTS="-t $OPTS"
+    fi
 fi
 
 [ -n "$verbose" ] && echo ssh $OPTS -p $PROXY_PORT $PROXY_USER@$PROXY_HOST -- "$@"

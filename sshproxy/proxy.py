@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Oct 29, 01:42:08 by david
+# Last modified: 2006 Nov 08, 00:42:17 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -167,26 +167,23 @@ class Proxy(Registry):
     ########## File descriptor related methods ###########################
 
     def poll(self):
-        try:
-            return self.poller.poll(self.poll_timeout)
-        except:
-            pass
+        return self.poller.poll(self.poll_timeout)
 
     def poll_register(self, chan, event_mask, callback, *args):
         fd = chan.fileno()
-        #try:
-        #    log.debug("REGISTER chan #%d (%s)" % (fd, chan.get_name()))
-        #except:
-        #    log.debug("REGISTER chan #%d" % (fd))
+        try:
+            log.debug("REGISTER chan #%d (%s)" % (fd, chan.get_name()))
+        except:
+            log.debug("REGISTER chan #%d" % (fd))
         self.poller.register(fd, event_mask)
         self.listeners[fd] = [chan, callback] + list(args)
 
     def poll_unregister(self, chan):
         fd = chan.fileno()
-        #try:
-        #    log.debug("UNREGISTER chan #%d (%s)" % (fd, chan.get_name()))
-        #except:
-        #    log.debug("UNREGISTER chan #%d" % (fd))
+        try:
+            log.debug("UNREGISTER chan #%d (%s)" % (fd, chan.get_name()))
+        except:
+            log.debug("UNREGISTER chan #%d" % (fd))
         if fd in self.listeners:
             self.poller.unregister(fd)
             del self.listeners[fd]
@@ -202,12 +199,14 @@ class Proxy(Registry):
                 except TypeError, msg:
                     raise
 
+        exit_status = self.site_chan.recv_exit_status()
         if self.min_chan > 1:
             self.watch_x11.close()
             self.signal_x11.close()
+        self.poll_unregister(self.msg_chan)
         self.msg_chan.close()
         log.debug("Ending proxying")
-        return util.CLOSE
+        return util.CLOSE, exit_status
 
     def callback(self, fd, event):
         if fd not in self.listeners:
@@ -237,49 +236,34 @@ class Proxy(Registry):
 
     def copy(self, source, event, destination,
                                   recv_data=recv_data, send_data=send_data):
-        # Take care to pass unbound methods in recv_data and send_data!!
-        sname = source.get_name()
-        dname = destination.get_name()
-        if source.closed:
-            if sname == 'site_chan':
-                xs = source.recv_exit_status()
-                destination.send_exit_status(xs)
-            destination.close()
-            self.poll_unregister(source)
-            log.debug("source %s closed" % sname)
+        sname = source.name
+        dname = destination.name
 
-        if destination.closed:
-            source.shutdown_write()
-            self.poll_unregister(destination)
-            log.debug("destination %s closed" % dname)
-            return
+        log.debug("source %s event:%d %s" % (sname, event, source.recv_stderr_ready()))
+        if source.recv_stderr_ready():
+            destination.send_stderr(source.recv_stderr(32))
 
-        if source.closed:
+        if source.eof_received and not source.recv_stderr_ready():
+            log.debug("source %s received eof" % sname)
+            if destination.eof_sent:
+                self.poll_unregister(source)
+                source.shutdown_write()
+                self.poll_unregister(destination)
+                destination.shutdown_read()
+            else:
+                destination.shutdown_write()
             return
 
         data = recv_data(self, source, sname)
-
         size = len(data)
-        if size == 0 and not destination.eof_sent:
-            # channel closed
-            log.debug("source %s half-closed" % sname)
-            destination.shutdown_write()
-            if destination.eof_sent:
-                source.close()
-            else:
-                source.shutdown_read()
-            return 'source closed'
-        
+
+        if size == 0:
+            log.debug("time to close destination %s" % (dname))
+
         sent = send_data(self, destination, data, size, dname)
 
-        if sent == 0 and not destination.eof_sent:
-            # channel closed
-            log.debug("destination %s half-closed" % dname)
-            source.shutdown_read()
-            destination.shutdown_write()
-            return 'destination closed'
-
-        return None
+        if sent == 0:
+            log.debug("time to close source %s" % (sname))
 
     def x11_copy(self, source, event, destination):
         result = self.copy(source, event, destination)
@@ -297,7 +281,7 @@ class Proxy(Registry):
     copy_x11_client = x11_copy
     copy_x11_site = x11_copy
 
-        
+
 
 
 class ProxyScp(Proxy):
