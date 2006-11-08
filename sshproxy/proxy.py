@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 08, 00:42:17 by david
+# Last modified: 2006 Nov 08, 02:56:41 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -48,8 +48,6 @@ class Proxy(Registry):
         self.msg_chan = msg_chan
         self.bufsize = {}
         self.listeners = {}
-        self.x11c_channels = {}
-        self.x11s_channels = {}
         self.poller = select.poll()
 
         client_chan.set_name('client_chan')
@@ -58,79 +56,14 @@ class Proxy(Registry):
         self.poll_register(site_chan, POLLREAD, self.copy_site, client_chan)
         self.poll_register(msg_chan, POLLREAD, self.handle_message)
 
-        self.setup_x11()
-
         self.open_connection()
+
+    def __del__(self):
+        # derive this method for extra cleanup
+        pass
 
     def open_connection(self):
         raise NotImplemented
-
-    ########## X11 channels ##############################################
-    def setup_x11(self):
-        if self.server.check_x11_acl():
-            x = self.server.x11
-            self.site_chan.transport.client_object = self
-            self.x11req = self.site_chan.request_x11(x.want_reply,
-                                                     x.single_connection,
-                                                     x.x11_auth_proto,
-                                                     x.x11_auth_cookie,
-                                                     x.x11_screen_number)
-            msg = Message()
-            self.watch_x11 = msg.get_child_fd()
-            self.signal_x11 = msg.get_parent_fd()
-            # this fd is registered to unblock poll() when a new x11
-            # channel is available
-            self.poll_register(self.watch_x11, POLLREAD, self.eat_byte)
-            self.min_chan += 1
-
-    def eat_byte(self, chan, event):
-        self.watch_x11.read(1)
-
-    def check_x11_channel_request(self, chanid, origin_addr, origin_port):
-        log.debug("Channel x11 #%d from %s:%s" % (chanid, origin_addr,
-                                                          origin_port))
-        x11_client = self.client_chan.transport.open_x11_channel(
-                                                (origin_addr, origin_port))
-        if x11_client:
-            x11_client.set_name("x11c%s" % x11_client.get_id())
-            x11_client.settimeout(0.0)
-            self.x11c_channels[chanid] = x11_client
-            return OPEN_SUCCEEDED
-        else:
-            return OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
-
-    def new_x11_channel(self, chan):
-        chanid = chan.get_id()
-        chan.settimeout(0.0)
-        self.x11s_channels[chanid] = chan
-        chan.set_name("x11s%s" % chanid)
-        self.poll_register(chan, POLLREAD, self.copy_x11_site,
-                                 self.x11c_channels[chanid])
-        self.poll_register(self.x11c_channels[chanid], POLLREAD,
-                                 self.copy_x11_client, chan)
-        # let's signal there is a new channel available
-        self.signal_x11.write('x')
-
-    def close_x11_channel_pair(self, chan):
-        chanid = None
-        if chan in self.x11s_channels.values():
-            chanid = chan.get_id()
-        else:
-            for id, ch in self.x11c_channels.items():
-                if chan is ch:
-                    chanid = id
-                    break
-
-        if chanid is None:
-            # this should not happen
-            return # XXX: raise exception ?
-
-        self.poll_unregister(self.x11s_channels[chanid])
-        self.poll_unregister(self.x11c_channels[chanid])
-        del self.x11s_channels[chanid]
-        del self.x11c_channels[chanid]
-
-    ########## end X11 channels ##########################################
 
     ########## Messaging with parent daemon ##############################
 
@@ -200,9 +133,6 @@ class Proxy(Registry):
                     raise
 
         exit_status = self.site_chan.recv_exit_status()
-        if self.min_chan > 1:
-            self.watch_x11.close()
-            self.signal_x11.close()
         self.poll_unregister(self.msg_chan)
         self.msg_chan.close()
         log.debug("Ending proxying")
@@ -265,21 +195,9 @@ class Proxy(Registry):
         if sent == 0:
             log.debug("time to close source %s" % (sname))
 
-    def x11_copy(self, source, event, destination):
-        result = self.copy(source, event, destination)
-        if result is not None:
-            if result == 'source closed':
-                self.close_x11_channel_pair(source)
-            elif result == 'destination closed':
-                self.close_x11_channel_pair(destination)
-
-        return result
-
     # define default copy functions
     copy_client = copy
     copy_site = copy
-    copy_x11_client = x11_copy
-    copy_x11_site = x11_copy
 
 
 
@@ -293,16 +211,171 @@ class ProxyScp(Proxy):
                                            proxy['scp_path']))
         self.site_chan.exec_command('scp %s %s' % (proxy['scp_args'], 
                                                    proxy['scp_path']))
-    def setup_x11(self):
-        pass
 
 ProxyScp.register()
 
+class ProxySession(Proxy):
+    """
+    Implements X11 forwarding, port forwarding and reverse port forwarding.
+    """
+    def open_connection(self):
+        self.x11c_channels = {}
+        self.x11s_channels = {}
+        self.setup_x11()
+        self.setup_reverse_port_forwarding()
+        self.setup_direct_port_forwarding()
 
-class ProxyCmd(Proxy):
+    def __del__(self):
+        if hasattr(self, 'watch_x11'):
+            self.watch_x11.close()
+        if hasattr(self, 'signal_x11'):
+            self.signal_x11.close()
+
+    ########## Reverse Port Forwarding ###################################
+    def setup_reverse_port_forwarding(self):
+        if self.server.check_reverse_port_forwarding():
+            self.site_chan.transport.client_object = self
+            ip = self.server.tcpip_forward_ip
+            port = self.server.tcpip_forward_port
+            msg = Message()
+            self.watch_x11 = msg.get_child_fd()
+            self.signal_x11 = msg.get_parent_fd()
+            try:
+                ret = self.site_chan.transport.global_request('tcpip-forward',
+                                                        (ip, int(port)), True)
+                if not ret:
+                    raise Exception('Denied')
+            except Exception, m:
+                log.debug('An exception occured while opening a pfwd chan: %s' %
+                                                                            m)
+                self.client_chan.send('Port Forwarding to %s:%s forbidden\n' %
+                                                                (ip, port))
+                self.allow_reverse_port_forwarding = False
+            else:
+                self.allow_reverse_port_forwarding = True
+
+    def check_forwarded_channel_request(self, chanid, origin, destination):
+        log.debug("Channel rfwd #%d from %s:%s to %s:%s" % (chanid,
+                                            origin[0], origin[1],
+                                            destination[0], destination[1]))
+        fwd_client = self.client_chan.transport.open_channel('forwarded-tcpip',
+                                                        origin, destination)
+        if fwd_client:
+            fwd_client.set_name("fwdc%s" % fwd_client.get_id())
+            fwd_client.settimeout(0.0)
+            self.x11c_channels[chanid] = fwd_client
+            return OPEN_SUCCEEDED
+        else:
+            return OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
+
+    def new_forwarded_channel(self, chan):
+        chanid = chan.get_id()
+        chan.settimeout(0.0)
+        self.x11s_channels[chanid] = chan
+        chan.set_name("fwds%s" % chanid)
+        self.poll_register(chan, POLLREAD, self.copy_x11_site,
+                                 self.x11c_channels[chanid])
+        self.poll_register(self.x11c_channels[chanid], POLLREAD,
+                                 self.copy_x11_client, chan)
+        # let's signal there is a new channel available
+        self.signal_x11.write('x')
+
+
+    ########## /Reverse Port Forwarding ##################################
+
+    ########## Port Forwarding ###########################################
+    def setup_direct_port_forwarding(self):
+        pass
+    ########## /Port Forwarding ##########################################
+
+    ########## X11 channels ##############################################
+    def setup_x11(self):
+        if self.server.check_x11_acl():
+            x = self.server.x11
+            self.site_chan.transport.client_object = self
+            self.x11req = self.site_chan.request_x11(x.want_reply,
+                                                     x.single_connection,
+                                                     x.x11_auth_proto,
+                                                     x.x11_auth_cookie,
+                                                     x.x11_screen_number)
+            msg = Message()
+            self.watch_x11 = msg.get_child_fd()
+            self.signal_x11 = msg.get_parent_fd()
+            # this fd is registered to unblock poll() when a new x11
+            # channel is available
+            self.poll_register(self.watch_x11, POLLREAD, self.eat_byte)
+            self.min_chan += 1
+
+    def eat_byte(self, chan, event):
+        self.watch_x11.read(1)
+
+    def check_x11_channel_request(self, chanid, origin_addr, origin_port):
+        log.debug("Channel x11 #%d from %s:%s" % (chanid, origin_addr,
+                                                          origin_port))
+        x11_client = self.client_chan.transport.open_x11_channel(
+                                                (origin_addr, origin_port))
+        if x11_client:
+            x11_client.set_name("x11c%s" % x11_client.get_id())
+            x11_client.settimeout(0.0)
+            self.x11c_channels[chanid] = x11_client
+            return OPEN_SUCCEEDED
+        else:
+            return OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
+
+    def new_x11_channel(self, chan):
+        chanid = chan.get_id()
+        chan.settimeout(0.0)
+        self.x11s_channels[chanid] = chan
+        chan.set_name("x11s%s" % chanid)
+        self.poll_register(chan, POLLREAD, self.copy_x11_site,
+                                 self.x11c_channels[chanid])
+        self.poll_register(self.x11c_channels[chanid], POLLREAD,
+                                 self.copy_x11_client, chan)
+        # let's signal there is a new channel available
+        self.signal_x11.write('x')
+
+    def close_x11_channel_pair(self, chan):
+        chanid = None
+        if chan in self.x11s_channels.values():
+            chanid = chan.get_id()
+        else:
+            for id, ch in self.x11c_channels.items():
+                if chan is ch:
+                    chanid = id
+                    break
+
+        if chanid is None:
+            # this should not happen
+            return # XXX: raise exception ?
+
+        self.poll_unregister(self.x11s_channels[chanid])
+        self.poll_unregister(self.x11c_channels[chanid])
+        del self.x11s_channels[chanid]
+        del self.x11c_channels[chanid]
+
+    def x11_copy(self, source, event, destination):
+        result = self.copy(source, event, destination)
+        if result is not None:
+            if result == 'source closed':
+                self.close_x11_channel_pair(source)
+            elif result == 'destination closed':
+                self.close_x11_channel_pair(destination)
+
+        return result
+
+    copy_x11_client = x11_copy
+    copy_x11_site = x11_copy
+
+    ########## end X11 channels ##########################################
+
+
+
+class ProxyCmd(ProxySession):
     _class_id = 'ProxyCmd'
 
     def open_connection(self):
+        ProxySession.open_connection(self)
+
         proxy = ProxyNamespace()
         server = self.server
         log.info('Executing: %s' % (proxy['cmdline']))
@@ -317,10 +390,12 @@ ProxyCmd.register()
 
 
 
-class ProxyShell(Proxy):
+class ProxyShell(ProxySession):
     _class_id = 'ProxyShell'
 
     def open_connection(self):
+        ProxySession.open_connection(self)
+
         server = self.server
         if hasattr(server, 'term'):
             self.site_chan.get_pty(server.term,

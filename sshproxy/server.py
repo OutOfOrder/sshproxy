@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 08, 00:32:33 by david
+# Last modified: 2006 Nov 08, 02:28:16 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -96,6 +96,13 @@ class Server(Registry, paramiko.ServerInterface):
         log.debug("X11Forwarding allowed by ACLs")
         return True
 
+    def check_reverse_port_forwarding(self):
+        if (hasattr(self, 'tcpip_forward_ip') and
+            hasattr(self, 'tcpip_forward_port')):
+            # TODO: check for ACL
+            return True
+        return False
+
     ### STANDARD PARAMIKO SERVER INTERFACE
     
     def check_unhandled_channel_request(self, channel, kind, want_reply, m):
@@ -105,19 +112,23 @@ class Server(Registry, paramiko.ServerInterface):
         return False
 
 
-    def check_global_request(self, kind, chanid):
-        log.devdebug("check_global_request %s %s", kind, chanid)
+    def check_global_request(self, kind, m):
+        log.devdebug("check_global_request %s", kind)
         # XXX: disabled for the moment
-        return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
+        #return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
         if kind in [ 'tcpip-forward' ]:
-            return paramiko.OPEN_SUCCEEDED
+            self.tcpip_forward_ip = m.get_string()
+            self.tcpip_forward_port = m.get_int()
+            log.debug('tcpip-forward %s:%s' % (self.tcpip_forward_ip, self.tcpip_forward_port))
+            # TODO: check ACL
+            return (self.tcpip_forward_port,)
         log.debug('Ohoh! What is this "%s" channel type ?', kind)
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
 
     def check_channel_request(self, kind, chanid):
         log.devdebug("check_channel_request %s %s", kind, chanid)
-        if kind in [ 'session', 'direct-tcpip', 'tcpip-forward', 'x11-req' ]:
+        if kind in [ 'session', 'direct-tcpip', 'forwarded-tcpip', 'x11-req' ]:
             return paramiko.OPEN_SUCCEEDED
         log.debug('Ohoh! What is this "%s" channel type ?', kind)
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
