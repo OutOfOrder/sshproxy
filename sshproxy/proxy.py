@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 08, 02:56:41 by david
+# Last modified: 2006 Nov 11, 12:32:01 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,7 +22,9 @@
 
 from select import POLLIN, POLLPRI, POLLOUT, POLLERR, POLLHUP, POLLNVAL
 import select
+import socket
 
+from paramiko import Channel
 from paramiko import OPEN_SUCCEEDED
 from paramiko import OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
@@ -36,6 +38,7 @@ POLLREAD = POLLIN | POLLPRI | POLLHUP | POLLERR | POLLNVAL
 #unused: POLLWRITE = POLLOUT | POLLHUP | POLLERR | POLLNVAL
 
 class Proxy(Registry):
+    # TODO: keepalive, key renegotiation, connection timeout
     default_bufsize = 4096
     poll_timeout = None
     min_chan = 1
@@ -108,8 +111,12 @@ class Proxy(Registry):
             log.debug("REGISTER chan #%d (%s)" % (fd, chan.get_name()))
         except:
             log.debug("REGISTER chan #%d" % (fd))
-        self.poller.register(fd, event_mask)
-        self.listeners[fd] = [chan, callback] + list(args)
+        if fd not in self.listeners:
+            self.poller.register(fd, event_mask)
+            self.listeners[fd] = [chan, callback] + list(args)
+            return True
+        else:
+            return False
 
     def poll_unregister(self, chan):
         fd = chan.fileno()
@@ -120,23 +127,38 @@ class Proxy(Registry):
         if fd in self.listeners:
             self.poller.unregister(fd)
             del self.listeners[fd]
+            return True
+        else:
+            return False
 
 
     def loop(self):
         log.debug("Starting proxying")
-        while len(self.listeners) > self.min_chan: # msg is the last one
-            for channels in self.poll():
-                try:
-                    fd, event = channels
-                    self.callback(fd, event)
-                except TypeError, msg:
-                    raise
+        try:
+            while len(self.listeners) > self.min_chan: # msg is the last one
+                for channels in self.poll():
+                    try:
+                        fd, event = channels
+                        self.callback(fd, event)
+                    except TypeError, msg:
+                        raise
 
-        exit_status = self.site_chan.recv_exit_status()
-        self.poll_unregister(self.msg_chan)
-        self.msg_chan.close()
-        log.debug("Ending proxying")
-        return util.CLOSE, exit_status
+            exit_status = self.site_chan.recv_exit_status()
+            self.poll_unregister(self.msg_chan)
+            self.msg_chan.close()
+            log.debug("Ending proxying")
+            return util.CLOSE, exit_status
+        except Exception, m:
+            for c in self.listeners:
+                if not isinstance(c, Channel):
+                    continue
+                try:
+                    self.poll_unregister(c)
+                    c.close()
+                except:
+                    pass
+            log.exception("An exception occured %s" % repr(m))
+            raise
 
     def callback(self, fd, event):
         if fd not in self.listeners:
@@ -157,23 +179,32 @@ class Proxy(Registry):
 
     def send_data(self, destination, data, size, name):
         # write data
-        sent = destination.send(data)
+        while True:
+            try:
+                sent = destination.send(data)
+                break
+            except socket.timeout:
+                sent = 0
         while sent and sent < size:
             data = data[sent:]
             size = size - sent
-            sent = destination.send(data)
+            while True:
+                try:
+                    sent = destination.send(data)
+                    break
+                except socket.timeout:
+                    pass
         return sent
 
-    def copy(self, source, event, destination,
+    def channel_copy(self, source, event, destination,
                                   recv_data=recv_data, send_data=send_data):
         sname = source.name
         dname = destination.name
 
-        log.debug("source %s event:%d %s" % (sname, event, source.recv_stderr_ready()))
         if source.recv_stderr_ready():
-            destination.send_stderr(source.recv_stderr(32))
+            destination.send_stderr(source.recv_stderr(4096))
 
-        if source.eof_received and not source.recv_stderr_ready():
+        if (source.eof_received and not source.recv_stderr_ready() ):
             log.debug("source %s received eof" % sname)
             if destination.eof_sent:
                 self.poll_unregister(source)
@@ -187,17 +218,17 @@ class Proxy(Registry):
         data = recv_data(self, source, sname)
         size = len(data)
 
-        if size == 0:
-            log.debug("time to close destination %s" % (dname))
+        if size == 0 and not source.transport.active:
+            raise util.SSHProxyError('Client is dead, closing connection')
 
         sent = send_data(self, destination, data, size, dname)
 
-        if sent == 0:
-            log.debug("time to close source %s" % (sname))
+        if sent == 0 and not destination.transport.active:
+            raise util.SSHProxyError('Server is dead, closing connection')
 
     # define default copy functions
-    copy_client = copy
-    copy_site = copy
+    copy_client = channel_copy
+    copy_site = channel_copy
 
 
 
@@ -216,30 +247,53 @@ ProxyScp.register()
 
 class ProxySession(Proxy):
     """
-    Implements X11 forwarding, port forwarding and reverse port forwarding.
+    Implements X11 forwarding, local and remote port forwarding.
     """
     def open_connection(self):
         self.x11c_channels = {}
-        self.x11s_channels = {}
+        self.setup_watcher()
         self.setup_x11()
-        self.setup_reverse_port_forwarding()
-        self.setup_direct_port_forwarding()
+        self.setup_remote_port_forwarding()
+        self.setup_local_port_forwarding()
+        self.new_channel_handlers = []
 
     def __del__(self):
-        if hasattr(self, 'watch_x11'):
-            self.watch_x11.close()
-        if hasattr(self, 'signal_x11'):
-            self.signal_x11.close()
+        if hasattr(self, 'watcher'):
+            self.watcher.close()
+        if hasattr(self, 'signal'):
+            self.signal.close()
+
+    def setup_watcher(self):
+        if not hasattr(self, 'watcher'):
+            msg = Message()
+            self.watcher = msg.get_child_fd()
+            self.signal = msg.get_parent_fd()
+
+    def handle_signal(self, chan, event):
+        x = self.watcher.read(1)
+        if len(self.new_channel_handlers):
+            new_channel_handler, transport, chan = self.new_channel_handlers.pop(0)
+            newchan = transport.accept(1.0)
+            if newchan:
+                new_channel_handler(chan, newchan)
+            else:
+                self.new_channel_handlers.insert(0, (new_channel_handler,
+                                                        transport, chan))
+                self.signal.write(x)
+
 
     ########## Reverse Port Forwarding ###################################
-    def setup_reverse_port_forwarding(self):
-        if self.server.check_reverse_port_forwarding():
-            self.site_chan.transport.client_object = self
+    def setup_remote_port_forwarding(self):
+        if self.server.check_remote_port_forwarding():
+            if not hasattr(self.site_chan.transport,
+                                        'set_remote_forwarding_handler'):
+                self.client_chan.send("Remote port forwarding unavailable\r\n")
+                return
+            self.site_chan.transport.set_remote_forwarding_handler(
+                                    self.check_remote_forward_channel_request)
             ip = self.server.tcpip_forward_ip
             port = self.server.tcpip_forward_port
-            msg = Message()
-            self.watch_x11 = msg.get_child_fd()
-            self.signal_x11 = msg.get_parent_fd()
+            self.setup_watcher()
             try:
                 ret = self.site_chan.transport.global_request('tcpip-forward',
                                                         (ip, int(port)), True)
@@ -250,42 +304,103 @@ class ProxySession(Proxy):
                                                                             m)
                 self.client_chan.send('Port Forwarding to %s:%s forbidden\n' %
                                                                 (ip, port))
-                self.allow_reverse_port_forwarding = False
-            else:
-                self.allow_reverse_port_forwarding = True
+                return
 
-    def check_forwarded_channel_request(self, chanid, origin, destination):
-        log.debug("Channel rfwd #%d from %s:%s to %s:%s" % (chanid,
+            # this fd is registered to unblock poll() when a new
+            # channel is available
+            if self.poll_register(self.watcher, POLLREAD, self.handle_signal):
+                self.min_chan += 1
+
+    def check_remote_forward_channel_request(self, chanid, origin, destination):
+        log.debug("Channel rfw #%d from %s:%s to %s:%s" % (chanid,
                                             origin[0], origin[1],
                                             destination[0], destination[1]))
-        fwd_client = self.client_chan.transport.open_channel('forwarded-tcpip',
+        try:
+            fwd_client = self.client_chan.transport.open_channel(
+                                                        'forwarded-tcpip',
                                                         origin, destination)
+        except Exception, m:
+            log.exception("Exception while connecting remote forwarding: %s"
+                                                                        % m)
+            fwd_client = None
+
         if fwd_client:
-            fwd_client.set_name("fwdc%s" % fwd_client.get_id())
-            fwd_client.settimeout(0.0)
-            self.x11c_channels[chanid] = fwd_client
+            fwd_client.set_name("rfwc%s" % fwd_client.get_id())
+            fwd_client.settimeout(0.1)
+            self.new_channel_handlers.append((self.new_remote_forward_channel,
+                                                self.site_chan.transport,
+                                                fwd_client))
+            self.signal.write('r')
             return OPEN_SUCCEEDED
         else:
             return OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
-    def new_forwarded_channel(self, chan):
-        chanid = chan.get_id()
-        chan.settimeout(0.0)
-        self.x11s_channels[chanid] = chan
-        chan.set_name("fwds%s" % chanid)
-        self.poll_register(chan, POLLREAD, self.copy_x11_site,
-                                 self.x11c_channels[chanid])
-        self.poll_register(self.x11c_channels[chanid], POLLREAD,
-                                 self.copy_x11_client, chan)
-        # let's signal there is a new channel available
-        self.signal_x11.write('x')
+    def new_remote_forward_channel(self, chan, newchan):
+        chanid = newchan.get_id()
+        newchan.settimeout(0.1)
+        newchan.set_name("rfws%s" % chanid)
+        if chan.active and newchan.active:
+            if not chan.closed:
+                self.poll_register(chan, POLLREAD, self.copy_rfw_site, newchan)
+            if not newchan.closed:
+                self.poll_register(newchan, POLLREAD, self.copy_rfw_client, chan)
 
+    copy_rfw_client = Proxy.channel_copy
+    copy_rfw_site = Proxy.channel_copy
 
     ########## /Reverse Port Forwarding ##################################
 
     ########## Port Forwarding ###########################################
-    def setup_direct_port_forwarding(self):
-        pass
+    def setup_local_port_forwarding(self):
+        self.server.setup_forward_handler(self.check_local_forward_channel)
+
+        self.setup_watcher()
+        # this fd is registered to unblock poll() when a new
+        # channel is available
+        if self.poll_register(self.watcher, POLLREAD, self.handle_signal):
+            self.min_chan += 1
+        
+    def check_local_forward_channel(self, chanid, origin, destination):
+        log.debug("Channel lfw #%d from %s:%s to %s:%s" % (chanid,
+                                            origin[0], origin[1],
+                                            destination[0], destination[1]))
+
+        if not self.server.check_direct_tcpip_acl(chanid, origin, destination):
+            return OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
+
+        try:
+            fwd_client = self.site_chan.transport.open_channel(
+                                                        'direct-tcpip',
+                                                        origin, destination)
+        except Exception, m:
+            log.exception("Exception while connecting local forwarding: %s"
+                                                                        % m)
+            fwd_client = None
+
+        if fwd_client:
+            fwd_client.set_name("lfwc%s" % fwd_client.get_id())
+            fwd_client.settimeout(0.1)
+            self.new_channel_handlers.append((self.new_local_forward_channel,
+                                                self.client_chan.transport,
+                                                fwd_client))
+            self.signal.write('l')
+            return OPEN_SUCCEEDED
+        else:
+            return OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
+
+    def new_local_forward_channel(self, chan, newchan):
+        chanid = newchan.get_id()
+        newchan.settimeout(0.1)
+        newchan.set_name("rfws%s" % chanid)
+        if chan.active and newchan.active:
+            if not chan.closed:
+                self.poll_register(chan, POLLREAD, self.copy_lfw_site, newchan)
+            if not newchan.closed:
+                self.poll_register(newchan, POLLREAD, self.copy_lfw_client, chan)
+
+    copy_lfw_client = Proxy.channel_copy
+    copy_lfw_site = Proxy.channel_copy
+
     ########## /Port Forwarding ##########################################
 
     ########## X11 channels ##############################################
@@ -293,23 +408,21 @@ class ProxySession(Proxy):
         if self.server.check_x11_acl():
             x = self.server.x11
             self.site_chan.transport.client_object = self
-            self.x11req = self.site_chan.request_x11(x.want_reply,
+            self.site_chan.transport.set_x11_handler(
+                                        self.check_x11_channel_request)
+            self.x11req = self.site_chan.request_x11(True,
                                                      x.single_connection,
                                                      x.x11_auth_proto,
                                                      x.x11_auth_cookie,
                                                      x.x11_screen_number)
-            msg = Message()
-            self.watch_x11 = msg.get_child_fd()
-            self.signal_x11 = msg.get_parent_fd()
-            # this fd is registered to unblock poll() when a new x11
+            self.setup_watcher()
+            # this fd is registered to unblock poll() when a new
             # channel is available
-            self.poll_register(self.watch_x11, POLLREAD, self.eat_byte)
-            self.min_chan += 1
+            if self.poll_register(self.watcher, POLLREAD, self.handle_signal):
+                self.min_chan += 1
 
-    def eat_byte(self, chan, event):
-        self.watch_x11.read(1)
-
-    def check_x11_channel_request(self, chanid, origin_addr, origin_port):
+    def check_x11_channel_request(self, chanid, origin_addr_port):
+        origin_addr, origin_port = origin_addr_port
         log.debug("Channel x11 #%d from %s:%s" % (chanid, origin_addr,
                                                           origin_port))
         x11_client = self.client_chan.transport.open_x11_channel(
@@ -317,54 +430,26 @@ class ProxySession(Proxy):
         if x11_client:
             x11_client.set_name("x11c%s" % x11_client.get_id())
             x11_client.settimeout(0.0)
-            self.x11c_channels[chanid] = x11_client
+            self.new_channel_handlers.append((self.new_x11_channel,
+                                                self.site_chan.transport,
+                                                x11_client))
+            self.signal.write('x')
             return OPEN_SUCCEEDED
         else:
             return OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
-    def new_x11_channel(self, chan):
-        chanid = chan.get_id()
-        chan.settimeout(0.0)
-        self.x11s_channels[chanid] = chan
-        chan.set_name("x11s%s" % chanid)
-        self.poll_register(chan, POLLREAD, self.copy_x11_site,
-                                 self.x11c_channels[chanid])
-        self.poll_register(self.x11c_channels[chanid], POLLREAD,
-                                 self.copy_x11_client, chan)
-        # let's signal there is a new channel available
-        self.signal_x11.write('x')
+    def new_x11_channel(self, chan, newchan):
+        chanid = newchan.get_id()
+        newchan.settimeout(0.1)
+        newchan.set_name("x11s%s" % chanid)
+        if chan.active and newchan.active:
+            if not chan.closed:
+                self.poll_register(chan, POLLREAD, self.copy_x11_site, newchan)
+            if not newchan.closed:
+                self.poll_register(newchan, POLLREAD, self.copy_x11_client, chan)
 
-    def close_x11_channel_pair(self, chan):
-        chanid = None
-        if chan in self.x11s_channels.values():
-            chanid = chan.get_id()
-        else:
-            for id, ch in self.x11c_channels.items():
-                if chan is ch:
-                    chanid = id
-                    break
-
-        if chanid is None:
-            # this should not happen
-            return # XXX: raise exception ?
-
-        self.poll_unregister(self.x11s_channels[chanid])
-        self.poll_unregister(self.x11c_channels[chanid])
-        del self.x11s_channels[chanid]
-        del self.x11c_channels[chanid]
-
-    def x11_copy(self, source, event, destination):
-        result = self.copy(source, event, destination)
-        if result is not None:
-            if result == 'source closed':
-                self.close_x11_channel_pair(source)
-            elif result == 'destination closed':
-                self.close_x11_channel_pair(destination)
-
-        return result
-
-    copy_x11_client = x11_copy
-    copy_x11_site = x11_copy
+    copy_x11_client = Proxy.channel_copy
+    copy_x11_site = Proxy.channel_copy
 
     ########## end X11 channels ##########################################
 

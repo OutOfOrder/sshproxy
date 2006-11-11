@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 08, 02:28:16 by david
+# Last modified: 2006 Nov 11, 12:41:53 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -34,16 +34,6 @@ from acl import ACLDB, ProxyNamespace
 from dispatcher import Dispatcher
 
 
-class X11Channel(object):
-    def __init__(self, channel, want_reply, m):
-        self.channel = channel
-        self.want_reply = want_reply
-        self.single_connection = m.get_boolean()
-        self.x11_auth_proto = m.get_string()
-        self.x11_auth_cookie = m.get_string()
-        self.x11_screen_number = m.get_int()
-
-
 class Server(Registry, paramiko.ServerInterface):
     _class_id = "Server"
     _singleton = True
@@ -60,24 +50,36 @@ class Server(Registry, paramiko.ServerInterface):
         self._remotes = {}
         self.exit_status = -1
 
-    def check_x11_request(self, channel, want_reply, m):
-        # from RFC4254, an x11-req message contains the following fields:
-        #
-        #       byte      SSH_MSG_CHANNEL_REQUEST
-        #       uint32    recipient channel
-        #       string    "x11-req"
-        #       boolean   want reply
-        # m ->
-        #       boolean   single connection
-        #       string    x11 authentication protocol
-        #       string    x11 authentication cookie
-        #       uint32    x11 screen number
-        #
-        # The first 4 fields have been consumed by Channel._handle_request()
-        # The want_reply parameter is the 4th field, and m contains the rest
+    def setup_forward_handler(self, check_channel_direct_tcpip_request):
+        if check_channel_direct_tcpip_request:
+            self.check_channel_direct_tcpip_request = \
+                                        check_channel_direct_tcpip_request  
 
-        # We cannot check ACL here since the site is not yet known
-        self.x11 = X11Channel(channel, want_reply, m)
+    def check_direct_tcpip_acl(self, chanid, origin, destination):
+        o_ip, o_port = origin
+        d_ip, d_port = destination
+        proxyns = ProxyNamespace()
+        namespace = {
+                'client': Backend().get_client_tags(),
+                'site': Backend().get_site_tags(),
+                'proxy': proxyns,
+                }
+        if not (ACLDB().check('localforwarding', **namespace)):
+            log.debug("Local Port Forwarding not allowed by ACLs")
+            return False
+        log.debug("Local Port Forwarding allowed by ACLs")
+        return True
+
+    def check_channel_x11_request(self, channel, single_connection,
+                        x11_auth_proto, x11_auth_cookie, x11_screen_number):
+        class X11Channel(object):
+            pass
+        x11 = X11Channel()
+        x11.single_connection = single_connection
+        x11.x11_auth_proto = x11_auth_proto
+        x11.x11_auth_cookie = x11_auth_cookie
+        x11.x11_screen_number = x11_screen_number
+        self.x11 = x11
         return True
 
     def check_x11_acl(self):
@@ -96,7 +98,7 @@ class Server(Registry, paramiko.ServerInterface):
         log.debug("X11Forwarding allowed by ACLs")
         return True
 
-    def check_reverse_port_forwarding(self):
+    def check_remote_port_forwarding(self):
         if (hasattr(self, 'tcpip_forward_ip') and
             hasattr(self, 'tcpip_forward_port')):
             # TODO: check for ACL
@@ -105,21 +107,18 @@ class Server(Registry, paramiko.ServerInterface):
 
     ### STANDARD PARAMIKO SERVER INTERFACE
     
-    def check_unhandled_channel_request(self, channel, kind, want_reply, m):
+    def check_channel_unhandled_request(self, channel, kind, want_reply, m):
         log.devdebug("check_unhandled_channel_request %s", kind)
-        if kind == 'x11-req':
-            return self.check_x11_request(channel, want_reply, m)
         return False
 
 
     def check_global_request(self, kind, m):
         log.devdebug("check_global_request %s", kind)
-        # XXX: disabled for the moment
-        #return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
         if kind in [ 'tcpip-forward' ]:
             self.tcpip_forward_ip = m.get_string()
             self.tcpip_forward_port = m.get_int()
-            log.debug('tcpip-forward %s:%s' % (self.tcpip_forward_ip, self.tcpip_forward_port))
+            log.debug('tcpip-forward %s:%s' % (self.tcpip_forward_ip,
+                                                    self.tcpip_forward_port))
             # TODO: check ACL
             return (self.tcpip_forward_port,)
         log.debug('Ohoh! What is this "%s" channel type ?', kind)
@@ -128,11 +127,13 @@ class Server(Registry, paramiko.ServerInterface):
 
     def check_channel_request(self, kind, chanid):
         log.devdebug("check_channel_request %s %s", kind, chanid)
-        if kind in [ 'session', 'direct-tcpip', 'forwarded-tcpip', 'x11-req' ]:
+        if kind == 'session':
+            return paramiko.OPEN_SUCCEEDED
+        if kind == 'direct-tcpip':
+            # TODO: check ACL
             return paramiko.OPEN_SUCCEEDED
         log.debug('Ohoh! What is this "%s" channel type ?', kind)
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
-
 
     def check_auth_password(self, username, password):
         if self.valid_auth(username=username, password=password):
@@ -477,9 +478,6 @@ class Server(Registry, paramiko.ServerInterface):
         # check ACL for the given direction, then if failed, check general ACL
         if not ((ACLDB().check('scp_' + scpdir, **namespace)) or
                 ACLDB().check('scp_transfer', **namespace)):
-#        if not (((upload and ACLDB().check('scp_upload', **namespace)) or
-#                (not upload and ACLDB().check('scp_download', **namespace))) or
-#                ACLDB().check('scp_transfer', **namespace)):
             self.chan.send(chanfmt("ERROR: You are not allowed to"
                                     " do scp file transfert in this"
                                     " directory or direction on %s\n" % site))

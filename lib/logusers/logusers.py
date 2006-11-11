@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Oct 29, 01:13:17 by david
+# Last modified: 2006 Nov 11, 12:20:12 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -90,7 +90,7 @@ class LoggedProxyShell(ProxyShell):
 
     def copy_client(self, source, event, destination,
                                          recv_data=None, send_data=None):
-        return self.copy(source, event, destination,
+        return self.channel_copy(source, event, destination,
                 recv_data=LoggedProxyShell.client_recv_data)
 
     def __del__(self):

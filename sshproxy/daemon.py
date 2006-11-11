@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Oct 29, 16:09:12 by david
+# Last modified: 2006 Nov 11, 11:58:23 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -381,6 +381,7 @@ def run_server(daemon=False, sock=None):
                 sock = bind_server(daemon)
             Daemon(daemon, sock)
         except (KeyboardInterrupt, SystemExit):
+            log.info("System exit")
             return
         except:
             log.exception("ERROR: sshproxy may have crashed:"
