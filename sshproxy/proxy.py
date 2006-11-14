@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 11, 12:32:01 by david
+# Last modified: 2006 Nov 14, 01:53:19 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -107,10 +107,10 @@ class Proxy(Registry):
 
     def poll_register(self, chan, event_mask, callback, *args):
         fd = chan.fileno()
-        try:
-            log.debug("REGISTER chan #%d (%s)" % (fd, chan.get_name()))
-        except:
-            log.debug("REGISTER chan #%d" % (fd))
+        #try:
+        #    log.debug("REGISTER chan #%d (%s)" % (fd, chan.get_name()))
+        #except:
+        #    log.debug("REGISTER chan #%d" % (fd))
         if fd not in self.listeners:
             self.poller.register(fd, event_mask)
             self.listeners[fd] = [chan, callback] + list(args)
@@ -120,17 +120,22 @@ class Proxy(Registry):
 
     def poll_unregister(self, chan):
         fd = chan.fileno()
-        try:
-            log.debug("UNREGISTER chan #%d (%s)" % (fd, chan.get_name()))
-        except:
-            log.debug("UNREGISTER chan #%d" % (fd))
+        #try:
+        #    log.debug("UNREGISTER chan #%d [%d/%d] (%s)" % (fd,
+        #                self.min_chan, len(self.listeners), chan.get_name()))
+        #except:
+        #    log.debug("UNREGISTER chan #%d [%d/%d]" % (fd, self.min_chan, 
+        #                                                len(self.listeners)))
         if fd in self.listeners:
             self.poller.unregister(fd)
+            self.listeners[fd] = None
             del self.listeners[fd]
             return True
         else:
             return False
 
+    def recv_exit_status(self):
+        return self.site_chan.recv_exit_status()
 
     def loop(self):
         log.debug("Starting proxying")
@@ -143,7 +148,7 @@ class Proxy(Registry):
                     except TypeError, msg:
                         raise
 
-            exit_status = self.site_chan.recv_exit_status()
+            exit_status = self.recv_exit_status()
             self.poll_unregister(self.msg_chan)
             self.msg_chan.close()
             log.debug("Ending proxying")
@@ -170,30 +175,32 @@ class Proxy(Registry):
         return func(*all_args)
 
     def recv_data(self, source, name):
-        if source.eof_received:
-            data = ''
-        else:
-            # read available data
-            data = source.recv(self.bufsize.get(source, self.default_bufsize))
-        return data
+        return source.recv(self.bufsize.get(source, self.default_bufsize))
 
     def send_data(self, destination, data, size, name):
-        # write data
-        while True:
+        i = 5
+        while i:
             try:
                 sent = destination.send(data)
                 break
             except socket.timeout:
                 sent = 0
+                i -= 1
+                if not i:
+                    log.debug('Window is not set for %s' % name)
         while sent and sent < size:
             data = data[sent:]
             size = size - sent
-            while True:
+            i = 5
+            while i:
                 try:
                     sent = destination.send(data)
                     break
                 except socket.timeout:
                     pass
+                    i -= 1
+                    if not i:
+                        log.debug('Window is not growing for %s' % name)
         return sent
 
     def channel_copy(self, source, event, destination,
@@ -203,28 +210,26 @@ class Proxy(Registry):
 
         if source.recv_stderr_ready():
             destination.send_stderr(source.recv_stderr(4096))
+            return
 
-        if (source.eof_received and not source.recv_stderr_ready() ):
-            log.debug("source %s received eof" % sname)
-            if destination.eof_sent:
+        if source.eof_received and not source.recv_ready():
+            source.shutdown_read()
+            destination.shutdown_write()
+            if source.closed:
+                destination.close()
                 self.poll_unregister(source)
-                source.shutdown_write()
-                self.poll_unregister(destination)
-                destination.shutdown_read()
-            else:
-                destination.shutdown_write()
             return
 
         data = recv_data(self, source, sname)
         size = len(data)
 
         if size == 0 and not source.transport.active:
-            raise util.SSHProxyError('Client is dead, closing connection')
+            raise util.SSHProxyError('Source is dead, closing connection')
 
         sent = send_data(self, destination, data, size, dname)
 
         if sent == 0 and not destination.transport.active:
-            raise util.SSHProxyError('Server is dead, closing connection')
+            raise util.SSHProxyError('Destination is dead, closing connection')
 
     # define default copy functions
     copy_client = channel_copy
@@ -454,7 +459,6 @@ class ProxySession(Proxy):
     ########## end X11 channels ##########################################
 
 
-
 class ProxyCmd(ProxySession):
     _class_id = 'ProxyCmd'
 
@@ -480,6 +484,8 @@ class ProxyShell(ProxySession):
 
     def open_connection(self):
         ProxySession.open_connection(self)
+        log.info('Opening shell session on %s' %
+                        (self.site_chan.transport.getpeername(),))
 
         server = self.server
         if hasattr(server, 'term'):
