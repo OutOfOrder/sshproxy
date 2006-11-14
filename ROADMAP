@@ -1,3 +1,4 @@
+This is a living roadmap, it may change without notice from times to times.
 Please contact me (david@guerizec.net) if you need me to change the priorities.
 
 Legend of pictograms:
@@ -8,29 +9,24 @@ Legend of pictograms:
     / task canceled (most probably due to new design)
 
 
-0.5.0
-    - remote sites will be reachable with keys instead of just password
-    - make Message protocole more robust
-    - backend database schema will be thoroughly simplified with ACLs
-    - add a default pkey in site, if the login does not provide one
-        Tags make that possible without much work
-    - --cipher ciphers private keys in the database
-    - backend gain more precise ACLs (access based on IP, hour... plugin ?)
-    - make a wizard and a console for the file backend
-    - split ebuild in server, client and plugins
-
 0.5.1
+    - implement X11 forwarding
+    - implement local port forwarding
+    - implement remote port forwarding
     + finish to write good documentation
     + options can be given on the pssh command line (before sites) to be able
       to optionally get rid of the console (list-sites, add-key, get-pssh)
         This Works, but the --add-key is still missing.
-    * auto-kill dangling connections, maybe with using keep-alive packets.
+    + auto-kill dangling connections, maybe with using keep-alive packets.
+
+0.5.2
     * add a hostkey in site, to check identity of remote site
-    * work on automatic remote command execution plugin (spexpect)
+    ? implement openssh VPN proxying
     ? make the admin password the cipher key for the solo mode
     ? admin account in the config file
 
 0.6
     * http access to manage the database
+    * work on automatic remote command execution plugin (spexpect)
     ? "attach" command in the console, to get back to a disconnected session.
 
