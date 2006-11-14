@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 11, 12:41:53 by david
+# Last modified: 2006 Nov 14, 01:55:24 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -614,18 +614,20 @@ class Server(Registry, paramiko.ServerInterface):
         # Should never get there
         return False
 
-    def connect_site(self):
+    def connect_site(self, site_tags=None, site_ref=None):
         tags = {
                 'client': Backend().get_client_tags(),
-                'site': Backend().get_site_tags(),
+                'site': site_tags or Backend().get_site_tags(),
                 'proxy': ProxyNamespace(),
                 }
         name = '%s@%s' % (tags['site'].login,
                           tags['site'].name)
         hostkey = tags['proxy'].get('hostkey', None) or None
 
-        transport = paramiko.Transport((tags['site'].ip_address,
-                                    int(tags['site'].port)))
+        if site_ref is None:
+            site_ref = (tags['site'].ip_address, int(tags['site'].port))
+
+        transport = paramiko.Transport(site_ref)
         transport.start_client()
 
         if hostkey is not None:
@@ -634,11 +636,11 @@ class Server(Registry, paramiko.ServerInterface):
             key = transport.get_remote_server_key()
             if (key.get_name() != hostkey.get_name() 
                                                 or str(key) != str(hostkey)):
-                log.error('Bad host key from server (%s).' % servername)
+                log.error('Bad host key from server (%s).' % name)
                 raise AuthenticationError('Bad host key from server (%s).'
-                                                                % self.name)
+                                                                    % name)
             log.info('Server host key verified (%s) for %s' % (key.get_name(), 
-                                                           self.name))
+                                                                    name))
 
         pkey = cipher.decipher(tags['site'].get('pkey', ''))
         password = cipher.decipher(tags['site'].get('password', ''))
