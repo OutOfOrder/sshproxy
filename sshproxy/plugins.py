@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 13, 00:08:02 by david
+# Last modified: 2006 Nov 19, 12:06:39 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -44,7 +44,7 @@ enabled = conf['plugin_list'].split()
 
 for name in os.listdir(plugindir):
     if os.path.isdir(os.path.join(plugindir, name)):
-        if not name in disabled:
+        if not name in disabled and not name[0] == '.':
             module = __import__(name, globals(), locals(), [])
             plugin = Plugin(name, module, name in enabled)
             plugin_list.append(plugin)

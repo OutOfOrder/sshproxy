@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 mai 30, 17:55:59 by david
+# Last modified: 2006 Nov 19, 12:00:58 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,22 +25,22 @@ import os, select, pty
 import log
 
 class PTYWrapper(object):
-    def __init__(self, chan, code, msg, *args, **kwargs):
+    def __init__(self, chan, code, ipc, *args, **kwargs):
         self.chan = chan
-        self.cin = msg.get_parent_fd()
         pid, self.master_fd = pty.fork()
         if not pid: # child process
-            cout = msg.get_child_fd()
+            cout = ipc.get_child_fd()
             try:
                 code(cout, *args, **kwargs)
             except Exception, e:
                 log.exception('ERROR: cannot execute function %s' %
                                                             code.__name__)
                 pass
-            cout.write('EOF')
+            cout.info('EOF')
             cout.close()
             chan.transport.atfork() # close only the socket
             # Here the child process exits
+        self.cin = ipc.get_parent_fd()
 
     def loop(self):
         chan = self.chan
@@ -70,8 +70,7 @@ class PTYWrapper(object):
                     break
                 pty._writen(master_fd, data)
             if cin in rfds:
-                # read a large buffer until the protocol is more robust
-                data = cin.read(10240)
+                data = cin.recv_message()
                 # since this is a pipe, it seems to always return EOF ('')
                 if not len(data):
                     continue

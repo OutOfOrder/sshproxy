@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 21, 02:23:23 by david
+# Last modified: 2006 Nov 19, 12:00:28 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,7 +25,7 @@ from registry import Registry
 import util, log, proxy, pool
 from backend import Backend
 from config import get_config
-from message import Message
+from ipc import IPC
 from ptywrap import PTYWrapper
 from console import Console
 from acl import ACLDB
@@ -41,14 +41,14 @@ class Dispatcher(Registry):
 
     default_acl = True
 
-    def __reginit__(self, daemon_msg, namespace):
-        self.d_msg = daemon_msg
-        self.d_msg.reset()
+    def __reginit__(self, daemon_ipc, namespace):
+        self.d_ipc = daemon_ipc
+        self.d_ipc.reset()
         self.namespace = namespace
         self.daemon_methods = {}
-        for line in self.d_msg.request('public_methods').split('\n'):
-            method, help = line.split(' ', 1)
-            self.daemon_methods[method] = help.replace('\n', '\\n')
+        for line in self.d_ipc.request('public_methods'):
+            method, help = line
+            self.daemon_methods[method] = help #.replace('\n', '\\n')
 
     def is_admin(self):
         return ACLDB().check('admin', **self.namespace)
@@ -110,7 +110,7 @@ class Dispatcher(Registry):
 
         if not hasattr(self, command):
             if args[0] in self.daemon_methods.keys() and self.is_admin():
-                return self.d_msg.request(cmdline)
+                return self.d_ipc.request(cmdline)
             else:
                 return 'Unknown command %s' % args[0]
 
@@ -126,27 +126,28 @@ class Dispatcher(Registry):
 
     def init_console(self):
         from server import Server
-        c_msg = Message()
+        ipc = IPC()
 
         def PtyConsole(*args, **kwargs):
             Console(*args, **kwargs).cmdloop()
 
-        self._console = PTYWrapper(Server().chan, PtyConsole, msg=c_msg)
+        self._console = PTYWrapper(Server().chan, PtyConsole, ipc=ipc)
 
-        self.c_msg = c_msg.get_parent_fd()
+        self.c_ipc = self._console.cin
 
     def console(self):
         self.init_console()
 
         while True:
-            self.c_msg.reset()
+            self.c_ipc.reset()
         
-            data = self._console.loop()
+            want_reply, data = self._console.loop()
             if data is None:
                 break
 
             response = self.dispatch(data)
-            self.c_msg.response(response)
+            if want_reply:
+                self.c_ipc.respond(response)
 
 
     def check_args(self, num, args, strict=False):

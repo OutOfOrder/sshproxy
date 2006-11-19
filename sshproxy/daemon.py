@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 11, 11:58:23 by david
+# Last modified: 2006 Nov 19, 11:52:28 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -29,7 +29,7 @@ import util
 import config
 import log
 from server import Server
-from message import Message
+from ipc import IPC
 
 
 class Client(object):
@@ -47,8 +47,8 @@ class Daemon(Registry):
     def __reginit__(self, daemon, sock):
         self._run_server(daemon, sock)
 
-    def service_client(self, client, addr, msg):
-        server = Server(client, addr, msg, self.host_key_file)
+    def service_client(self, client, addr, ipc):
+        server = Server(client, addr, ipc, self.host_key_file)
         server.start()
         return
     
@@ -64,7 +64,8 @@ class Daemon(Registry):
         try:
             pid, status = os.waitpid(-1, os.WNOHANG)
             if pid and pid in self.pids:
-                imqfd = self.imq.index(self.clients[pid].msg)
+                imqfd = self.imq.index(self.clients[pid].ipc)
+                self.imq[imqfd].close()
                 del self.imq[imqfd]
                 del self.clients[pid]
                 del self.pids[self.pids.index(pid)]
@@ -74,14 +75,14 @@ class Daemon(Registry):
         
     def find_client_pid(self, fd):
         for pid, m in self.clients.items():
-            if m.msg == fd:
+            if m.ipc == fd:
                 return pid
         return None
 
 ########################################################################
 
     def send_message(self, id, cmd, msg):
-        self.clients[id].msg.write('%s:\n\n%s\n\n' % (cmd, msg))
+        self.clients[id].ipc.info('%s:\n\n%s\n\n' % (cmd, msg))
 
     def rq_nb_con(self, id, *args):
         """
@@ -104,8 +105,8 @@ class Daemon(Registry):
             if pid == id:
                 continue
             if hasattr(client, 'name'):
-                s.append('%s@%s ---(%s)--> %s@%s' %
-                                (client.username, str(client.ip_addr[0]),
+                s.append('% 6d %s@%s ---(%s)--> %s@%s' %
+                                (pid, client.username, str(client.ip_addr[0]),
                                 client.type,
                                 client.login, client.name))
             else:
@@ -181,8 +182,8 @@ class Daemon(Registry):
                 continue
             self.kill_child(pid)
             
-    def handle_message_request(self, id, request):
-        args = request.split()
+    def handle_message_request(self, id, data):
+        args = data.split()
 
         if args[0] == 'help':
             resp = ['Available administration commands:\n']
@@ -203,7 +204,7 @@ class Daemon(Registry):
 
         if hasattr(self, 'rq_%s' % args[0]):
             return getattr(self, 'rq_%s' % args[0])(id, *args)
-        return 'ERROR: unknown command %s' % request
+        return 'ERROR: unknown command %s' % data
 
     def get_public_methods(self):
         methods = []
@@ -213,24 +214,33 @@ class Daemon(Registry):
             doc = getattr(getattr(self, method), '__doc__', None)
             if not doc:
                 continue
-            methods.append(' '.join([ method[3:], doc]))
+            methods.append((method[3:], doc))
+            #methods.append(' '.join([ method[3:], doc]))
 
-        return '\n'.join([ m.replace('\n', '\\n') for m in methods ])
+        return methods
+        #return '\n'.join([ m.replace('\n', '\\n') for m in methods ])
 
 
     def handle_message(self, fd):
         id = self.find_client_pid(fd)
         if not id:
-            log.error("A client has sent a message, but I couldn't find it.")
-        fd.reset()
-        request = fd.read()
-        if request == 'public_methods':
-            fd.response(self.get_public_methods())
+            log.error("A client tried to communicate, but I don't know it.")
             return
-        resp = self.handle_message_request(id, request)
-        if resp is None:
-            resp = ''
-        fd.response(str(resp))
+        fd.reset()
+        want_reply, data = fd.recv_message()
+        
+        if data == 'public_methods':
+            fd.respond(self.get_public_methods())
+            return
+        elif data == 'ping':
+            fd.respond('pong')
+            return
+        elif data is None:
+            return
+        else:
+            resp = self.handle_message_request(id, data)
+        if want_reply:
+            fd.respond(resp)
 
 ########################################################################
 
@@ -275,7 +285,6 @@ class Daemon(Registry):
                     for x in imr:
                         if x is sock:
                             try:
-                                #sock_c = os.dup(sock.fileno())
                                 client, addr = sock.accept()
                             except socket.error:
                                 continue
@@ -284,22 +293,24 @@ class Daemon(Registry):
                                 pass
                                 raise
                             log.debug('Got a connection!')
-                            msg = Message()
+                            ipc = IPC()
                             pid = os.fork()
                             if pid == 0:
                                 # just serve in the child
                                 sock.close()
+                                for i in self.imq:
+                                    i.close()
                                 log.info("Serving %s", addr)
-                                msg = msg.get_child_fd()
-                                self.service_client(client, addr, msg)
+                                cipc = ipc.get_child_fd()
+                                self.service_client(client, addr, cipc)
+                                time.sleep(0.5)
                                 sys.exit()
 
                             client.close()
-                            # XXX: possible race condition here !
-                            msg = msg.get_parent_fd()
-                            self.clients[pid] = Client(msg=msg, ip_addr=addr)
+                            pipc = ipc.get_parent_fd()
+                            imq.append(pipc)
+                            self.clients[pid] = Client(ipc=pipc, ip_addr=addr)
                             self.pids.append(pid)
-                            imq.append(msg)
                         else:
                             # consume the message
                             self.handle_message(x)

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 14, 01:55:24 by david
+# Last modified: 2006 Nov 19, 19:39:12 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -38,11 +38,11 @@ class Server(Registry, paramiko.ServerInterface):
     _class_id = "Server"
     _singleton = True
 
-    def __reginit__(self, client, addr, msg, host_key_file):
+    def __reginit__(self, client, addr, ipc, host_key_file):
         self.pwdb = Backend()
         self.client = client
         self.client_addr = addr
-        self.msg = msg
+        self.ipc = ipc
         self.host_key = paramiko.DSSKey(filename=host_key_file)
         self.ip_addr, self.port = client.getsockname()
         self.event = threading.Event()
@@ -64,7 +64,7 @@ class Server(Registry, paramiko.ServerInterface):
                 'site': Backend().get_site_tags(),
                 'proxy': proxyns,
                 }
-        if not (ACLDB().check('localforwarding', **namespace)):
+        if not (ACLDB().check('local_forwarding', **namespace)):
             log.debug("Local Port Forwarding not allowed by ACLs")
             return False
         log.debug("Local Port Forwarding allowed by ACLs")
@@ -92,7 +92,7 @@ class Server(Registry, paramiko.ServerInterface):
                 'site': Backend().get_site_tags(),
                 'proxy': proxyns,
                 }
-        if not (ACLDB().check('x11forwarding', **namespace)):
+        if not (ACLDB().check('x11_forwarding', **namespace)):
             log.debug("X11Forwarding not allowed by ACLs")
             return False
         log.debug("X11Forwarding allowed by ACLs")
@@ -101,7 +101,10 @@ class Server(Registry, paramiko.ServerInterface):
     def check_remote_port_forwarding(self):
         if (hasattr(self, 'tcpip_forward_ip') and
             hasattr(self, 'tcpip_forward_port')):
-            # TODO: check for ACL
+            if not (ACLDB().check('remote_forwarding', **namespace)):
+                log.debug("Remote Port Forwarding not allowed by ACLs")
+                return False
+            log.debug("Remote Port Forwarding allowed by ACLs")
             return True
         return False
 
@@ -190,7 +193,7 @@ class Server(Registry, paramiko.ServerInterface):
                                                 username, self.client_addr[0]))
                     client.save()
             self.username = username
-            self.msg.request('set_client username=%s' % username)
+            self.ipc.request('set_client username=%s' % username)
             return True
 
     def valid_auth(self, username, password=None, pkey=None):
@@ -202,7 +205,7 @@ class Server(Registry, paramiko.ServerInterface):
             return False
 
         self.username = username
-        self.msg.request('set_client username=%s' % username)
+        self.ipc.request('set_client username=%s' % username)
         return True
 
     def message_client(self, msg):
@@ -293,7 +296,7 @@ class Server(Registry, paramiko.ServerInterface):
                                    'to get a list of commands.\n'))
             return
 
-        resp = self.msg.request('%s' % ' '.join(args))
+        resp = self.ipc.request('%s' % ' '.join(args))
         self.chan.send(chanfmt(resp+'\n'))
 
 
@@ -412,7 +415,7 @@ class Server(Registry, paramiko.ServerInterface):
 
         self.set_channel(chan)
         namespace = { 'client': Backend().get_client_tags(), }
-        self.dispatcher = Dispatcher(self.msg, namespace)
+        self.dispatcher = Dispatcher(self.ipc, namespace)
         
         try:
             self.do_work()
@@ -420,7 +423,7 @@ class Server(Registry, paramiko.ServerInterface):
             if self.chan.active:
                 self.chan.send_exit_status(self.exit_status)
             # close what we can
-            for item in ('chan', 'transport', 'msg'):
+            for item in ('chan', 'transport', 'ipc'):
                 try:
                     getattr(self, item).close()
                 except:
@@ -437,7 +440,7 @@ class Server(Registry, paramiko.ServerInterface):
             self.chan.send(chanfmt("ERROR: You are not allowed to"
                                     " open a console session.\n"))
             return False
-        self.msg.request("set_client type=console")
+        self.ipc.request("set_client type=console")
         if hasattr(self, 'term'):
             return self.dispatcher.console()
         else:
@@ -483,10 +486,10 @@ class Server(Registry, paramiko.ServerInterface):
                                     " directory or direction on %s\n" % site))
             return False
 
-        self.msg.request("set_client type=scp_%s login=%s name=%s" % (scpdir,
+        self.ipc.request("set_client type=scp_%s login=%s name=%s" % (scpdir,
                                          self.pwdb.sitedb.get_tags()['login'],
                                          self.pwdb.sitedb.get_tags()['name']))
-        conn = proxy.ProxyScp(self.chan, self.connect_site(), self.msg)
+        conn = proxy.ProxyScp(self.chan, self.connect_site(), self.ipc)
         try:
             conn.loop()
         except AuthenticationException, msg:
@@ -513,10 +516,10 @@ class Server(Registry, paramiko.ServerInterface):
                                     " exec that command on %s"
                                     "\n" % site))
             return False
-        self.msg.request("set_client type=remote_exec login=%s name=%s" % 
+        self.ipc.request("set_client type=remote_exec login=%s name=%s" % 
                                         (self.pwdb.sitedb.get_tags()['login'],
                                          self.pwdb.sitedb.get_tags()['name']))
-        conn = proxy.ProxyCmd(self.chan, self.connect_site(), self.msg)
+        conn = proxy.ProxyCmd(self.chan, self.connect_site(), self.ipc)
         try:
             ret, self.exit_status = conn.loop()
         except AuthenticationException, msg:
@@ -543,11 +546,11 @@ class Server(Registry, paramiko.ServerInterface):
                                     " open a shell session on %s"
                                     "\n" % site))
             return False
-        self.msg.request("set_client type=shell_session login=%s name=%s" % 
+        self.ipc.request("set_client type=shell_session login=%s name=%s" % 
                                         (self.pwdb.sitedb.get_tags()['login'],
                                          self.pwdb.sitedb.get_tags()['name']))
         log.info("Connecting to %s", site)
-        conn = proxy.ProxyShell(self.chan, self.connect_site(), self.msg)
+        conn = proxy.ProxyShell(self.chan, self.connect_site(), self.ipc)
         try:
             ret, self.exit_status = conn.loop()
         except AuthenticationException, msg:

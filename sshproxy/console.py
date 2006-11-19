@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Aug 31, 23:48:59 by david
+# Last modified: 2006 Nov 19, 12:08:28 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -40,14 +40,14 @@ cmd.raw_input = rwinput
 class Console(Registry, cmd.Cmd):
     _class_id = 'Console'
 
-    def __reginit__(self, msg, stdin=None, stdout=None):
-        self.msg = msg
+    def __reginit__(self, ipc, stdin=None, stdout=None):
+        self.ipc = ipc
         self.populate()
         cmd.Cmd.__init__(self, stdin=stdin, stdout=stdout)
         self.prompt = 'sshproxy> '
 
     def populate(self):
-        methods = self.msg.request('public_methods').split('\n')
+        methods = self.ipc.request('public_methods').split('\n')
         self.methods = {}
         for line in methods:
             method, help = line.split(' ', 1)
@@ -71,7 +71,7 @@ class Console(Registry, cmd.Cmd):
 
 
     def default(self, line):
-        print self.msg.request(line)
+        print self.ipc.request(line)
 
     def emptyline(self):
         return
@@ -79,6 +79,8 @@ class Console(Registry, cmd.Cmd):
     def do_exit(self, arg):
         return True
 
+    def do_EOF(self, arg):
+        return True
 
 Console.register()
 

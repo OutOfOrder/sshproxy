@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 15, 23:10:26 by david
+# Last modified: 2006 Nov 18, 12:53:06 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,86 +22,85 @@
 
 import os, select
 from struct import pack, unpack
+import marshal, socket
 
-class Pipe(object):
-    def __init__(self, r, w):
-        self.rfd = r
-        self.wfd = w
+class IPChannel(object):
+    def __init__(self, sock):
+        self.sock = sock
         self.timeout = 0.0
         self.reset()
 
     def close(self):
-        os.close(self.rfd)
-        os.close(self.wfd)
+        self.sock.close()
 
     def _read_size(self):
-        S = os.read(self.rfd, 4)
+        S = self.sock.recv(4)
+        if not S:
+            return 0 # connection closed
         return unpack('I', S)[0]
 
     def _read_nonblocking(self):
         sz = self._read_size()
-        S = os.read(self.rfd, sz)
+        S = self.sock.recv(sz)
         s = unpack('%ss' % sz, S)[0]
-        if s == '___EMPTY_MESSAGE___':
-            return ''
         return s
 
     def _read_blocking(self):
         while True:
-            r, w, e = select.select([self.rfd], [], [], 5)
-            if self.rfd in r:
+            r, w, e = select.select([self.sock], [], [], 5)
+            if self.sock in r:
                 sz = self._read_size()
                 break
         while True:
-            r, w, e = select.select([self.rfd], [], [], 5)
-            if self.rfd in r:
-                S = os.read(self.rfd, sz)
+            r, w, e = select.select([self.sock], [], [], 5)
+            if self.sock in r:
+                S = self.sock.recv(sz)
                 break
         s = unpack('%ss' % sz, S)[0]
-        if s == '___EMPTY_MESSAGE___':
-            return ''
         return s
 
     def _read_timeout(self):
-        r, w, e = select.select([self.rfd], [], [], self.timeout)
-        if self.rfd not in r:
+        r, w, e = select.select([self.sock], [], [], self.timeout)
+        if self.sock not in r:
             return None
         sz = self._read_size()
-        r, w, e = select.select([self.rfd], [], [], self.timeout)
-        if self.rfd not in r:
+        r, w, e = select.select([self.sock], [], [], self.timeout)
+        if self.sock not in r:
             return None
-        S = os.read(self.rfd, sz)
+        S = self.sock.recv(sz)
         s = unpack('%ss' % sz, S)[0]
-        if s == '___EMPTY_MESSAGE___':
-            return ''
         return s
 
-    def read(self, sz=10240):
-        if self.timeout == 0.0:
-            return self._read_nonblocking()
-        elif self.timeout is None:
-            return self._read_blocking()
-        else:
-            return self._read_timeout()
+    def recv_message(self):
+        sz = self._read_size()
+        if not sz:
+            return (0, None)
+        s = self.sock.recv(sz)
+        #if not s:
+        #    return (0, )
+        return marshal.loads(s)
 
-    def write(self, s):
-        s = str(s)
+    def send_message(self, s):
+        #s = str(s)
+        s = marshal.dumps(s)
         S = pack('I%ss' % len(s), len(s), s)
-        return os.write(self.wfd, S)
+        return self.sock.send(S)
 
-    def response(self, s):
+    def respond(self, s):
         if self._responded:
             raise Exception('Already responded, not reset')
-        if not s:
-            s = '___EMPTY_MESSAGE___'
         
-        ret = self.write(s)
+        ret = self.send_message((0, s))
         self._responded = True
         return ret
 
     def request(self, request):
-        self.write(request)
-        return self._read_blocking()
+        self.send_message((1, request))
+        w, s = self.recv_message()
+        return s
+
+    def info(self, info):
+        self.send_message((0, info))
 
     def reset(self):
         self._responded = False
@@ -109,7 +108,7 @@ class Pipe(object):
     def fileno(self):
         # fileno is useful for select
         # which is mainly for a read operation
-        return self.rfd
+        return self.sock.fileno()
 
     def setblocking(self):
         self.settimeout(None)
@@ -124,21 +123,29 @@ class Pipe(object):
         return
         #os.fdatasync(self.wfd)
 
-class Message(object):
+
+
+class IPC(object):
+    count = 0
     def __init__(self):
-        r1, w2 = os.pipe()
-        r2, w1 = os.pipe()
-        self.parent = Pipe(r1, w1)
-        self.child = Pipe(r2, w2)
+        self.name = '\x00sshproxy-%d-%d\x00\xff' % (os.getpid(), self.count)
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.bind(self.name)
+        IPC.count = (IPC.count + 1) & 0xFFFFFFFF
+        self.sock.listen(1)
+        self.child = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        return
 
     def get_parent_fd(self):
         # call this method after a fork when pid != 0
-        #self.child.close()
-        return self.parent
+        self.child.close()
+        self.parent, address = self.sock.accept()
+        ipc = IPChannel(self.parent)
+        self.sock.close()
+        return ipc
 
     def get_child_fd(self):
         # call this method after a fork when pid == 0
-        #self.parent.close()
-        return self.child
-    
-
+        self.child.connect(self.name)
+        self.sock.close()
+        return IPChannel(self.child)

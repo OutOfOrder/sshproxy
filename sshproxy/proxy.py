@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 14, 01:53:19 by david
+# Last modified: 2006 Nov 19, 18:08:38 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -21,8 +21,7 @@
 
 
 from select import POLLIN, POLLPRI, POLLOUT, POLLERR, POLLHUP, POLLNVAL
-import select
-import socket
+import os, select, socket
 
 from paramiko import Channel
 from paramiko import OPEN_SUCCEEDED
@@ -31,7 +30,7 @@ from paramiko import OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
 from registry import Registry
 import util, log
-from message import Message
+from ipc import IPC
 from acl import ProxyNamespace
 
 POLLREAD = POLLIN | POLLPRI | POLLHUP | POLLERR | POLLNVAL
@@ -43,12 +42,12 @@ class Proxy(Registry):
     poll_timeout = None
     min_chan = 1
 
-    def __reginit__(self, client_chan, site_chan, msg_chan):
+    def __reginit__(self, client_chan, site_chan, ipc_chan):
         from server import Server
         self.server = Server()
         self.client_chan = client_chan
         self.site_chan = site_chan
-        self.msg_chan = msg_chan
+        self.ipc_chan = ipc_chan
         self.bufsize = {}
         self.listeners = {}
         self.poller = select.poll()
@@ -57,9 +56,10 @@ class Proxy(Registry):
         site_chan.set_name('site_chan')
         self.poll_register(client_chan, POLLREAD, self.copy_client, site_chan)
         self.poll_register(site_chan, POLLREAD, self.copy_site, client_chan)
-        self.poll_register(msg_chan, POLLREAD, self.handle_message)
+        self.poll_register(ipc_chan, POLLREAD, self.handle_message)
 
         self.open_connection()
+        #self.client_chan.transport.set_hexdump(True)
 
     def __del__(self):
         # derive this method for extra cleanup
@@ -74,27 +74,27 @@ class Proxy(Registry):
         self.site_chan.transport.close()
 
     def handle_message(self, source, event):
-        msg = self.msg_chan.read()
+        want_reply, msg = self.ipc_chan.recv_message()
 
         parts = msg.split(':', 1)
-        if hasattr(self, 'msg_%s' % parts[0]):
+        if hasattr(self, 'ipc_%s' % parts[0]):
             if len(parts) > 1:
                 message = parts[1]
             else:
                 message = ''
-            return getattr(self, 'msg_%s' % parts[0])(message)
+            return getattr(self, 'ipc_%s' % parts[0])(message)
 
-    def msg_alert(self, msg):
-        self.msg_announce('\007%s' % msg)
+    def ipc_alert(self, msg):
+        self.ipc_announce('\007%s' % msg)
 
-    def msg_announce(self, msg):
+    def ipc_announce(self, msg):
         self.client_chan.send(util.chanfmt(msg))
 
-    def msg_kill(self, msg):
+    def ipc_kill(self, msg):
         if not msg:
             msg = ("\n\nOn administrative request, "
                    "your session is immediately closed.\n\n")
-        self.msg_alert(msg)
+        self.ipc_alert(msg)
         self.kill()
         self.client_chan.send_exit_status(254)
 
@@ -106,30 +106,38 @@ class Proxy(Registry):
         return self.poller.poll(self.poll_timeout)
 
     def poll_register(self, chan, event_mask, callback, *args):
-        fd = chan.fileno()
-        #try:
-        #    log.debug("REGISTER chan #%d (%s)" % (fd, chan.get_name()))
-        #except:
-        #    log.debug("REGISTER chan #%d" % (fd))
+        if isinstance(chan, int):
+            fd = chan
+        else:
+            fd = chan.fileno()
+        try:
+            log.debug("REGISTER chan #%d (%s)" % (fd, chan.get_name()))
+        except:
+            log.debug("REGISTER chan #%d" % (fd))
         if fd not in self.listeners:
             self.poller.register(fd, event_mask)
             self.listeners[fd] = [chan, callback] + list(args)
+            print 'FD#%s added to %s' % (fd, self.listeners.keys())
             return True
         else:
             return False
 
     def poll_unregister(self, chan):
-        fd = chan.fileno()
-        #try:
-        #    log.debug("UNREGISTER chan #%d [%d/%d] (%s)" % (fd,
-        #                self.min_chan, len(self.listeners), chan.get_name()))
-        #except:
-        #    log.debug("UNREGISTER chan #%d [%d/%d]" % (fd, self.min_chan, 
-        #                                                len(self.listeners)))
+        if isinstance(chan, int):
+            fd = chan
+        else:
+            fd = chan.fileno()
+        try:
+            log.debug("UNREGISTER chan #%d [%d/%d] (%s)" % (fd,
+                        self.min_chan, len(self.listeners), chan.get_name()))
+        except:
+            log.debug("UNREGISTER chan #%d [%d/%d]" % (fd, self.min_chan, 
+                                                        len(self.listeners)))
         if fd in self.listeners:
             self.poller.unregister(fd)
             self.listeners[fd] = None
             del self.listeners[fd]
+            print 'FD#%s removed from %s' % (fd, self.listeners.keys())
             return True
         else:
             return False
@@ -140,7 +148,7 @@ class Proxy(Registry):
     def loop(self):
         log.debug("Starting proxying")
         try:
-            while len(self.listeners) > self.min_chan: # msg is the last one
+            while len(self.listeners) > self.min_chan: # ipc is the last one
                 for channels in self.poll():
                     try:
                         fd, event = channels
@@ -149,10 +157,12 @@ class Proxy(Registry):
                         raise
 
             exit_status = self.recv_exit_status()
-            self.poll_unregister(self.msg_chan)
-            self.msg_chan.close()
-            log.debug("Ending proxying")
+            self.poll_unregister(self.ipc_chan)
+            #self.ipc_chan.close()
+            log.debug("Ending proxying (%s)" % exit_status)
             return util.CLOSE, exit_status
+        except util.SSHProxyError, m:
+            return util.CLOSE, -42
         except Exception, m:
             for c in self.listeners:
                 if not isinstance(c, Channel):
@@ -168,6 +178,7 @@ class Proxy(Registry):
     def callback(self, fd, event):
         if fd not in self.listeners:
             log.warning("Data from unknown fd #%d" % fd)
+            return
         chan = self.listeners[fd][0]
         func = self.listeners[fd][1]
         args = self.listeners[fd][2:]
@@ -188,6 +199,8 @@ class Proxy(Registry):
                 i -= 1
                 if not i:
                     log.debug('Window is not set for %s' % name)
+            except Exception, m:
+                log.debug('unknown exception: %s' % m)
         while sent and sent < size:
             data = data[sent:]
             size = size - sent
@@ -201,6 +214,8 @@ class Proxy(Registry):
                     i -= 1
                     if not i:
                         log.debug('Window is not growing for %s' % name)
+                except Exception, m:
+                    log.debug('unknown exception: %s' % m)
         return sent
 
     def channel_copy(self, source, event, destination,
@@ -212,11 +227,13 @@ class Proxy(Registry):
             destination.send_stderr(source.recv_stderr(4096))
             return
 
-        if source.eof_received and not source.recv_ready():
+        if ((source.eof_received and not source.recv_ready())
+                                        or destination.closed):
             source.shutdown_read()
             destination.shutdown_write()
             if source.closed:
-                destination.close()
+                destination.shutdown_read()
+                self.poll_unregister(destination)
                 self.poll_unregister(source)
             return
 
@@ -224,12 +241,13 @@ class Proxy(Registry):
         size = len(data)
 
         if size == 0 and not source.transport.active:
-            raise util.SSHProxyError('Source is dead, closing connection')
+            raise util.SSHProxyError('Source %s is dead, closing connection' % sname)
+            return
 
         sent = send_data(self, destination, data, size, dname)
 
         if sent == 0 and not destination.transport.active:
-            raise util.SSHProxyError('Destination is dead, closing connection')
+            raise util.SSHProxyError('Destination %s is dead, closing connection' % dname)
 
     # define default copy functions
     copy_client = channel_copy
@@ -255,7 +273,6 @@ class ProxySession(Proxy):
     Implements X11 forwarding, local and remote port forwarding.
     """
     def open_connection(self):
-        self.x11c_channels = {}
         self.setup_watcher()
         self.setup_x11()
         self.setup_remote_port_forwarding()
@@ -264,18 +281,19 @@ class ProxySession(Proxy):
 
     def __del__(self):
         if hasattr(self, 'watcher'):
-            self.watcher.close()
+            os.close(self.watcher)
+            #self.watcher.close()
         if hasattr(self, 'signal'):
-            self.signal.close()
+            os.close(self.signal)
+            #self.signal.close()
 
     def setup_watcher(self):
         if not hasattr(self, 'watcher'):
-            msg = Message()
-            self.watcher = msg.get_child_fd()
-            self.signal = msg.get_parent_fd()
+            self.watcher, self.signal = os.pipe()
 
     def handle_signal(self, chan, event):
-        x = self.watcher.read(1)
+        x = os.read(self.watcher, 1)
+        #x = self.watcher.read(1)
         if len(self.new_channel_handlers):
             new_channel_handler, transport, chan = self.new_channel_handlers.pop(0)
             newchan = transport.accept(1.0)
@@ -284,7 +302,8 @@ class ProxySession(Proxy):
             else:
                 self.new_channel_handlers.insert(0, (new_channel_handler,
                                                         transport, chan))
-                self.signal.write(x)
+                os.write(self.signal, x)
+                #self.signal.write(x)
 
 
     ########## Reverse Port Forwarding ###################################
@@ -335,7 +354,8 @@ class ProxySession(Proxy):
             self.new_channel_handlers.append((self.new_remote_forward_channel,
                                                 self.site_chan.transport,
                                                 fwd_client))
-            self.signal.write('r')
+            os.write(self.signal, 'r')
+            #self.signal.write('r')
             return OPEN_SUCCEEDED
         else:
             return OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
@@ -388,7 +408,8 @@ class ProxySession(Proxy):
             self.new_channel_handlers.append((self.new_local_forward_channel,
                                                 self.client_chan.transport,
                                                 fwd_client))
-            self.signal.write('l')
+            os.write(self.signal, 'l')
+            #self.signal.write('l')
             return OPEN_SUCCEEDED
         else:
             return OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
@@ -438,7 +459,8 @@ class ProxySession(Proxy):
             self.new_channel_handlers.append((self.new_x11_channel,
                                                 self.site_chan.transport,
                                                 x11_client))
-            self.signal.write('x')
+            os.write(self.signal, 'x')
+            #self.signal.write('x')
             return OPEN_SUCCEEDED
         else:
             return OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
