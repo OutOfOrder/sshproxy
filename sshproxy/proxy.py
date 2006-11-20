@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 19, 18:08:38 by david
+# Last modified: 2006 Nov 20, 01:51:33 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -117,7 +117,6 @@ class Proxy(Registry):
         if fd not in self.listeners:
             self.poller.register(fd, event_mask)
             self.listeners[fd] = [chan, callback] + list(args)
-            print 'FD#%s added to %s' % (fd, self.listeners.keys())
             return True
         else:
             return False
@@ -137,7 +136,6 @@ class Proxy(Registry):
             self.poller.unregister(fd)
             self.listeners[fd] = None
             del self.listeners[fd]
-            print 'FD#%s removed from %s' % (fd, self.listeners.keys())
             return True
         else:
             return False
