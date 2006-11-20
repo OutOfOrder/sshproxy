@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 19, 19:39:12 by david
+# Last modified: 2006 Nov 20, 23:34:43 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -59,6 +59,8 @@ class Server(Registry, paramiko.ServerInterface):
         o_ip, o_port = origin
         d_ip, d_port = destination
         proxyns = ProxyNamespace()
+        proxyns['forward_ip'] = origin[0]
+        proxyns['forward_port'] = origin[1]
         namespace = {
                 'client': Backend().get_client_tags(),
                 'site': Backend().get_site_tags(),
@@ -66,6 +68,7 @@ class Server(Registry, paramiko.ServerInterface):
                 }
         if not (ACLDB().check('local_forwarding', **namespace)):
             log.debug("Local Port Forwarding not allowed by ACLs")
+            self.chan_send("Local Port Forwarding not allowed by ACLs\n")
             return False
         log.debug("Local Port Forwarding allowed by ACLs")
         return True
@@ -101,8 +104,17 @@ class Server(Registry, paramiko.ServerInterface):
     def check_remote_port_forwarding(self):
         if (hasattr(self, 'tcpip_forward_ip') and
             hasattr(self, 'tcpip_forward_port')):
+            proxyns = ProxyNamespace()
+            proxyns['forward_ip'] = self.tcpip_forward_ip
+            proxyns['forward_port'] = self.tcpip_forward_port
+            namespace = {
+                    'client': Backend().get_client_tags(),
+                    'site': Backend().get_site_tags(),
+                    'proxy': proxyns,
+                    }
             if not (ACLDB().check('remote_forwarding', **namespace)):
                 log.debug("Remote Port Forwarding not allowed by ACLs")
+                self.chan_send("Remote Port Forwarding not allowed by ACLs\n")
                 return False
             log.debug("Remote Port Forwarding allowed by ACLs")
             return True

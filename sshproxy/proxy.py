@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 20, 01:51:33 by david
+# Last modified: 2006 Nov 20, 23:34:24 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -301,7 +301,6 @@ class ProxySession(Proxy):
                 self.new_channel_handlers.insert(0, (new_channel_handler,
                                                         transport, chan))
                 os.write(self.signal, x)
-                #self.signal.write(x)
 
 
     ########## Reverse Port Forwarding ###################################
@@ -353,7 +352,6 @@ class ProxySession(Proxy):
                                                 self.site_chan.transport,
                                                 fwd_client))
             os.write(self.signal, 'r')
-            #self.signal.write('r')
             return OPEN_SUCCEEDED
         else:
             return OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
@@ -407,7 +405,6 @@ class ProxySession(Proxy):
                                                 self.client_chan.transport,
                                                 fwd_client))
             os.write(self.signal, 'l')
-            #self.signal.write('l')
             return OPEN_SUCCEEDED
         else:
             return OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
@@ -458,7 +455,6 @@ class ProxySession(Proxy):
                                                 self.site_chan.transport,
                                                 x11_client))
             os.write(self.signal, 'x')
-            #self.signal.write('x')
             return OPEN_SUCCEEDED
         else:
             return OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED

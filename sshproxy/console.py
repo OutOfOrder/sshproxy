@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 19, 12:08:28 by david
+# Last modified: 2006 Nov 20, 23:42:44 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -71,7 +71,9 @@ class Console(Registry, cmd.Cmd):
 
 
     def default(self, line):
-        print self.ipc.request(line)
+        response = self.ipc.request(line)
+        if response is not None:
+            print response
 
     def emptyline(self):
         return
