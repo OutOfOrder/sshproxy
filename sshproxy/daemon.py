@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 19, 11:52:28 by david
+# Last modified: 2006 Nov 22, 22:35:09 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -45,6 +45,7 @@ class Daemon(Registry):
     pids = []
 
     def __reginit__(self, daemon, sock):
+        self.imq = []
         self._run_server(daemon, sock)
 
     def service_client(self, client, addr, ipc):
@@ -245,8 +246,6 @@ class Daemon(Registry):
 ########################################################################
 
     def _run_server(self, daemon, sock):
-        init_plugins()
-    
         # get host key
         host_key_file = os.path.join(config.inipath, 'id_dsa')
         if not os.path.isfile(host_key_file):
@@ -261,7 +260,8 @@ class Daemon(Registry):
     
         try:
             # set up input message queue
-            self.imq = imq = [ sock ]
+            imq = self.imq
+            imq.append(sock)
             # set up output message queue
             omq = []
             # set up error message queue
@@ -387,6 +387,7 @@ def run_server(daemon=False, sock=None):
     log.info("sshproxy starting")
 
     try:
+        init_plugins()
         try:
             if sock is None:
                 sock = bind_server(daemon)
@@ -394,7 +395,8 @@ def run_server(daemon=False, sock=None):
         except (KeyboardInterrupt, SystemExit):
             log.info("System exit")
             return
-        except:
+        except Exception, msg:
+            print msg
             log.exception("ERROR: sshproxy may have crashed:"
                                                     " AUTORESTARTING...")
     finally:

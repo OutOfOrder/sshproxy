@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 20, 01:25:51 by david
+# Last modified: 2006 Nov 24, 01:53:03 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -77,8 +77,8 @@ exec scp -oPort=$PROXY_PORT "${OPTS[@]}" "${args[@]}"
 base_class = get_class('Server')
 
 class Server(base_class):
-    def add_cmdline_options(self, parser):
-        base_class.add_cmdline_options(self, parser)
+    def add_cmdline_options(self, parser, namespace):
+        base_class.add_cmdline_options(self, parser, namespace)
         parser.add_option("", "--get-pssh", dest="action",
                 help="display pssh client script.",
                 action="store_const",

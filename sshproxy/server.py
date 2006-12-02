@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 20, 23:34:43 by david
+# Last modified: 2006 Dec 02, 16:28:28 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -44,7 +44,7 @@ class Server(Registry, paramiko.ServerInterface):
         self.client_addr = addr
         self.ipc = ipc
         self.host_key = paramiko.DSSKey(filename=host_key_file)
-        self.ip_addr, self.port = client.getsockname()
+        #self.ip_addr, self.port = client.getsockname()
         self.event = threading.Event()
         self.args = []
         self._remotes = {}
@@ -262,10 +262,7 @@ class Server(Registry, paramiko.ServerInterface):
         return hasattr(self, 'username')
 
 
-    def add_cmdline_options(self, parser):
-        namespace = {
-                'client': self.pwdb.clientdb.get_tags(),
-                }
+    def add_cmdline_options(self, parser, namespace):
         if ACLDB().check('admin', **namespace):
             parser.add_option("", "--admin", dest="action",
                     help="run administrative commands",
@@ -298,7 +295,8 @@ class Server(Registry, paramiko.ServerInterface):
         """
         parser = OptionParser(self.chan, usage=usage)
         # add options from a mapping or a Registry callback
-        self.add_cmdline_options(parser)
+        namespace = {'client': self.pwdb.clientdb.get_tags(),}
+        self.add_cmdline_options(parser, namespace)
         return parser.parse_args(args)
 
 
@@ -329,7 +327,8 @@ class Server(Registry, paramiko.ServerInterface):
                 sz = sz - sent
 
     def run_cmd(self, cmd):
-        return self.dispatcher.dispatch(cmd) + '\n'
+        result = self.dispatcher.dispatch(cmd) or ''
+        return result + '\n'
 
     def readlines(self):
         buffer = []
@@ -402,9 +401,6 @@ class Server(Registry, paramiko.ServerInterface):
         negotiation_ev = threading.Event()
         #self.transport.set_subsystem_handler('sftp', paramiko.SFTPServer,
         #                                               ProxySFTPServer)
-        #self.transport.set_subsystem_handler('tcpip-forward',
-        #                                     ForwardHandler,
-        #                                     ProxyForward)
 
         self.transport.start_server(negotiation_ev, self)
 
