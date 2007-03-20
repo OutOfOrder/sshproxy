@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 20, 23:42:44 by david
+# Last modified: 2007 Jan 21, 03:24:18 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -47,11 +47,10 @@ class Console(Registry, cmd.Cmd):
         self.prompt = 'sshproxy> '
 
     def populate(self):
-        methods = self.ipc.request('public_methods').split('\n')
+        methods = self.ipc.call('public_methods')
         self.methods = {}
-        for line in methods:
-            method, help = line.split(' ', 1)
-            self.methods[method] = help.replace('\\n','\n')
+        for method, help in methods:
+            self.methods[method] = help #.replace('\\n','\n')
 
     def completenames(self, text, *ignored):
         return [ a for a in self.methods.keys() if a.startswith(text) ]
@@ -71,7 +70,11 @@ class Console(Registry, cmd.Cmd):
 
 
     def default(self, line):
-        response = self.ipc.request(line)
+        try:
+            cmd, args = line.split(' ', 1)
+        except ValueError:
+            cmd, args = line, ''
+        response = self.ipc.call(cmd, args)
         if response is not None:
             print response
 
@@ -82,6 +85,7 @@ class Console(Registry, cmd.Cmd):
         return True
 
     def do_EOF(self, arg):
+        print 'EOF'
         return True
 
 Console.register()

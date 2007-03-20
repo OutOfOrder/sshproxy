@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Dec 02, 16:18:29 by david
+# Last modified: 2007 Jan 21, 03:30:33 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -29,12 +29,21 @@ from paramiko import OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
 
 from registry import Registry
-import util, log
-from ipc import IPC
+import util
+import ipc
 from acl import ProxyNamespace
 
 POLLREAD = POLLIN | POLLPRI | POLLHUP | POLLERR | POLLNVAL
 #unused: POLLWRITE = POLLOUT | POLLHUP | POLLERR | POLLNVAL
+
+class IPCClientInterface(ipc.IPCClient):
+    def __init__(self, proxy):
+        self.proxy = proxy
+
+    def __call__(self):
+        # simulate an instanciation
+        return self
+
 
 class Proxy(Registry):
     # TODO: keepalive, key renegotiation, connection timeout
@@ -56,7 +65,10 @@ class Proxy(Registry):
         site_chan.set_name('site_chan')
         self.poll_register(client_chan, POLLREAD, self.copy_client, site_chan)
         self.poll_register(site_chan, POLLREAD, self.copy_site, client_chan)
-        self.poll_register(ipc_chan, POLLREAD, self.handle_message)
+        #ipc_chan.handlers[MSG_GET] = self.ipc_get
+        #ipc_chan.handlers[MSG_SET] = self.ipc_set
+        #ipc_chan.handlers[MSG_CALL] = self.ipc_call
+        #self.poll_register(ipc_chan, POLLREAD, self.handle_message)
 
         self.open_connection()
         #self.client_chan.transport.set_hexdump(True)
@@ -69,6 +81,25 @@ class Proxy(Registry):
         raise NotImplemented
 
     ########## Messaging with parent daemon ##############################
+
+    def ipc_call(self, msg):
+        name = msg.get_string()
+        args = marshal.loads(msg.get_string())
+        if hasattr(self, name):
+            return self.ipc_chan.call_resp(name, getattr(self, name)(*args))
+        else:
+            self.ipc_chan.call_resp(name, None)
+            raise NotImplementedError('ipc_call %s' % name)
+
+    def ipc_get(self, msg):
+        name = msg.get_string()
+        self.ipc_chan.get_resp(name, None)
+        raise NotImplementedError('ipc_get %s' % name)
+
+    def ipc_set(self, msg):
+        name = msg.get_string()
+        raise NotImplementedError('ipc_set %s' % name)
+
 
     def kill(self):
         self.site_chan.transport.close()
@@ -111,9 +142,9 @@ class Proxy(Registry):
         else:
             fd = chan.fileno()
         try:
-            log.debug("REGISTER chan #%d (%s)" % (fd, chan.get_name()))
+            self.ipc_chan.llog.debug("REGISTER chan #%d (%s)" % (fd, chan.get_name()))
         except:
-            log.debug("REGISTER chan #%d" % (fd))
+            self.ipc_chan.llog.debug("REGISTER chan #%d" % (fd))
         if fd not in self.listeners:
             self.poller.register(fd, event_mask)
             self.listeners[fd] = [chan, callback] + list(args)
@@ -127,10 +158,10 @@ class Proxy(Registry):
         else:
             fd = chan.fileno()
         try:
-            log.debug("UNREGISTER chan #%d [%d/%d] (%s)" % (fd,
+            self.ipc_chan.llog.debug("UNREGISTER chan #%d [%d/%d] (%s)" % (fd,
                         self.min_chan, len(self.listeners), chan.get_name()))
         except:
-            log.debug("UNREGISTER chan #%d [%d/%d]" % (fd, self.min_chan, 
+            self.ipc_chan.llog.debug("UNREGISTER chan #%d [%d/%d]" % (fd, self.min_chan, 
                                                         len(self.listeners)))
         if fd in self.listeners:
             self.poller.unregister(fd)
@@ -144,7 +175,7 @@ class Proxy(Registry):
         return self.site_chan.recv_exit_status()
 
     def loop(self):
-        log.debug("Starting proxying")
+        self.ipc_chan.llog.debug("Starting proxying")
         try:
             while len(self.listeners) > self.min_chan: # ipc is the last one
                 for channels in self.poll():
@@ -155,12 +186,13 @@ class Proxy(Registry):
                         raise
 
             exit_status = self.recv_exit_status()
-            self.poll_unregister(self.ipc_chan)
+            #self.poll_unregister(self.ipc_chan)
+            self.ipc_chan.terminate()
             #self.ipc_chan.close()
-            log.debug("Ending proxying (%s)" % exit_status)
-            return util.CLOSE, exit_status
+            self.ipc_chan.llog.debug("Ending proxying (%s)" % exit_status)
+            return exit_status
         except util.SSHProxyError, m:
-            return util.CLOSE, -42
+            return -42
         except Exception, m:
             for c in self.listeners:
                 if not isinstance(c, Channel):
@@ -170,12 +202,12 @@ class Proxy(Registry):
                     c.close()
                 except:
                     pass
-            log.exception("An exception occured %s" % repr(m))
+            self.ipc_chan.llog.exception("An exception occured %s" % repr(m))
             raise
 
     def callback(self, fd, event):
         if fd not in self.listeners:
-            log.warning("Data from unknown fd #%d" % fd)
+            self.ipc_chan.llog.warning("Data from unknown fd #%d" % fd)
             return
         chan = self.listeners[fd][0]
         func = self.listeners[fd][1]
@@ -196,9 +228,9 @@ class Proxy(Registry):
                 sent = 0
                 i -= 1
                 if not i:
-                    log.debug('Window is not set for %s' % name)
+                    self.ipc_chan.llog.debug('Window is not set for %s' % name)
             except Exception, m:
-                log.debug('unknown exception: %s' % m)
+                self.ipc_chan.llog.debug('unknown exception: %s' % m)
         while sent and sent < size:
             data = data[sent:]
             size = size - sent
@@ -211,15 +243,15 @@ class Proxy(Registry):
                     pass
                     i -= 1
                     if not i:
-                        log.debug('Window is not growing for %s' % name)
+                        self.ipc_chan.llog.debug('Window is not growing for %s' % name)
                 except Exception, m:
-                    log.debug('unknown exception: %s' % m)
+                    self.ipc_chan.llog.debug('unknown exception: %s' % m)
         return sent
 
     def channel_copy(self, source, event, destination,
                                   recv_data=recv_data, send_data=send_data):
-        sname = source._name
-        dname = destination._name
+        sname = getattr(source, '_name', 'Unnamed source')
+        dname = getattr(destination, '_name', 'Unnamed destination')
 
         if source.recv_stderr_ready():
             destination.send_stderr(source.recv_stderr(4096))
@@ -259,7 +291,7 @@ class ProxyScp(Proxy):
 
     def open_connection(self):
         proxy = ProxyNamespace()
-        log.info('Executing: scp %s %s' % (proxy['scp_args'], 
+        self.ipc_chan.llog.info('Executing: scp %s %s' % (proxy['scp_args'], 
                                            proxy['scp_path']))
         self.site_chan.exec_command('scp %s %s' % (proxy['scp_args'], 
                                                    proxy['scp_path']))
@@ -323,7 +355,7 @@ class ProxySession(Proxy):
                 if not ret:
                     raise Exception('Denied')
             except Exception, m:
-                log.debug('An exception occured while opening a pfwd chan: %s' %
+                self.ipc_chan.llog.debug('An exception occured while opening a pfwd chan: %s' %
                                                                             m)
                 self.client_chan.send('Port Forwarding to %s:%s forbidden\n' %
                                                                 (ip, port))
@@ -335,7 +367,7 @@ class ProxySession(Proxy):
                 self.min_chan += 1
 
     def check_remote_forward_channel_request(self, channel, origin, destination):
-        log.debug("Channel rfw #%d from %s:%s to %s:%s" % (channel.get_id(),
+        self.ipc_chan.llog.debug("Channel rfw #%d from %s:%s to %s:%s" % (channel.get_id(),
                                             origin[0], origin[1],
                                             destination[0], destination[1]))
         try:
@@ -343,7 +375,7 @@ class ProxySession(Proxy):
                                                         'forwarded-tcpip',
                                                         origin, destination)
         except Exception, m:
-            log.exception("Exception while connecting remote forwarding: %s"
+            self.ipc_chan.llog.exception("Exception while connecting remote forwarding: %s"
                                                                         % m)
             fwd_client = None
 
@@ -378,7 +410,7 @@ class ProxySession(Proxy):
             self.min_chan += 1
         
     def check_local_forward_channel(self, chanid, origin, destination):
-        log.debug("Channel lfw #%d from %s:%s to %s:%s" % (chanid,
+        self.ipc_chan.llog.debug("Channel lfw #%d from %s:%s to %s:%s" % (chanid,
                                             origin[0], origin[1],
                                             destination[0], destination[1]))
 
@@ -390,7 +422,7 @@ class ProxySession(Proxy):
                                                         'direct-tcpip',
                                                         origin, destination)
         except Exception, m:
-            log.exception("Exception while connecting local forwarding: %s"
+            self.ipc_chan.llog.exception("Exception while connecting local forwarding: %s"
                                                                         % m)
             fwd_client = None
 
@@ -437,7 +469,7 @@ class ProxySession(Proxy):
 
     def check_x11_channel_request(self, channel, origin_addr_port):
         origin_addr, origin_port = origin_addr_port
-        log.debug("Channel x11 #%d from %s:%s" % (channel.get_id(),
+        self.ipc_chan.llog.debug("Channel x11 #%d from %s:%s" % (channel.get_id(),
                                                   origin_addr, origin_port))
         x11_client = self.client_chan.transport.open_x11_channel(
                                                 (origin_addr, origin_port))
@@ -469,7 +501,7 @@ class ProxyCmd(ProxySession):
 
         proxy = ProxyNamespace()
         server = self.server
-        log.info('Executing: %s' % (proxy['cmdline']))
+        self.ipc_chan.llog.info('Executing: %s' % (proxy['cmdline']))
         if hasattr(server, 'term'):
             self.site_chan.get_pty(server.term,
                                    server.width,
@@ -486,7 +518,7 @@ class ProxyShell(ProxySession):
 
     def open_connection(self):
         ProxySession.open_connection(self)
-        log.info('Opening shell session on %s' %
+        self.ipc_chan.llog.info('Opening shell session on %s' %
                         (self.site_chan.transport.getpeername(),))
 
         server = self.server

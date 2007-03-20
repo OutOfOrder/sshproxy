@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 26, 11:15:42 by david
+# Last modified: 2006 Dec 29, 12:42:07 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,8 +22,8 @@
 
 __author__ = "David Guerizec"
 __author_email__ = "david@guerizec.net"
-__date__ = "2006-09-18"
-__version_info__ = (0, 5, 0) #, "beta5")
+__date__ = "2006-12-29"
+__version_info__ = (0, 6, 0, "alpha0")
 __version__ = '-'.join(['.'.join([ str(v) for v in __version_info__[:3]])]
                         + list(__version_info__[3:]))
 __license__ = "GNU General Public License (GPL) v2"
@@ -36,7 +36,7 @@ if sys.version_info < (2, 4):
 
 import paramiko
 
-if paramiko.__version_info__ < (1, 6, 2):
+if paramiko.__version_info__ < (1, 6, 3):
     raise RuntimeError('You need paramiko >=1.6.2 for this module.')
 
 

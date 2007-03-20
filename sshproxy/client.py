@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 19, 01:28:36 by david
+# Last modified: 2007 Jan 25, 19:13:05 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -129,7 +129,6 @@ class ClientDB(Registry):
     controling program.
     """
     _class_id = 'ClientDB'
-    _singleton = True
 
     def __reginit__(self, **kw):
         """

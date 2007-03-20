@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 22, 22:35:09 by david
+# Last modified: 2007 Jan 25, 15:50:05 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -27,9 +27,9 @@ from registry import Registry
 from plugins import init_plugins
 import util
 import config
-import log
 from server import Server
-from ipc import IPC
+import ipc, log
+from monitor import Monitor
 
 
 class Client(object):
@@ -42,209 +42,19 @@ class Daemon(Registry):
     _singleton = True
 
     clients = {}
-    pids = []
+
+    ipc_address = ('127.1', 2244)
 
     def __reginit__(self, daemon, sock):
         self.imq = []
+        self.monitor = Monitor(input_message_queue=self.imq)
         self._run_server(daemon, sock)
 
-    def service_client(self, client, addr, ipc):
-        server = Server(client, addr, ipc, self.host_key_file)
+    def service_client(self, client, addr):
+        server = Server(client, addr, self.host_key_file)
         server.start()
         return
     
-    def kill_child(self, pid, sig=signal.SIGHUP):
-        try:
-            os.kill(pid, sig)
-            return True
-        except OSError:
-            log.warning('ERROR: child pid %s does not exist', pid)
-        return False
-    
-    def kill_zombies(self, signum=None, frame=None):
-        try:
-            pid, status = os.waitpid(-1, os.WNOHANG)
-            if pid and pid in self.pids:
-                imqfd = self.imq.index(self.clients[pid].ipc)
-                self.imq[imqfd].close()
-                del self.imq[imqfd]
-                del self.clients[pid]
-                del self.pids[self.pids.index(pid)]
-                log.info("A child process has been killed and cleaned.")
-        except OSError:
-            pass
-        
-    def find_client_pid(self, fd):
-        for pid, m in self.clients.items():
-            if m.ipc == fd:
-                return pid
-        return None
-
-########################################################################
-
-    def send_message(self, id, cmd, msg):
-        self.clients[id].ipc.info('%s:\n\n%s\n\n' % (cmd, msg))
-
-    def rq_nb_con(self, id, *args):
-        """
-        Get number of currently active client connections.
-        """
-        return '%d' % len(self.clients)
-
-    def rq_set_client(self, id, *args):
-        for arg in args[1:]:
-            k, v = arg.split('=', 1)
-            setattr(self.clients[id], k, v)
-
-    def rq_watch(self, id, *args):
-        """
-        Display connected users.
-        """
-        s = []
-        for pid, client in self.clients.items():
-            # don't show ourself
-            if pid == id:
-                continue
-            if hasattr(client, 'name'):
-                s.append('% 6d %s@%s ---(%s)--> %s@%s' %
-                                (pid, client.username, str(client.ip_addr[0]),
-                                client.type,
-                                client.login, client.name))
-            else:
-                s.append('%s@%s -->(%s)' %
-                                (client.username, str(client.ip_addr[0]),
-                                client.type))
-        return '\n'.join(s)
-
-    def rq_message(self, id, *args):
-        """
-        message user@site <message contents>
-
-        Send a message to user@site.
-        """
-        if len(args) < 3:
-            return 'Need a message'
-        for pid, client in self.clients.items():
-            cid = '%s@%s' % (client.username, client.ip_addr[0])
-
-            if args[1] == '*' or args[1] == cid:
-                msg = ("\007On administrative request, "
-                       "your session will be closed.")
-                if len(args) > 2:
-                    msg = ' '.join(args[2:])
-                self.send_message(pid, 'announce', msg)
-                #return '%s found and signaled' % cid
-            #return "%s couldn't be signaled" % cid
-        return '%s not found' % (args[1])
-
-    def rq_kill(self, id, *args):
-        """
-        kill user@site
-
-        Kill all connections to user@site.
-        """
-        count = 0
-        for pid, client in self.clients.items():
-            # don't kill ourself
-            if pid == id:
-                continue
-            if hasattr(client, 'username'):
-                username = client.username
-            else:
-                username = '_'
-            cid = '%s@%s' % (username, client.ip_addr[0])
-            if hasattr(client, 'name'):
-                sid = '%s@%s' % (client.login, client.name)
-            else:
-                sid = None
-            if args[1] in ('*', cid, sid):
-                msg = ("\007On administrative request, "
-                       "your session will be closed.")
-                if len(args) > 2:
-                    msg = ' '.join(args[2:])
-                self.send_message(pid, 'kill', msg)
-                count += 1
-        if count:
-            return '%d killed connections' % count
-        else:
-            return '%s not found' % (args[1])
-
-    def rq_shutdown(self, id, *args):
-        """Shutdown all active connections"""
-        msg = ("The administrator has requested a shutdown.\n"
-                "Your session will be closed.")
-        for pid, client in self.clients.items():
-            if pid == id:
-                continue
-            self.send_message(pid, 'kill', msg)
-        time.sleep(2)
-        for pid, client in self.clients.items():
-            if pid == id:
-                continue
-            self.kill_child(pid)
-            
-    def handle_message_request(self, id, data):
-        args = data.split()
-
-        if args[0] == 'help':
-            resp = ['Available administration commands:\n']
-            methnames = [ m for m in dir(self) if m[:3] == 'rq_' ]
-            methnames.sort()
-            for methname in methnames:
-                method = getattr(self, methname)
-                doc = getattr(method, '__doc__', None)
-                if doc:
-                    # display only documented methods
-                    resp.append('%s:' % methname[3:])
-                    resp.append('  '+ '\n  '.join([ l.strip()
-                                                    for l in doc.split('\n')
-                                                    if l.strip()]))
-                    resp.append('\n')
-
-            return '\n'.join(resp)
-
-        if hasattr(self, 'rq_%s' % args[0]):
-            return getattr(self, 'rq_%s' % args[0])(id, *args)
-        return 'ERROR: unknown command %s' % data
-
-    def get_public_methods(self):
-        methods = []
-        for method in dir(self):
-            if method[:3] != 'rq_':
-                continue
-            doc = getattr(getattr(self, method), '__doc__', None)
-            if not doc:
-                continue
-            methods.append((method[3:], doc))
-            #methods.append(' '.join([ method[3:], doc]))
-
-        return methods
-        #return '\n'.join([ m.replace('\n', '\\n') for m in methods ])
-
-
-    def handle_message(self, fd):
-        id = self.find_client_pid(fd)
-        if not id:
-            log.error("A client tried to communicate, but I don't know it.")
-            return
-        fd.reset()
-        want_reply, data = fd.recv_message()
-        
-        if data == 'public_methods':
-            fd.respond(self.get_public_methods())
-            return
-        elif data == 'ping':
-            fd.respond('pong')
-            return
-        elif data is None:
-            return
-        else:
-            resp = self.handle_message_request(id, data)
-        if want_reply:
-            fd.respond(resp)
-
-########################################################################
-
     def _run_server(self, daemon, sock):
         # get host key
         host_key_file = os.path.join(config.inipath, 'id_dsa')
@@ -255,7 +65,7 @@ class Daemon(Registry):
     
         self.host_key_file = host_key_file
         # set up the child killer handler
-        signal.signal(signal.SIGCHLD, self.kill_zombies)
+        signal.signal(signal.SIGCHLD, self.monitor.kill_zombies)
     
     
         try:
@@ -271,16 +81,16 @@ class Daemon(Registry):
                 try:
                     # message ready ?
                     try:
-                        imr, omr, emr = select.select(imq, omq, emq, 1)
+                        imr, omr, emr = select.select(imq, omq, emq, 100)
                     except KeyboardInterrupt:
                         raise
                     except select.error:
                         # may be caused by SIGCHLD
-                        self.kill_zombies()
+                        self.monitor.kill_zombies()
                         continue
                     except socket.error:
                         # may be caused by SIGCHLD
-                        self.kill_zombies()
+                        self.monitor.kill_zombies()
                         continue
                     for x in imr:
                         if x is sock:
@@ -293,27 +103,24 @@ class Daemon(Registry):
                                 pass
                                 raise
                             log.debug('Got a connection!')
-                            ipc = IPC()
                             pid = os.fork()
                             if pid == 0:
                                 # just serve in the child
                                 sock.close()
                                 for i in self.imq:
-                                    i.close()
+                                    if hasattr(i, 'sock'):
+                                        i.sock.close()
+                                self.monitor.clean_at_fork()
                                 log.info("Serving %s", addr)
-                                cipc = ipc.get_child_fd()
-                                self.service_client(client, addr, cipc)
+                                self.service_client(client, addr)
                                 time.sleep(0.5)
                                 sys.exit()
 
                             client.close()
-                            pipc = ipc.get_parent_fd()
-                            imq.append(pipc)
-                            self.clients[pid] = Client(ipc=pipc, ip_addr=addr)
-                            self.pids.append(pid)
+                            #self.monitor.add_child(pid, ipc=pipc, ip_addr=addr)
                         else:
                             # consume the message
-                            self.handle_message(x)
+                            self.monitor.handle_incomming_connection(x)
     
     
                 except KeyboardInterrupt:
@@ -324,9 +131,9 @@ class Daemon(Registry):
                     log.info("Signaling all child processes")
                     msg = ('General shutdown happening.\n'
                            'Please reconnect later.')
-                    self.rq_kill(0, '', '*', msg)
+                    self.monitor.rq_kill(0, '', '*', msg)
                     # let the clients get their messages
-                    if len(self.pids):
+                    if self.monitor.children_count():
                         seconds = 2
                         signal.signal(signal.SIGALRM, self.abort)
                         signal.alarm(seconds)
@@ -342,7 +149,7 @@ class Daemon(Registry):
                     #    imr, omr, emr = select.select(imq, omq, emq)
                     # error: (4, 'Interrupted system call')
                     # 
-                    self.kill_zombies()
+                    self.monitor.kill_zombies()
                     continue
         finally:
             try:
@@ -353,8 +160,7 @@ class Daemon(Registry):
 
     def abort(self, *args, **kw):
         log.info("Terminating all child processes")
-        for pid in self.pids:
-            self.kill_child(pid, sig=signal.SIGTERM)
+        self.monitor.kill_children(sig=signal.SIGTERM)
         log.info("Terminating master processes")
         sys.exit(0)
 
@@ -396,7 +202,6 @@ def run_server(daemon=False, sock=None):
             log.info("System exit")
             return
         except Exception, msg:
-            print msg
             log.exception("ERROR: sshproxy may have crashed:"
                                                     " AUTORESTARTING...")
     finally:

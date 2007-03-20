@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 19, 12:00:58 by david
+# Last modified: 2007 Jan 21, 22:41:28 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,36 +22,50 @@
 
 import os, select, pty
 
+import ipc
 import log
 
 class PTYWrapper(object):
-    def __init__(self, chan, code, ipc, *args, **kwargs):
+    def __init__(self, chan, code, address, handler, *args, **kwargs):
         self.chan = chan
+        try:
+            self.ipc = ipc.IPCServer(address, handler=handler)
+        except:
+            log.exception('Exception:')
+            raise
         pid, self.master_fd = pty.fork()
         if not pid: # child process
-            cout = ipc.get_child_fd()
+            cipc = ipc.IPCClient(address)
             try:
-                code(cout, *args, **kwargs)
+                code(cipc, *args, **kwargs)
             except Exception, e:
                 log.exception('ERROR: cannot execute function %s' %
                                                             code.__name__)
                 pass
-            cout.info('EOF')
-            cout.close()
+            cipc.terminate()
+            cipc.close()
+            print "END OF CLIENT"
+            sys.stdout.close()
             chan.transport.atfork() # close only the socket
             # Here the child process exits
-        self.cin = ipc.get_parent_fd()
+
+        # Let's wait for the client to connect
+        r, w, e = select.select([self.ipc], [], [], 5)
+        if not r:
+            self.ipc.terminate()
+            self.ipc.close()
+        else:
+            self.ipc.accept()
 
     def loop(self):
         chan = self.chan
         master_fd = self.master_fd
-        cin = self.cin
         while master_fd and chan.active:
             # FIXME: What exception do we catch here ?
             # """try prevents rfds to return -1 and an error""" ????
             try:
                 rfds, wfds, xfds = select.select(
-                        [master_fd, chan, cin], [], [], 5)
+                        [master_fd, chan], [], [], 5)
             except:
                 break
             
@@ -60,23 +74,15 @@ class PTYWrapper(object):
                     data = pty._read(master_fd)
                 except OSError:
                     break
+                if data == '':
+                    break
+                #print 'from console:', repr(data)
                 chan.send(data)
             if chan in rfds:
-                # read a large buffer until the protocol is more robust
                 data = chan.recv(10240)
-                if chan.closed or chan.eof_received:
-                    break 
                 if data == '':
                     break
                 pty._writen(master_fd, data)
-            if cin in rfds:
-                data = cin.recv_message()
-                # since this is a pipe, it seems to always return EOF ('')
-                if not len(data):
-                    continue
-                if data == 'EOF':
-                    cin.close() # stop the loop
-                    return None
-                return data
-
+                if chan.closed or chan.eof_received:
+                    break 
 

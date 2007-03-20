@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 19, 12:00:28 by david
+# Last modified: 2007 Jan 21, 22:42:40 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,13 +19,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
-import shlex
+import os, shlex
 
 from registry import Registry
-import util, log, proxy, pool
 from backend import Backend
-from config import get_config
-from ipc import IPC
+import ipc
 from ptywrap import PTYWrapper
 from console import Console
 from acl import ACLDB
@@ -35,7 +33,7 @@ import cipher
 class DispatcherCommandError(Exception):
     pass
 
-class Dispatcher(Registry):
+class Dispatcher(Registry, ipc.IPCInterface):
     _class_id = 'Dispatcher'
     _singleton = True
 
@@ -43,12 +41,42 @@ class Dispatcher(Registry):
 
     def __reginit__(self, daemon_ipc, namespace):
         self.d_ipc = daemon_ipc
-        self.d_ipc.reset()
         self.namespace = namespace
         self.daemon_methods = {}
-        for line in self.d_ipc.request('public_methods'):
+        for line in self.d_ipc.call('public_methods'):
             method, help = line
             self.daemon_methods[method] = help #.replace('\n', '\\n')
+
+    def __init__(self, *args, **kw):
+        pass
+
+    def default_call_handler(self, _name, *args, **kw):
+        import shlex
+        import re
+        func = getattr(self, 'cmd_' + _name, None)
+        if not func:
+            if _name in self.daemon_methods:
+                return self.d_ipc.call(_name, *args, **kw)
+            else:
+                # TODO: raise and catch in ipc
+                return 'dispatcher.%s does not exist' % _name
+        if len(args):
+            self.cmdline = args[0]
+            arguments = shlex.split(args[0])
+            rx = re.compile('([a-zA-Z_][a-zA-Z0-9_]*)=(.*)')
+            args = []
+            kw = {}
+            for arg in arguments:
+                m = rx.match(arg)
+                if m:
+                    kw[m.group(1)] = m.group(2)
+                else:
+                    args.append(arg)
+        else:
+            self.cmdline = ''
+        
+        return func(*args, **kw)
+
 
     def is_admin(self):
         return ACLDB().check('admin', **self.namespace)
@@ -58,8 +86,7 @@ class Dispatcher(Registry):
         Return a list of allowed commands.
         """
         if self.is_admin():
-            methods = [ '%s %s' % (m, h)
-                                for m, h in self.daemon_methods.items() ]
+            methods = self.daemon_methods.items()
         else:
             methods = []
         for method in dir(self):
@@ -70,9 +97,12 @@ class Dispatcher(Registry):
             doc = getattr(getattr(self, method), '__doc__', None)
             if not doc:
                 continue
-            methods.append(' '.join([ method[4:], doc ]))
+            methods.append((method[4:], doc))
 
-        return '\n'.join([ m.replace('\n', '\\n') for m in methods ])
+        return methods
+
+    def cmd_public_methods(self, *args, **kw):
+        return self.public_methods()
 
     def check_acl(self, *args):
         """
@@ -110,7 +140,8 @@ class Dispatcher(Registry):
 
         if not hasattr(self, command):
             if args[0] in self.daemon_methods.keys() and self.is_admin():
-                return self.d_ipc.request(cmdline)
+                return self.d_ipc.call(*args)
+
             else:
                 return 'Unknown command %s' % args[0]
 
@@ -126,28 +157,25 @@ class Dispatcher(Registry):
 
     def init_console(self):
         from server import Server
-        ipc = IPC()
+
+        address = 'sshproxy-control-%d' % os.getpid()
 
         def PtyConsole(*args, **kwargs):
             Console(*args, **kwargs).cmdloop()
 
-        self._console = PTYWrapper(Server().chan, PtyConsole, ipc=ipc)
+        self._console = PTYWrapper(Server().chan, PtyConsole, address=address,
+                                                              handler=self)
 
-        self.c_ipc = self._console.cin
+    def __call__(self, chan):
+        self.c_ipc = chan
+        return self
+
 
     def console(self):
+        from server import Server
         self.init_console()
 
-        while True:
-            self.c_ipc.reset()
-        
-            want_reply, data = self._console.loop()
-            if data is None:
-                break
-
-            response = self.dispatch(data)
-            if want_reply:
-                self.c_ipc.respond(response)
+        self._console.loop()
 
 
     def check_args(self, num, args, strict=False):
@@ -166,7 +194,7 @@ class Dispatcher(Registry):
 
 ##########################################################################
 
-    def cmd_list_aclrules(self, *args):
+    def cmd_list_aclrules(self, *args, **kw):
         """
         list_aclrules [acl_name]
 
@@ -191,7 +219,7 @@ class Dispatcher(Registry):
         return '\n'.join(resp)
 
     acl_set_aclrule = 'acl(admin)'
-    def cmd_set_aclrule(self, *args):
+    def cmd_set_aclrule(self, *args, **kw):
         """
         set_aclrule acl_name[:id] acl expression
 
@@ -207,7 +235,7 @@ class Dispatcher(Registry):
         self.check_args(2, args)
 
         # keep quotes in expression
-        args = self.cmdline.split()[1:]
+        args = self.cmdline.split()
         name = args[0]
         if ':' in args[0]:
             name, id = args[0].split(':', 1)
@@ -242,7 +270,7 @@ class Dispatcher(Registry):
         Backend().acldb.save_rules()
 
     acl_del_aclrule = "acl(admin)"
-    def cmd_del_aclrule(self, *args):
+    def cmd_del_aclrule(self, *args, **kw):
         """
         del_aclrule acl_name[:id] [acl_name[:id] ...]
 
@@ -268,7 +296,7 @@ class Dispatcher(Registry):
 
 ##########################################################################
 
-    def cmd_list_clients(self, *args):
+    def cmd_list_clients(self, *args, **kw):
         """
         list_clients
 
@@ -276,22 +304,12 @@ class Dispatcher(Registry):
         """
         self.check_args(0, args, strict=False)
 
-        tokens = {}
-        for arg in args:
-            t = arg.split('=', 1)
-            if len(t) > 1:
-                value = t[1]
-                if value and value[0] == value[-1] == '"':
-                    value = value[1:-1]
-
-            tokens[t[0]] = value
-
-        resp = Backend().list_clients(**tokens)
+        resp = Backend().list_clients(**kw)
         resp.append('\nTotal: %d' % len(resp))
         return '\n'.join(resp)
 
     acl_add_client = "acl(admin)"
-    def cmd_add_client(self, *args):
+    def cmd_add_client(self, *args, **kw):
         """
         add_client username [tag=value ...]
 
@@ -302,38 +320,11 @@ class Dispatcher(Registry):
         if Backend().client_exists(args[0]):
             return "Client %s does already exist." % args[0]
 
-        tokens = {}
-        for arg in args[1:]:
-            t = arg.split('=', 1)
-            if len(t) > 1:
-                value = t[1].replace("\\n", "\n")
-                if value and value[0] == value[-1] == '"':
-                    value = value[1:-1]
-            else:
-                return 'Parse error around <%s>' % arg
-
-            if t[0] == 'password' and str(value).strip():
-                while True:
-                    i = 0
-                    for c in value:
-                        if not ('0' <= c <= '9') and not ('a' <= c <= 'f'):
-                            break
-                        i += 1
-                    if i == 40:
-                        # this looks like an sha1 already
-                        # so don't convert it
-                        # who would have a password like this anyway ?
-                        break
-                    import sha
-                    value = sha.new(value).hexdigest()
-                    break
-            tokens[t[0]] = value
-
-        resp = Backend().add_client(args[0], **tokens)
+        resp = Backend().add_client(args[0], **kw)
         return resp
 
     acl_del_client = "acl(admin)"
-    def cmd_del_client(self, *args):
+    def cmd_del_client(self, *args, **kw):
         """
         del_client username
 
@@ -344,23 +335,11 @@ class Dispatcher(Registry):
         if not Backend().client_exists(args[0]):
             return "Client %s does not exist." % args[0]
 
-        tokens = {}
-        for arg in args[1:]:
-            t = arg.split('=', 1)
-            if len(t) > 1:
-                value = t[1]
-                if value and value[0] == value[-1] == '"':
-                    value = value[1:-1]
-            else:
-                return 'Parse error around <%s>' % arg
-
-            tokens[t[0]] = value
-
-        resp = Backend().del_client(args[0], **tokens)
+        resp = Backend().del_client(args[0], **kw)
         return resp
 
     acl_tag_client = "acl(admin)"
-    def cmd_tag_client(self, *args):
+    def cmd_tag_client(self, *args, **kw):
         """
         tag_client username [tag=value ...]
 
@@ -373,48 +352,16 @@ class Dispatcher(Registry):
         if not Backend().client_exists(args[0]):
             return "Client %s does not exist." % args[0]
 
-        tokens = {}
-        for arg in args[1:]:
-            t = arg.split('=', 1)
-            if len(t) > 1:
-                value = t[1].replace("\\n", "\n")
-                if value and value[0] == value[-1] == '"':
-                    value = value[1:-1]
-            else:
-                return 'Parse error around <%s>' % arg
-
-            if t[0] == 'username':
-                return "'username' is a read-only tag"
-            else:
-                if t[0] == 'password' and str(value).strip():
-                    while True:
-                        i = 0
-                        for c in value:
-                            if not ('0' <= c <= '9') and not ('a' <= c <= 'f'):
-                                break
-                            i += 1
-                        if i == 40:
-                            # this looks like an sha1 already
-                            # so don't convert it
-                            # who would have a password like this anyway ?
-                            break
-                        import sha
-                        value = sha.new(value).hexdigest()
-                        break
-                tokens[t[0]] = value
-
-            
-
-        tags = Backend().tag_client(args[0], **tokens)
+        tags = Backend().tag_client(args[0], **kw)
         resp = []
         for tag, value in tags.items():
             value = self.show_tag_filter('client', tag, value)
-            resp.append('%s = "%s"' % (tag, value))
+            resp.append('%s = "%s"' % (tag, value.replace('"', '\\"')))
         return '\n'.join(resp)
 
 ##########################################################################
 
-    def cmd_list_sites(self, *args):
+    def cmd_list_sites(self, *args, **kw):
         """
         list_sites
 
@@ -422,19 +369,8 @@ class Dispatcher(Registry):
         """
         self.check_args(0, args, strict=False)
 
-        tokens = {}
-        for arg in args:
-            t = arg.split('=', 1)
-            value = len(t) > 1 and t[1] or ''
-            if value:
-                if (value[0] == value[-1] == '"' or
-                    value[0] == value[-1] == "'"):
-                    value = value[1:-1]
-
-            tokens[t[0]] = value
-
         sites = []
-        for site in Backend().list_site_users(**tokens):
+        for site in Backend().list_site_users(**kw):
             sites.append([site.login or 'ORPHAN', site.name,
                                         site.get_tags().get('priority', '0')])
 
@@ -450,7 +386,7 @@ class Dispatcher(Registry):
         return '\n'.join(resp)
 
     acl_add_site = "acl(admin)"
-    def cmd_add_site(self, *args):
+    def cmd_add_site(self, *args, **kw):
         """
         add_site [user@]site [tag=value ...]
 
@@ -461,34 +397,34 @@ class Dispatcher(Registry):
         if Backend().site_exists(args[0]):
             return "Site %s does already exist." % args[0]
 
-        tokens = {}
-        for arg in args[1:]:
-            t = arg.split('=', 1)
-            if len(t) > 1:
-                value = t[1].replace("\\n", "\n")
-                if value and value[0] == value[-1] == '"':
-                    value = value[1:-1]
-            else:
-                return 'Parse error around <%s>' % arg
+        #tokens = {}
+        #for arg in args[1:]:
+        #    t = arg.split('=', 1)
+        #    if len(t) > 1:
+        #        value = t[1].replace("\\n", "\n")
+        #        if value and value[0] == value[-1] == '"':
+        #            value = value[1:-1]
+        #    else:
+        #        return 'Parse error around <%s>' % arg
 
-            if t[0] in ('password', 'pkey'):
-                while len(value):
-                    if value[0] == '$':
-                        parts = value.split('$')
-                        if len(parts) >= 3 and part[1] in cipher.list_engines():
-                            # this is already ciphered
-                            break
+        #    if t[0] in ('password', 'pkey'):
+        #        while len(value):
+        #            if value[0] == '$':
+        #                parts = value.split('$')
+        #                if len(parts) >= 3 and part[1] in cipher.list_engines():
+        #                    # this is already ciphered
+        #                    break
 
-                    tokens[t[0]] = cipher.cipher(value)
-                    break
-            else:
-                tokens[t[0]] = value
+        #            tokens[t[0]] = cipher.cipher(value)
+        #            break
+        #    else:
+        #        tokens[t[0]] = value
 
-        resp = Backend().add_site(args[0], **tokens)
+        resp = Backend().add_site(args[0], **kw)
         return resp
 
     acl_del_site = "acl(admin)"
-    def cmd_del_site(self, *args):
+    def cmd_del_site(self, *args, **kw):
         """
         del_site [user@]site
 
@@ -499,23 +435,11 @@ class Dispatcher(Registry):
         if not Backend().site_exists(args[0]):
             return "Site %s does not exist." % args[0]
 
-        tokens = {}
-        for arg in args[1:]:
-            t = arg.split('=', 1)
-            if len(t) > 1:
-                value = t[1]
-                if value and value[0] == value[-1] == '"':
-                    value = value[1:-1]
-            else:
-                return 'Parse error around <%s>' % arg
-
-            tokens[t[0]] = value
-
-        resp = Backend().del_site(args[0], **tokens)
+        resp = Backend().del_site(args[0], **kw)
         return resp
 
     acl_tag_site = "acl(admin)"
-    def cmd_tag_site(self, *args):
+    def cmd_tag_site(self, *args, **kw):
         """
         tag_site [user@]site [tag=value ...]
 
@@ -528,35 +452,7 @@ class Dispatcher(Registry):
         if not Backend().site_exists(args[0]):
             return "Site %s does not exist." % args[0]
 
-        tokens = {}
-        for arg in args[1:]:
-            t = arg.split('=', 1)
-            if len(t) > 1:
-                value = t[1].replace("\\n", "\n")
-                if value and value[0] == value[-1] == '"':
-                    value = value[1:-1]
-            else:
-                return 'Parse error around <%s>' % arg
-
-            if t[0] in ('name', 'login'):
-                return "'%s' is a read-only tag" % t[0]
-            elif t[0] in ('password', 'pkey'):
-                while len(value):
-                    if value[0] == '$':
-                        parts = value.split('$')
-                        if (len(parts) >= 3 and 
-                                parts[1] in cipher.list_engines()):
-                            # this is already ciphered
-                            break
-
-                    tokens[t[0]] = cipher.cipher(value)
-                    break
-            else:
-                tokens[t[0]] = value
-
-            
-
-        tags = Backend().tag_site(args[0], **tokens)
+        tags = Backend().tag_site(args[0], **kw)
         if not hasattr(tags, 'items'):
             # this is an error message
             return tags

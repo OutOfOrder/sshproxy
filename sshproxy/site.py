@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 10, 15:26:32 by david
+# Last modified: 2007 Jan 25, 19:08:20 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -87,7 +87,6 @@ SiteInfo.register()
 
 class SiteDB(Registry):
     _class_id = 'SiteDB'
-    _singleton = True
 
     def __reginit__(self, **kw):
         self.siteinfo = None

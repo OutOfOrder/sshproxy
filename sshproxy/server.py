@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Dec 02, 16:28:28 by david
+# Last modified: 2007 Jan 25, 18:49:50 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,29 +26,45 @@ from paramiko import AuthenticationException
 
 from registry import Registry
 import cipher, util, log, proxy
+import ipc
 from options import OptionParser
 from util import chanfmt
-from backend import Backend
+#from backend import Backend
 from config import get_config
-from acl import ACLDB, ProxyNamespace
+#from acl import ACLDB, ProxyNamespace
 from dispatcher import Dispatcher
+
+class IPCClientInterface(ipc.IPCInterface):
+    def __init__(self, server):
+        self.server = server
+
+    def __call__(self, chan):
+        # simulate an instanciation
+        ipc.IPCInterface.__init__(self, chan)
+        return self
 
 
 class Server(Registry, paramiko.ServerInterface):
     _class_id = "Server"
     _singleton = True
 
-    def __reginit__(self, client, addr, ipc, host_key_file):
-        self.pwdb = Backend()
+    def __reginit__(self, client, addr, host_key_file):
         self.client = client
         self.client_addr = addr
-        self.ipc = ipc
+        ipc_address = get_config('sshproxy').get('ipc_address',
+                                                ('127.0.0.1', 2244))
+        handler = IPCClientInterface(self)
+        self.monitor = ipc.IPCClient(ipc_address, handler=handler)
         self.host_key = paramiko.DSSKey(filename=host_key_file)
         #self.ip_addr, self.port = client.getsockname()
         self.event = threading.Event()
         self.args = []
         self._remotes = {}
         self.exit_status = -1
+
+    def check_acl(self, acl_name, **namespaces):
+        return self.monitor.call('check_acl', **namespaces)
+
 
     def setup_forward_handler(self, check_channel_direct_tcpip_request):
         if check_channel_direct_tcpip_request:
@@ -66,7 +82,8 @@ class Server(Registry, paramiko.ServerInterface):
                 'site': Backend().get_site_tags(),
                 'proxy': proxyns,
                 }
-        if not (ACLDB().check('local_forwarding', **namespace)):
+        #if not (ACLDB().check('local_forwarding', **namespace)):
+        if not (self.check_acl('local_forwarding', **namespace)):
             log.debug("Local Port Forwarding not allowed by ACLs")
             self.chan_send("Local Port Forwarding not allowed by ACLs\n")
             return False
@@ -95,7 +112,8 @@ class Server(Registry, paramiko.ServerInterface):
                 'site': Backend().get_site_tags(),
                 'proxy': proxyns,
                 }
-        if not (ACLDB().check('x11_forwarding', **namespace)):
+        #if not (ACLDB().check('x11_forwarding', **namespace)):
+        if not (self.check_acl('x11_forwarding', **namespace)):
             log.debug("X11Forwarding not allowed by ACLs")
             return False
         log.debug("X11Forwarding allowed by ACLs")
@@ -112,7 +130,7 @@ class Server(Registry, paramiko.ServerInterface):
                     'site': Backend().get_site_tags(),
                     'proxy': proxyns,
                     }
-            if not (ACLDB().check('remote_forwarding', **namespace)):
+            if not (self.check_acl('remote_forwarding', **namespace)):
                 log.debug("Remote Port Forwarding not allowed by ACLs")
                 self.chan_send("Remote Port Forwarding not allowed by ACLs\n")
                 return False
@@ -122,8 +140,10 @@ class Server(Registry, paramiko.ServerInterface):
 
     ### STANDARD PARAMIKO SERVER INTERFACE
     
-    def check_channel_unhandled_request(self, channel, kind, want_reply, m):
-        log.devdebug("check_unhandled_channel_request %s", kind)
+    def check_unhandled_channel_request(self, channel, kind, want_reply, m):
+        log.debug("check_unhandled_channel_request %s", kind)
+        if kind == "auth-agent-req@openssh.com":
+            return True
         return False
 
 
@@ -188,36 +208,19 @@ class Server(Registry, paramiko.ServerInterface):
 
 
     ### SSHPROXY SERVER INTERFACE
-
-    def _valid_auth(self, username, password=None, pkey=None):
-        if not self.pwdb.authenticate(username=username,
-                                      auth_tokens={'password': password,
-                                                   'pkey': pkey},
-                                      ip_addr=self.client_addr[0]):
-            if pkey is not None:
-                self.unauth_key = pkey
-            return False
-        else:
-            if pkey is None and hasattr(self, 'unauth_key'):
-                if util.istrue(get_config('sshproxy')['auto_add_key']):
-                    client = self.pwdb.get_client()
-                    client.set_tokens(pkey='%s %s@%s' % (self.unauth_key,
-                                                username, self.client_addr[0]))
-                    client.save()
-            self.username = username
-            self.ipc.request('set_client username=%s' % username)
-            return True
-
     def valid_auth(self, username, password=None, pkey=None):
-        if not Backend().authenticate(username=username, auth_tokens={
+        #if not Backend().authenticate(username=username, auth_tokens={
+        if not self.monitor.call('authenticate',
+                                    username=username,
+                                    auth_tokens={
                                             'password': password,
                                             'pkey': pkey,
                                             'ip_addr': self.client_addr[0]},
-                                      ip_addr=self.client_addr[0]):
+                                    ip_addr=self.client_addr[0]):
             return False
 
         self.username = username
-        self.ipc.request('set_client username=%s' % username)
+        self.monitor.call('update_client', {'username': username})
         return True
 
     def message_client(self, msg):
@@ -255,6 +258,9 @@ class Server(Registry, paramiko.ServerInterface):
 
 
     def is_admin(self):
+        # XXX XXXXXXXXXXXXXXXXX
+        return True
+        # XXX XXXXXXXXXXXXXXXXX
         return self.is_authenticated() and self.pwdb.is_admin()
 
             
@@ -263,25 +269,25 @@ class Server(Registry, paramiko.ServerInterface):
 
 
     def add_cmdline_options(self, parser, namespace):
-        if ACLDB().check('admin', **namespace):
+        if self.check_acl('admin', **namespace):
             parser.add_option("", "--admin", dest="action",
                     help="run administrative commands",
                     action="store_const",
                     const='admin',
                     )
-        if ACLDB().check('console_session', **namespace):
+        if self.check_acl('console_session', **namespace):
             parser.add_option("", "--console", dest="action",
                     help="open administration console",
                     action="store_const",
                     const='console',
                     )
-        if ACLDB().check('opt_list_sites', **namespace):
+        if self.check_acl('opt_list_sites', **namespace):
             parser.add_option("-l", "--list-sites", dest="action",
                     help="list allowed sites",
                     action="store_const",
                     const='list_sites',
                     )
-        if ACLDB().check('opt_get_pkey', **namespace):
+        if self.check_acl('opt_get_pkey', **namespace):
             parser.add_option("", "--get-pkey", dest="action",
                     help="display public key for user@host.",
                     action="store_const",
@@ -306,7 +312,7 @@ class Server(Registry, paramiko.ServerInterface):
                                    'to get a list of commands.\n'))
             return
 
-        resp = self.ipc.request('%s' % ' '.join(args))
+        resp = self.monitor.get('%s' % ' '.join(args))
         self.chan.send(chanfmt(resp+'\n'))
 
 
@@ -388,7 +394,7 @@ class Server(Registry, paramiko.ServerInterface):
         self.transport = paramiko.Transport(self.client)
         self.transport.set_log_channel("paramiko")
         # debug !!
-        #transport.set_hexdump(1)
+        #self.transport.set_hexdump(1)
     
         try:
             self.transport.load_server_moduli()
@@ -422,8 +428,8 @@ class Server(Registry, paramiko.ServerInterface):
             sys.exit(1)
 
         self.set_channel(chan)
-        namespace = { 'client': Backend().get_client_tags(), }
-        self.dispatcher = Dispatcher(self.ipc, namespace)
+        namespace = self.monitor.call('get_namespace')
+        self.dispatcher = Dispatcher(self.monitor, namespace)
         
         try:
             self.do_work()
@@ -444,11 +450,11 @@ class Server(Registry, paramiko.ServerInterface):
         namespace = {
                 'client': self.pwdb.clientdb.get_tags(),
                 }
-        if not ACLDB().check('console_session', **namespace):
+        if not self.check_acl('console_session', **namespace):
             self.chan.send(chanfmt("ERROR: You are not allowed to"
                                     " open a console session.\n"))
             return False
-        self.ipc.request("set_client type=console")
+        self.monitor.call('update_client', {'type': 'console'})
         if hasattr(self, 'term'):
             return self.dispatcher.console()
         else:
@@ -487,19 +493,20 @@ class Server(Registry, paramiko.ServerInterface):
                 'site': self.pwdb.sitedb.get_tags(),
                 }
         # check ACL for the given direction, then if failed, check general ACL
-        if not ((ACLDB().check('scp_' + scpdir, **namespace)) or
-                ACLDB().check('scp_transfer', **namespace)):
+        if not ((self.check_acl('scp_' + scpdir, **namespace)) or
+                self.check_acl('scp_transfer', **namespace)):
             self.chan.send(chanfmt("ERROR: You are not allowed to"
                                     " do scp file transfert in this"
                                     " directory or direction on %s\n" % site))
             return False
 
-        self.ipc.request("set_client type=scp_%s login=%s name=%s" % (scpdir,
-                                         self.pwdb.sitedb.get_tags()['login'],
-                                         self.pwdb.sitedb.get_tags()['name']))
-        conn = proxy.ProxyScp(self.chan, self.connect_site(), self.ipc)
+        self.monitor.call('update_client', {
+                            'type': 'scp_%s' % scpdir,
+                            'login': self.pwdb.sitedb.get_tags()['login'],
+                            'name': self.pwdb.sitedb.get_tags()['name']})
+        conn = proxy.ProxyScp(self.chan, self.connect_site(), self.monitor)
         try:
-            conn.loop()
+            self.exit_status = conn.loop()
         except AuthenticationException, msg:
             self.chan.send("\r\n ERROR: %s." % msg +
                       "\r\n Please report this error "
@@ -517,19 +524,20 @@ class Server(Registry, paramiko.ServerInterface):
 
         proxyns = ProxyNamespace()
         proxyns['cmdline'] = ' '.join(self.args)
-        if not ACLDB().check('remote_exec',
+        if not self.check_acl('remote_exec',
                                 client=self.pwdb.clientdb.get_tags(),
                                 site=self.pwdb.sitedb.get_tags()):
             self.chan.send(chanfmt("ERROR: You are not allowed to"
                                     " exec that command on %s"
                                     "\n" % site))
             return False
-        self.ipc.request("set_client type=remote_exec login=%s name=%s" % 
-                                        (self.pwdb.sitedb.get_tags()['login'],
-                                         self.pwdb.sitedb.get_tags()['name']))
-        conn = proxy.ProxyCmd(self.chan, self.connect_site(), self.ipc)
+        self.monitor.call('update_client', {
+                        'type': 'remote_exec',
+                        'login': self.pwdb.sitedb.get_tags()['login'],
+                        'name':  self.pwdb.sitedb.get_tags()['name']})
+        conn = proxy.ProxyCmd(self.chan, self.connect_site(), self.monitor)
         try:
-            ret, self.exit_status = conn.loop()
+            self.exit_status = conn.loop()
         except AuthenticationException, msg:
             self.chan.send("\r\n ERROR: %s." % msg +
                       "\r\n Please report this error "
@@ -547,20 +555,21 @@ class Server(Registry, paramiko.ServerInterface):
                                             "your scope\n" % site))
             return False
 
-        if not ACLDB().check('shell_session',
+        if not self.check_acl('shell_session',
                             client=self.pwdb.clientdb.get_tags(),
                             site=self.pwdb.sitedb.get_tags()):
             self.chan.send(chanfmt("ERROR: You are not allowed to"
                                     " open a shell session on %s"
                                     "\n" % site))
             return False
-        self.ipc.request("set_client type=shell_session login=%s name=%s" % 
-                                        (self.pwdb.sitedb.get_tags()['login'],
-                                         self.pwdb.sitedb.get_tags()['name']))
+        self.monitor.call('update_client', {
+                            'type': 'shell_session',
+                            'login': self.pwdb.sitedb.get_tags()['login'],
+                            'name': self.pwdb.sitedb.get_tags()['name']})
         log.info("Connecting to %s", site)
-        conn = proxy.ProxyShell(self.chan, self.connect_site(), self.ipc)
+        conn = proxy.ProxyShell(self.chan, self.connect_site(), self.monitor)
         try:
-            ret, self.exit_status = conn.loop()
+            self.exit_status = conn.loop()
         except AuthenticationException, msg:
             self.chan.send("\r\n ERROR: %s." % msg +
                            "\r\n Please report this error "
@@ -578,13 +587,10 @@ class Server(Registry, paramiko.ServerInterface):
             
             raise
         
-        if ret == util.CLOSE:
-            # if the direct connection closed, then exit cleanly
-            conn = None
-            log.info("Exiting %s", site)
-            return True
-        # else go to the console
-        return self.do_console()
+        # if the direct connection closed, then exit cleanly
+        conn = None
+        log.info("Exiting %s", site)
+        return True
 
 
     # XXX: stage2: make it easier to extend
@@ -626,17 +632,21 @@ class Server(Registry, paramiko.ServerInterface):
         return False
 
     def connect_site(self, site_tags=None, site_ref=None):
-        tags = {
-                'client': Backend().get_client_tags(),
-                'site': site_tags or Backend().get_site_tags(),
-                'proxy': ProxyNamespace(),
-                }
-        name = '%s@%s' % (tags['site'].login,
-                          tags['site'].name)
+        #tags = {
+        #        'client': Backend().get_client_tags(),
+        #        'site': site_tags or Backend().get_site_tags(),
+        #        'proxy': ProxyNamespace(),
+        #        }
+        tags = self.monitor.get_namespace()
+        if site_tags:
+            tags['site'] = site_tags
+
+        name = '%s@%s' % (tags['site']['login'],
+                          tags['site']['name'])
         hostkey = tags['proxy'].get('hostkey', None) or None
 
         if site_ref is None:
-            site_ref = (tags['site'].ip_address, int(tags['site'].port))
+            site_ref = (tags['site']['ip_address'], int(tags['site']['port']))
 
         transport = paramiko.Transport(site_ref)
         transport.start_client()
@@ -660,14 +670,14 @@ class Server(Registry, paramiko.ServerInterface):
         if pkey:
             pkey = util.get_dss_key_from_string(pkey)
             try:
-                transport.auth_publickey(tags['site'].login, pkey)
+                transport.auth_publickey(tags['site']['login'], pkey)
                 authentified = True
             except AuthenticationException:
                 log.warning('PKey for %s was not accepted' % name)
 
         if not authentified and password:
             try:
-                transport.auth_password(tags['site'].login, password)
+                transport.auth_password(tags['site']['login'], password)
                 authentified = True
             except AuthenticationException:
                 log.error('Password for %s is not valid' % name)
