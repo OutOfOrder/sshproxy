@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 17, 01:37:29 by david
+# Last modified: 2007 Mar 21, 11:16:58 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -20,62 +20,56 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-import os, os.path, sys, logging, logging.handlers
-#from paramiko.util import get_thread_id
+import sys
+import syslog # syslog is the default
 
-__all__ = [ 'debug', 'info', 'warning', 'error', 'critical', 'exception' ]
+from config import get_config
 
-from logging.config import fileConfig
+_levels = {
+        'exception': syslog.LOG_EMERG,
+        'alert':     syslog.LOG_ALERT,
+        'critical':  syslog.LOG_CRIT,
+        'error':     syslog.LOG_ERR,
+        'warning':   syslog.LOG_WARNING,
+        'notice':    syslog.LOG_NOTICE,
+        'info':      syslog.LOG_INFO,
+        'debug':     syslog.LOG_DEBUG,
+        }
 
-from config import get_config, inipath
+__all__ = _levels.keys()
+
+
 
 cfg = get_config('sshproxy')
-if os.path.exists(cfg['logger_conf']):
-    logfile = cfg['logger_conf']
-else:
-    logfile = os.path.join(inipath, 'logger.conf')
+log_level = cfg.get('log_level', ' '.join(_levels.keys()))
 
-if not os.path.exists(logfile):
-    raise 'Log configuration file %s does not exist' % logfile
+syslog.openlog('sshproxyd',
+               syslog.LOG_PID|syslog.LOG_CONS|syslog.LOG_NDELAY|syslog.LOG_NOWAIT|syslog.LOG_PERROR,
+               syslog.LOG_DAEMON)
 
-if cfg['log_dir'][0] != '/':
-    log_dir = os.path.join(inipath, cfg['log_dir'])
-else:
-    log_dir = cfg['log_dir']
+def set_log_level(log_level):
+    if isinstance(log_level, str):
+        mask = 0
+        for level in [ _levels[lvl] for lvl in [ 
+                            o.strip() for o in log_level.split(',')
+                            ] if lvl in _levels ]:
+            mask |= level
+        log_level = mask
+        
+    syslog.setlogmask(log_level)
 
-try:
-    os.chdir(log_dir)
-except OSError, msg:
-    print "No such directory: creating '%s'" % log_dir
-    try:
-        os.makedirs(log_dir)
-    except OSError, msg:
-        print "Could not create directory '%s'" % log_dir
-        if not os.environ.get('SSHPROXY_WIZARD', None):
-            sys.exit(1)
+set_log_level(log_level)
 
-fileConfig(logfile)
+def _get_logger_func(name, level):
+    def logger_func(msg, *args):
+        syslog.syslog(level, ('[%s] ' % name[:3]) + (msg % args))
+    return logger_func
 
-class PFilter (logging.Filter):
-    def filter(self, record):
-#        record._threadid = get_thread_id()
-        record._pid = os.getpid()
-        return True
-
-_pfilter = PFilter('sshproxy')
-
-def get_logger(name):
-    l = logging.getLogger(name)
-    l.addFilter(_pfilter)
-    return l
-
-# the following for loop does the same thing as the
-# following line for all __all__ elements
-# info = get_logger('sshproxy').info
 self = sys.modules[__name__]
-logger = get_logger('sshproxy')
-for func in __all__:
-    setattr(self, func, getattr(logger, func))
+for func_name, level_value in _levels.items():
+    setattr(self, func_name, _get_logger_func(func_name, level_value))
+    
+
 
 # just to tag logger lines to delete after development/debuging
 devdebug = debug
