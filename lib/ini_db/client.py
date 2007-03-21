@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 20, 14:11:04 by david
+# Last modified: 2007 Mar 20, 14:39:31 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -102,11 +102,9 @@ class FileClientInfo(ClientInfo):
 
     def authenticate(self, **tokens):
         resp = False
-        print tokens.keys()
         for token in self.auth_token_order():
             if token in tokens.keys() and tokens[token] is not None:
                 if token == 'password':
-                    print tokens[token], sha.new(tokens[token]).hexdigest()
                     if (sha.new(tokens[token]).hexdigest()
                                            == self.get_token(token)):
                         resp = True

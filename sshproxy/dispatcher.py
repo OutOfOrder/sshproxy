@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Jan 21, 22:42:40 by david
+# Last modified: 2007 Mar 20, 18:39:51 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -50,7 +50,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
     def __init__(self, *args, **kw):
         pass
 
-    def default_call_handler(self, _name, *args, **kw):
+    def default_call_handler(self, _name, _chan, *args, **kw):
         import shlex
         import re
         func = getattr(self, 'cmd_' + _name, None)
@@ -79,6 +79,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
 
 
     def is_admin(self):
+        print self.namespace
         return ACLDB().check('admin', **self.namespace)
 
     def public_methods(self):

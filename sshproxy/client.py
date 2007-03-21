@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Jan 25, 19:13:05 by david
+# Last modified: 2007 Mar 20, 15:04:19 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -66,17 +66,17 @@ class ClientInfo(Registry):
         """
         for token, value in tokens.items():
             # XXX: how to encrypt the tokens ? encrypt them all ?
-            self.tokens.add_tag(token, str(value))
+            self.tokens[token] = str(value)
 
 
     def get_tags(self):
         tags = ACLTags(self.tokens)
-        tags.add_tag('username', self.username)
+        tags['username'] = self.username
         return tags
 
 
     def auth_token_order(self):
-        return ('password')
+        return ('password',)
 
 
     def authenticate(self, **tokens):

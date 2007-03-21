@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Jan 25, 18:27:11 by david
+# Last modified: 2007 Mar 20, 14:53:30 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -106,6 +106,11 @@ class IPCMessage(object):
         if not self.id:
             self.id = self.new_id()
         msg.add_int64(self.id)
+        try:
+            print 'DATA:: %s :: %s' % (type(self.data[1]['client']), self.data)
+        except:
+            if self.data != 'ping':
+                print 'DATA:', self.data
         msg.add_string(marshal.dumps(self.data))
         return msg
 
@@ -207,12 +212,13 @@ class IPCChannel(threading.Thread):
     def handle_message(self, packet):
         msg = message_from_string(packet)
         mtype = msg.mtype
-        #if mtype not in (MSG_PING, MSG_PONG):
-        #    LOG(self, 'received %s' % dump(msg))
+        if mtype not in (MSG_PING, MSG_PONG):
+            LOG(self, 'received %s' % dump(msg))
         if mtype in self._handlers:
             ret = self._handlers[mtype](msg)
             if mtype == MSG_CALL:
                 id = msg.id
+                print 'RET:', ret
                 msg = IPCMessage(MSG_CALL_RESP, id=id, data=('', ret))
                 self.send_message(msg)
         else:

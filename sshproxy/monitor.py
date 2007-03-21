@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Jan 25, 18:50:59 by david
+# Last modified: 2007 Mar 20, 18:42:13 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -112,9 +112,10 @@ class Monitor(Registry, ipc.IPCInterface):
 
     def func_update_client(self, _chan, value):
         #self.children[pid].update(value)
+        self.namespaces.get('proxy', {}).update(value)
         pass
 
-    def func_public_methods(self, _chan, *args, **kw):
+    def func_public_methods(self, _chan, *args, **kw): # public_methods
         methods = []
         for method in dir(self):
             if method[:3] != 'rq_':
@@ -127,23 +128,33 @@ class Monitor(Registry, ipc.IPCInterface):
         return methods
 
     def func_check_acl(self, _chan, *args, **kw):
-        print "acl_check(%s, %s)" % (args, kw)
+        print "monitor.py:Monitor.func_check_acl(_chan=%s, *args=%s, **kw=%s):: ATTENTION!!!!!!" % (repr(_chan), repr(args), repr(kw))
         return True
 
     def func_authenticate(self, _chan, *args, **kw):
-        print "%s %s %s" % (_chan, args, kw)
         if not Backend().authenticate(username=kw['username'],
                                         auth_tokens=kw,
                                         ip_addr=kw['ip_addr']):
-            print "Auth failed"*150
             return False
         else:
-            print "Auth OK"*150
-            self.namespaces[_chan] = {'client': Backend().get_client_tags()}
+            if not self.namespaces.has_key(_chan):
+                self.namespaces[_chan] = {}
+            self.namespaces[_chan]['client'] = Backend().get_client_tags()
+            return True
+
+    def func_authorize(self, _chan, *args, **kw):
+        if not Backend().authorize(user_site=kw['user_site'],
+                                   need_login=kw.get('need_login')):
+            return False
+        else:
+            self.namespaces[_chan]['site'] = Backend().get_site_tags()
             return True
 
     def func_get_namespace(self, _chan, *args, **kw):
-        return self.namespaces.get(_chan, {})
+        ns = self.namespaces.get(_chan, {})
+        ns.update({'proxy':ProxyNamespace()})
+        return ns
+    
 
 
 

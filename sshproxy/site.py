@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Jan 25, 19:08:20 by david
+# Last modified: 2007 Mar 20, 15:07:09 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -59,10 +59,10 @@ class SiteInfo(Registry):
             tags.update(self.l_tokens)
         if not strict or not self.login:
             # ip_address should not be overriden by the login tags
-            tags.add_tag('ip_address', self.s_tokens.get('ip_address', ''))
+            tags['ip_address'] = self.s_tokens.get('ip_address', '')
         if self.login:
-            tags.add_tag('login', self.login)
-        tags.add_tag('name', self.name)
+            tags['login'] = self.login
+        tags['name'] = self.name
         return tags
 
     def set_tokens(self, **tokens):
@@ -79,7 +79,7 @@ class SiteInfo(Registry):
             toks = self.s_tokens
         for token, value in tokens.items():
             # XXX: how to encrypt the tokens ? encrypt them all ?
-            toks.add_tag(token, str(value))
+            toks[token] = str(value)
 
 
 SiteInfo.register()

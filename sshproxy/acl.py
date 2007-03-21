@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 20, 23:16:32 by david
+# Last modified: 2007 Mar 20, 16:14:57 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -87,67 +87,8 @@ class ProxyNamespace(Registry, dict):
 ProxyNamespace.register()
 
 
-
-
-class ACLTags(Registry):
-    _class_id = 'ACLTags'
-
-    def __reginit__(self, tags=None, obj=None):
-        self.tags = {}
-        if tags:
-            self.add_tags(tags)
-        if obj:
-            self.add_attributes(obj)
-
-    def add_tag(self, tag, value):
-        if tag[:4] == 'acl.':
-            tag = tag[4:]
-            value = ACLRule(tag, value)
-        else:
-            value = str(value or '')
-        self.tags[str(tag)] = value
-
-    def add_tags(self, tags):
-        for tag, value in tags.items():
-            self.add_tag(tag, value)
-
-    def add_attributes(self, obj):
-        for tag, value in [ (k, getattr(obj, k)) for k in dir(obj) ]:
-            if tag[0] != '_' and isinstance(value, str):
-                self.add_tag(tag, value)
-
-    def update(self, other):
-        if not other or not other.tags.keys():
-            return
-        self.tags.update(other.tags)
-
-    def __getattr__(self, tag):
-        return self.tags[str(tag)]
-
-    def __getitem__(self, tag):
-        return self.tags[str(tag)]
-
-    def __delitem__(self, tag):
-        del self.tags[str(tag)]
-
-    def get(self, tag, default=None):
-        return self.tags.get(tag, default)
-
-    def has_key(self, tag):
-        return self.tags.has_key(str(tag))
-
-    def keys(self):
-        return self.tags.keys()
-
-    def items(self):
-        return self.tags.items()
-
-    def __str__(self):
-        return repr(self.tags)
-
-    __repr__ = __str__
-
-ACLTags.register()
+class ACLTags(dict):
+    pass
 
 class ACList(list):
     pass

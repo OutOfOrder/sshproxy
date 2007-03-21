@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 06, 01:26:57 by david
+# Last modified: 2007 Mar 20, 15:34:48 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -62,14 +62,14 @@ class FileSiteInfo(SiteInfo):
         if not len(site_section):
             return
 
-        self.s_tokens.add_tags(site_section)
+        self.s_tokens.update(site_section)
 
         try:
             tags = dict(file.items(self.login))
         except NoSectionError:
             tags = {}
 
-        self.l_tokens.add_tags(tags)
+        self.l_tokens.update(tags)
         self.loaded = True
 
 

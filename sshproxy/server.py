@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Jan 25, 18:49:50 by david
+# Last modified: 2007 Mar 20, 18:41:48 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -34,6 +34,10 @@ from config import get_config
 #from acl import ACLDB, ProxyNamespace
 from dispatcher import Dispatcher
 
+def pex():
+    import traceback
+    print '\n'.join(traceback.format_exception(*sys.exc_info()))
+
 class IPCClientInterface(ipc.IPCInterface):
     def __init__(self, server):
         self.server = server
@@ -62,8 +66,12 @@ class Server(Registry, paramiko.ServerInterface):
         self._remotes = {}
         self.exit_status = -1
 
-    def check_acl(self, acl_name, **namespaces):
-        return self.monitor.call('check_acl', **namespaces)
+    def check_acl(self, acl_name, namespaces):
+        return self.monitor.call('check_acl', namespaces)
+
+    def authorize(self, user_site, need_login=True):
+        return self.monitor.call('authorize', user_site=user_site,
+                                              need_login=need_login)
 
 
     def setup_forward_handler(self, check_channel_direct_tcpip_request):
@@ -209,13 +217,10 @@ class Server(Registry, paramiko.ServerInterface):
 
     ### SSHPROXY SERVER INTERFACE
     def valid_auth(self, username, password=None, pkey=None):
-        #if not Backend().authenticate(username=username, auth_tokens={
         if not self.monitor.call('authenticate',
                                     username=username,
-                                    auth_tokens={
-                                            'password': password,
-                                            'pkey': pkey,
-                                            'ip_addr': self.client_addr[0]},
+                                    password=password,
+                                    pkey=pkey,
                                     ip_addr=self.client_addr[0]):
             return False
 
@@ -447,10 +452,7 @@ class Server(Registry, paramiko.ServerInterface):
 
 
     def do_console(self):
-        namespace = {
-                'client': self.pwdb.clientdb.get_tags(),
-                }
-        if not self.check_acl('console_session', **namespace):
+        if not self.check_acl('console_session', namespaces=('client')):
             self.chan.send(chanfmt("ERROR: You are not allowed to"
                                     " open a console session.\n"))
             return False
@@ -549,23 +551,20 @@ class Server(Registry, paramiko.ServerInterface):
 
 
     def do_shell_session(self):
+      try:  
         site = self.args.pop(0)
-        if not self.pwdb.authorize(site, need_login=True):
+        if not self.authorize(site, need_login=True):
             self.chan.send(chanfmt("ERROR: %s does not exist in "
-                                            "your scope\n" % site))
+                                        "your scope\n" % site))
             return False
 
-        if not self.check_acl('shell_session',
-                            client=self.pwdb.clientdb.get_tags(),
-                            site=self.pwdb.sitedb.get_tags()):
+        if not self.check_acl('shell_session', namespaces=('client', 'site')):
             self.chan.send(chanfmt("ERROR: You are not allowed to"
                                     " open a shell session on %s"
                                     "\n" % site))
             return False
         self.monitor.call('update_client', {
-                            'type': 'shell_session',
-                            'login': self.pwdb.sitedb.get_tags()['login'],
-                            'name': self.pwdb.sitedb.get_tags()['name']})
+                            'type': 'shell_session'})
         log.info("Connecting to %s", site)
         conn = proxy.ProxyShell(self.chan, self.connect_site(), self.monitor)
         try:
@@ -591,6 +590,9 @@ class Server(Registry, paramiko.ServerInterface):
         conn = None
         log.info("Exiting %s", site)
         return True
+      except:
+        pex()
+        raise
 
 
     # XXX: stage2: make it easier to extend
@@ -637,10 +639,11 @@ class Server(Registry, paramiko.ServerInterface):
         #        'site': site_tags or Backend().get_site_tags(),
         #        'proxy': ProxyNamespace(),
         #        }
-        tags = self.monitor.get_namespace()
+        tags = self.monitor.call('get_namespace')
         if site_tags:
             tags['site'] = site_tags
 
+        print tags
         name = '%s@%s' % (tags['site']['login'],
                           tags['site']['name'])
         hostkey = tags['proxy'].get('hostkey', None) or None
