@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 20, 14:53:30 by david
+# Last modified: 2007 Mar 21, 12:07:58 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -30,6 +30,7 @@ import time, select, socket
 from struct import pack, unpack
 
 import paramiko
+import log
 
 MSG_LOG = 1
 MSG_SET = 2
@@ -61,7 +62,8 @@ def handle_pong(msg):
     pass
 
 def LOG(self, s):
-    print '%s: %s' % (self.kind, s)
+    #log.debug('IPC:%s: %s' % (self.kind, s))
+    pass
 
 def dump(msg):
     msg = message_from_string(str(msg))
@@ -106,11 +108,6 @@ class IPCMessage(object):
         if not self.id:
             self.id = self.new_id()
         msg.add_int64(self.id)
-        try:
-            print 'DATA:: %s :: %s' % (type(self.data[1]['client']), self.data)
-        except:
-            if self.data != 'ping':
-                print 'DATA:', self.data
         msg.add_string(marshal.dumps(self.data))
         return msg
 
@@ -218,7 +215,6 @@ class IPCChannel(threading.Thread):
             ret = self._handlers[mtype](msg)
             if mtype == MSG_CALL:
                 id = msg.id
-                print 'RET:', ret
                 msg = IPCMessage(MSG_CALL_RESP, id=id, data=('', ret))
                 self.send_message(msg)
         else:
@@ -437,7 +433,7 @@ class IPCInterface(object):
         return payload
 
     def log(self, level, s):
-        print "%s: %s" % (level, s)
+        log.debug("%s: %s" % (level, s))
 
     def connect(self, chan):
         pass
@@ -454,7 +450,7 @@ class IPCServer(IPCBase):
 
     def accept(self):
         sock, address = self.sock.accept()
-        print "Accepting new client", address
+        log.info("IPC: Accepting new client %s", address)
         chan = IPCChannel(sock, interface=self.handler)
         chan.kind = 'server'
         chan.setName('S'+str(address))

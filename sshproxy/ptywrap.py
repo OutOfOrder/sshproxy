@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Jan 21, 22:41:28 by david
+# Last modified: 2007 Mar 21, 11:24:14 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -44,7 +44,6 @@ class PTYWrapper(object):
                 pass
             cipc.terminate()
             cipc.close()
-            print "END OF CLIENT"
             sys.stdout.close()
             chan.transport.atfork() # close only the socket
             # Here the child process exits

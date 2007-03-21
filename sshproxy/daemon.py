@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Jan 25, 15:50:05 by david
+# Last modified: 2007 Mar 21, 14:26:09 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -206,6 +206,7 @@ def run_server(daemon=False, sock=None):
                                                     " AUTORESTARTING...")
     finally:
         log.info("sshproxy ending")
+        os.abort()
 
 
 def run_daemon(daemonize, user, pidfile): # Credits: portions of code from TMDA

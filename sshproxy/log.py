@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 21, 11:16:58 by david
+# Last modified: 2007 Mar 21, 15:36:04 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -36,6 +36,8 @@ _levels = {
         'debug':     syslog.LOG_DEBUG,
         }
 
+_levels['devdebug'] = syslog.LOG_DEBUG
+
 __all__ = _levels.keys()
 
 
@@ -65,12 +67,21 @@ def _get_logger_func(name, level):
         syslog.syslog(level, ('[%s] ' % name[:3]) + (msg % args))
     return logger_func
 
+
+
+
 self = sys.modules[__name__]
 for func_name, level_value in _levels.items():
     setattr(self, func_name, _get_logger_func(func_name, level_value))
     
+# exception is special in that is needs to dump the stack frame
+def exception(*args):
+    import traceback
+    if len(args):
+        syslog.syslog(_levels['exception'],
+                        '[exc] ' + (str(args[0]) % args[1:]))
+    for line in traceback.format_exception(*sys.exc_info()):
+        syslog.syslog(_levels['exception'], '[exc] ' + line)
 
 
-# just to tag logger lines to delete after development/debuging
-devdebug = debug
-__all__ += [ 'devdebug' ]
+

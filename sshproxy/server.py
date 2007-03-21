@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 20, 18:41:48 by david
+# Last modified: 2007 Mar 21, 15:39:16 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
-import sys, threading
+import os, sys, threading, socket
 
 import paramiko
 from paramiko import AuthenticationException
@@ -28,15 +28,10 @@ from registry import Registry
 import cipher, util, log, proxy
 import ipc
 from options import OptionParser
-from util import chanfmt
-#from backend import Backend
+from util import chanfmt, SSHProxyError
 from config import get_config
-#from acl import ACLDB, ProxyNamespace
 from dispatcher import Dispatcher
 
-def pex():
-    import traceback
-    print '\n'.join(traceback.format_exception(*sys.exc_info()))
 
 class IPCClientInterface(ipc.IPCInterface):
     def __init__(self, server):
@@ -437,7 +432,16 @@ class Server(Registry, paramiko.ServerInterface):
         self.dispatcher = Dispatcher(self.monitor, namespace)
         
         try:
-            self.do_work()
+            try:
+                # this is the entry point after initialization have been done
+                self.do_work()
+                # after this point, client is disconnected
+            except SSHProxyError, msg:
+                log.exception(msg)
+                chan.send(str(msg))
+            except Exception, msg:
+                log.exception("An error occured: %s" % msg)
+                chan.send("An error occured: %s" % msg)
         finally:
             if self.chan.active:
                 self.chan.send_exit_status(self.exit_status)
@@ -551,7 +555,6 @@ class Server(Registry, paramiko.ServerInterface):
 
 
     def do_shell_session(self):
-      try:  
         site = self.args.pop(0)
         if not self.authorize(site, need_login=True):
             self.chan.send(chanfmt("ERROR: %s does not exist in "
@@ -590,9 +593,6 @@ class Server(Registry, paramiko.ServerInterface):
         conn = None
         log.info("Exiting %s", site)
         return True
-      except:
-        pex()
-        raise
 
 
     # XXX: stage2: make it easier to extend
@@ -634,16 +634,10 @@ class Server(Registry, paramiko.ServerInterface):
         return False
 
     def connect_site(self, site_tags=None, site_ref=None):
-        #tags = {
-        #        'client': Backend().get_client_tags(),
-        #        'site': site_tags or Backend().get_site_tags(),
-        #        'proxy': ProxyNamespace(),
-        #        }
         tags = self.monitor.call('get_namespace')
         if site_tags:
             tags['site'] = site_tags
 
-        print tags
         name = '%s@%s' % (tags['site']['login'],
                           tags['site']['name'])
         hostkey = tags['proxy'].get('hostkey', None) or None
@@ -651,7 +645,15 @@ class Server(Registry, paramiko.ServerInterface):
         if site_ref is None:
             site_ref = (tags['site']['ip_address'], int(tags['site']['port']))
 
-        transport = paramiko.Transport(site_ref)
+        import socket
+        try:
+            transport = paramiko.Transport(site_ref)
+        except socket.error, msg:
+            raise SSHProxyError("Could not connect to site %s: %s"
+                                                % (name, msg[1]))
+        except Exception, msg:
+            raise SSHProxyError("Could not connect to site %s: %s"
+                                                % (name, str(msg)))
         transport.start_client()
 
         if hostkey is not None:
