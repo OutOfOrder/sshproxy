@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 20, 15:43:57 by david
+# Last modified: 2007 Mar 22, 13:52:35 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -47,8 +47,6 @@ class Console(Registry, cmd.Cmd):
         self.prompt = 'sshproxy> '
 
     def populate(self):
-        from sshproxy import log
-        log.info( 'POPULATED!')
         methods = self.ipc.call('public_methods')
         self.methods = {}
         for method, help in methods:

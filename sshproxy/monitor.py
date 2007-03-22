@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 20, 18:42:13 by david
+# Last modified: 2007 Mar 22, 14:29:45 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -110,10 +110,10 @@ class Monitor(Registry, ipc.IPCInterface):
         chan = self.ipc.accept()
         self.chans.append(chan)
 
-    def func_update_client(self, _chan, value):
-        #self.children[pid].update(value)
-        self.namespaces.get('proxy', {}).update(value)
-        pass
+    def func_update_ns(self, _chan, name, value):
+        if name not in self.namespaces:
+            self.namespaces[name] = {}
+        self.namespaces.get(name, {}).update(value)
 
     def func_public_methods(self, _chan, *args, **kw): # public_methods
         methods = []
@@ -129,7 +129,11 @@ class Monitor(Registry, ipc.IPCInterface):
 
     def func_check_acl(self, _chan, *args, **kw):
         print "monitor.py:Monitor.func_check_acl(_chan=%s, *args=%s, **kw=%s):: ATTENTION!!!!!!" % (repr(_chan), repr(args), repr(kw))
-        return True
+        if not len(args):
+            return False
+
+        namespaces = self.namespaces[_chan]
+        return ACLDB().check(acl=args[0], **namespaces)
 
     def func_authenticate(self, _chan, *args, **kw):
         if not Backend().authenticate(username=kw['username'],

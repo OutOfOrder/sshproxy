@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 20, 16:14:57 by david
+# Last modified: 2007 Mar 22, 14:22:36 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -205,13 +205,13 @@ class ACLDB(Registry):
     
             if result is None:
                 result = False
-                log.info('ACL %s not found' % acl)
+                log.info('ACL %s not found' % str(acl))
             else:
                 log.info('ACL %s %s %s' % (acl, result, match))
                 pass
             return result
         except:
-            log.error('Error while checking ACL %s' % acl)
+            log.exception('Error while checking ACL %s' % str(acl))
             raise
 
 

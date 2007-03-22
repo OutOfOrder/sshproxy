@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 21, 15:39:16 by david
+# Last modified: 2007 Mar 22, 16:03:53 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -61,8 +61,11 @@ class Server(Registry, paramiko.ServerInterface):
         self._remotes = {}
         self.exit_status = -1
 
-    def check_acl(self, acl_name, namespaces):
-        return self.monitor.call('check_acl', namespaces)
+    def update_ns(self, name, value):
+        return self.monitor.call('update_ns', name=name, value=value)
+
+    def check_acl(self, acl_name):
+        return self.monitor.call('check_acl', acl_name)
 
     def authorize(self, user_site, need_login=True):
         return self.monitor.call('authorize', user_site=user_site,
@@ -77,16 +80,11 @@ class Server(Registry, paramiko.ServerInterface):
     def check_direct_tcpip_acl(self, chanid, origin, destination):
         o_ip, o_port = origin
         d_ip, d_port = destination
-        proxyns = ProxyNamespace()
-        proxyns['forward_ip'] = origin[0]
-        proxyns['forward_port'] = origin[1]
-        namespace = {
-                'client': Backend().get_client_tags(),
-                'site': Backend().get_site_tags(),
-                'proxy': proxyns,
-                }
-        #if not (ACLDB().check('local_forwarding', **namespace)):
-        if not (self.check_acl('local_forwarding', **namespace)):
+        self.update_ns('proxy', {
+                                'forward_ip': origin[0],
+                                'forward_port': origin[1]
+                                })
+        if not (self.check_acl('local_forwarding')):
             log.debug("Local Port Forwarding not allowed by ACLs")
             self.chan_send("Local Port Forwarding not allowed by ACLs\n")
             return False
@@ -109,14 +107,7 @@ class Server(Registry, paramiko.ServerInterface):
         if not hasattr(self, 'x11'):
             log.debug("X11Forwarding not requested by the client")
             return False
-        proxyns = ProxyNamespace()
-        namespace = {
-                'client': Backend().get_client_tags(),
-                'site': Backend().get_site_tags(),
-                'proxy': proxyns,
-                }
-        #if not (ACLDB().check('x11_forwarding', **namespace)):
-        if not (self.check_acl('x11_forwarding', **namespace)):
+        if not (self.check_acl('x11_forwarding')):
             log.debug("X11Forwarding not allowed by ACLs")
             return False
         log.debug("X11Forwarding allowed by ACLs")
@@ -125,15 +116,11 @@ class Server(Registry, paramiko.ServerInterface):
     def check_remote_port_forwarding(self):
         if (hasattr(self, 'tcpip_forward_ip') and
             hasattr(self, 'tcpip_forward_port')):
-            proxyns = ProxyNamespace()
-            proxyns['forward_ip'] = self.tcpip_forward_ip
-            proxyns['forward_port'] = self.tcpip_forward_port
-            namespace = {
-                    'client': Backend().get_client_tags(),
-                    'site': Backend().get_site_tags(),
-                    'proxy': proxyns,
-                    }
-            if not (self.check_acl('remote_forwarding', **namespace)):
+            self.update_ns('proxy', {
+                                    'forward_ip': self.tcpip_forward_ip,
+                                    'forward_port': self.tcpip_forward_port
+                                    })
+            if not (self.check_acl('remote_forwarding')):
                 log.debug("Remote Port Forwarding not allowed by ACLs")
                 self.chan_send("Remote Port Forwarding not allowed by ACLs\n")
                 return False
@@ -220,7 +207,7 @@ class Server(Registry, paramiko.ServerInterface):
             return False
 
         self.username = username
-        self.monitor.call('update_client', {'username': username})
+        self.monitor.call('update_ns', 'client', {'username': username})
         return True
 
     def message_client(self, msg):
@@ -258,36 +245,33 @@ class Server(Registry, paramiko.ServerInterface):
 
 
     def is_admin(self):
-        # XXX XXXXXXXXXXXXXXXXX
-        return True
-        # XXX XXXXXXXXXXXXXXXXX
-        return self.is_authenticated() and self.pwdb.is_admin()
+        return self.is_authenticated() and self.monitor.call('is_admin')
 
             
     def is_authenticated(self):
         return hasattr(self, 'username')
 
 
-    def add_cmdline_options(self, parser, namespace):
-        if self.check_acl('admin', **namespace):
+    def add_cmdline_options(self, parser):
+        if self.check_acl('admin'):
             parser.add_option("", "--admin", dest="action",
                     help="run administrative commands",
                     action="store_const",
                     const='admin',
                     )
-        if self.check_acl('console_session', **namespace):
+        if self.check_acl('console_session'):
             parser.add_option("", "--console", dest="action",
                     help="open administration console",
                     action="store_const",
                     const='console',
                     )
-        if self.check_acl('opt_list_sites', **namespace):
+        if self.check_acl('opt_list_sites'):
             parser.add_option("-l", "--list-sites", dest="action",
                     help="list allowed sites",
                     action="store_const",
                     const='list_sites',
                     )
-        if self.check_acl('opt_get_pkey', **namespace):
+        if self.check_acl('opt_get_pkey'):
             parser.add_option("", "--get-pkey", dest="action",
                     help="display public key for user@host.",
                     action="store_const",
@@ -301,8 +285,7 @@ class Server(Registry, paramiko.ServerInterface):
         """
         parser = OptionParser(self.chan, usage=usage)
         # add options from a mapping or a Registry callback
-        namespace = {'client': self.pwdb.clientdb.get_tags(),}
-        self.add_cmdline_options(parser, namespace)
+        self.add_cmdline_options(parser)
         return parser.parse_args(args)
 
 
@@ -413,17 +396,17 @@ class Server(Registry, paramiko.ServerInterface):
         while not negotiation_ev.isSet():
             negotiation_ev.wait(0.5)
         if not self.transport.is_active():
-            raise 'ERROR: SSH negotiation failed'
+            raise 'SSH negotiation failed'
 
         chan = self.transport.accept(60)
         if chan is None:
-            log.error('ERROR: cannot open the channel. '
+            log.error('cannot open the channel. '
                       'Check the transport object. Exiting..')
             return
         log.info('Authenticated %s', self.username)
         self.event.wait(15)
         if not self.event.isSet():
-            log.error('ERROR: client never asked for a shell or a command.'
+            log.error('client never asked for a shell or a command.'
                         ' Exiting.')
             sys.exit(1)
 
@@ -438,10 +421,10 @@ class Server(Registry, paramiko.ServerInterface):
                 # after this point, client is disconnected
             except SSHProxyError, msg:
                 log.exception(msg)
-                chan.send(str(msg))
+                chan.send(chanfmt(str(msg)+'\n'))
             except Exception, msg:
                 log.exception("An error occured: %s" % msg)
-                chan.send("An error occured: %s" % msg)
+                chan.send(chanfmt("An error occured: %s\n" % msg))
         finally:
             if self.chan.active:
                 self.chan.send_exit_status(self.exit_status)
@@ -456,11 +439,11 @@ class Server(Registry, paramiko.ServerInterface):
 
 
     def do_console(self):
-        if not self.check_acl('console_session', namespaces=('client')):
+        if not self.check_acl('console_session'):
             self.chan.send(chanfmt("ERROR: You are not allowed to"
                                     " open a console session.\n"))
             return False
-        self.monitor.call('update_client', {'type': 'console'})
+        self.monitor.call('update_ns', 'client', {'type': 'console'})
         if hasattr(self, 'term'):
             return self.dispatcher.console()
         else:
@@ -477,7 +460,7 @@ class Server(Registry, paramiko.ServerInterface):
             break
         site, path = argv[0].split(':', 1)
 
-        if not self.pwdb.authorize(site, need_login=True):
+        if not self.authorize(site, need_login=True):
             self.chan.send(chanfmt("ERROR: %s does not exist in your scope\n" %
                                                                     site))
             return False
@@ -489,27 +472,23 @@ class Server(Registry, paramiko.ServerInterface):
             upload = False
             scpdir = 'download'
 
-        proxyns = ProxyNamespace()
-        proxyns['scp_dir'] = scpdir
-        proxyns['scp_path'] = path or '.'
-        proxyns['scp_args'] = ' '.join(args)
+        self.update_ns('proxy', {
+                                'scp_dir': scpdir,
+                                'scp_path': path or '.',
+                                'scp_args': ' '.join(args)
+                                })
 
-        namespace = {
-                'client': self.pwdb.clientdb.get_tags(),
-                'site': self.pwdb.sitedb.get_tags(),
-                }
         # check ACL for the given direction, then if failed, check general ACL
-        if not ((self.check_acl('scp_' + scpdir, **namespace)) or
-                self.check_acl('scp_transfer', **namespace)):
+        if not ((self.check_acl('scp_' + scpdir)) or
+                self.check_acl('scp_transfer')):
             self.chan.send(chanfmt("ERROR: You are not allowed to"
                                     " do scp file transfert in this"
                                     " directory or direction on %s\n" % site))
             return False
 
-        self.monitor.call('update_client', {
+        self.update_ns('client', {
                             'type': 'scp_%s' % scpdir,
-                            'login': self.pwdb.sitedb.get_tags()['login'],
-                            'name': self.pwdb.sitedb.get_tags()['name']})
+                            })
         conn = proxy.ProxyScp(self.chan, self.connect_site(), self.monitor)
         try:
             self.exit_status = conn.loop()
@@ -523,24 +502,20 @@ class Server(Registry, paramiko.ServerInterface):
 
     def do_remote_execution(self):
         site = self.args.pop(0)
-        if not self.pwdb.authorize(site, need_login=True):
+        if not self.authorize(site, need_login=True):
             self.chan.send(chanfmt("ERROR: %s does not exist in "
                                             "your scope\n" % site))
             return False
 
-        proxyns = ProxyNamespace()
-        proxyns['cmdline'] = ' '.join(self.args)
-        if not self.check_acl('remote_exec',
-                                client=self.pwdb.clientdb.get_tags(),
-                                site=self.pwdb.sitedb.get_tags()):
+        self.update_ns('proxy', {'cmdline': (' '.join(self.args)).strip()})
+        if not self.check_acl('remote_exec'):
             self.chan.send(chanfmt("ERROR: You are not allowed to"
                                     " exec that command on %s"
                                     "\n" % site))
             return False
-        self.monitor.call('update_client', {
+        self.update_ns('client', {
                         'type': 'remote_exec',
-                        'login': self.pwdb.sitedb.get_tags()['login'],
-                        'name':  self.pwdb.sitedb.get_tags()['name']})
+                        })
         conn = proxy.ProxyCmd(self.chan, self.connect_site(), self.monitor)
         try:
             self.exit_status = conn.loop()
@@ -561,13 +536,14 @@ class Server(Registry, paramiko.ServerInterface):
                                         "your scope\n" % site))
             return False
 
-        if not self.check_acl('shell_session', namespaces=('client', 'site')):
+        if not self.check_acl('shell_session'):
             self.chan.send(chanfmt("ERROR: You are not allowed to"
                                     " open a shell session on %s"
                                     "\n" % site))
             return False
-        self.monitor.call('update_client', {
-                            'type': 'shell_session'})
+        self.update_ns('client', {
+                            'type': 'shell_session'
+                            })
         log.info("Connecting to %s", site)
         conn = proxy.ProxyShell(self.chan, self.connect_site(), self.monitor)
         try:

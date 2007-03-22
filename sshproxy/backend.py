@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 20, 16:46:43 by david
+# Last modified: 2007 Mar 22, 16:06:58 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -28,7 +28,6 @@ from site import SiteDB
 
 class Backend(Registry):
     _class_id = 'Backend'
-    _singleton = True
 
     def __reginit__(self):
         self.authenticated = False
