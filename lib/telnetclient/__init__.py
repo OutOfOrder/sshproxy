@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 23, 10:48:44 by david
+# Last modified: 2007 Mar 23, 11:30:15 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,23 +19,16 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
+__plugin_name__ = "Telnet"
+__description__ = """
+    This plugin permits to open a telnet connection
+    between the proxy and the site. 
+"""
 
-class Plugin(object):
-    def __init__(self, name, module, enabled):
-        self.name = name
-        self.module = module
-        self.plugin_name = getattr(module, '__plugin_name__', name)
-        self.description = getattr(module, '__description__', '')
-        self.enabled = enabled and True or False
-        self.backend = getattr(module, '__backend__', False) and True or False
+def __init_plugin__():
+    import telnetclient
 
-    def init(self):
-        self.module.__init_plugin__()
-
-    def setup(self, *args, **kw):
-        if getattr(self.module, '__setup__', None):
-            return self.module.__setup__(*args, **kw)
-        return None
-
+def __setup__():
+    pass
 
 

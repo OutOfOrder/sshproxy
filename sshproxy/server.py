@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 22, 16:03:53 by david
+# Last modified: 2007 Mar 23, 11:34:57 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -60,6 +60,11 @@ class Server(Registry, paramiko.ServerInterface):
         self.args = []
         self._remotes = {}
         self.exit_status = -1
+
+    def get_ns_tag(self, namespace, tag, default=None):
+        return self.monitor.call('get_ns_tag', namespace=namespace,
+                                               tag=tag,
+                                               default=default)
 
     def update_ns(self, name, value):
         return self.monitor.call('update_ns', name=name, value=value)
@@ -530,6 +535,7 @@ class Server(Registry, paramiko.ServerInterface):
 
 
     def do_shell_session(self):
+        log.devdebug(str(self.__class__))
         site = self.args.pop(0)
         if not self.authorize(site, need_login=True):
             self.chan.send(chanfmt("ERROR: %s does not exist in "

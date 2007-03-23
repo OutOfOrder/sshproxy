@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 19, 12:06:39 by david
+# Last modified: 2007 Mar 23, 11:24:23 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -40,24 +40,31 @@ if os.path.exists(plugindir+'/disabled'):
 else:
     disabled = []
 
-enabled = conf['plugin_list'].split()
+enabled_plugins = conf['plugin_list'].split()
+loaded_plugins = {}
 
 for name in os.listdir(plugindir):
     if os.path.isdir(os.path.join(plugindir, name)):
         if not name in disabled and not name[0] == '.':
             module = __import__(name, globals(), locals(), [])
-            plugin = Plugin(name, module, name in enabled)
+            plugin = Plugin(name, module, name in enabled_plugins)
             plugin_list.append(plugin)
+            loaded_plugins[name] = plugin
             log.info("Loaded plugin %s" % name)
 
 plugin_list.sort(lambda x, y: cmp(x.plugin_name.lower(), y.plugin_name.lower()))
 
 def init_plugins():
-    for plugin in plugin_list:
-        if plugin.enabled:
+  try:
+    log.devdebug("plugin_list: %s" % plugin_list)
+    for plugin in enabled_plugins:
+        if plugin in loaded_plugins.keys():
             try:
-                plugin.init()
+                loaded_plugins[plugin].init()
+                log.info('Initialized plugin %s' % loaded_plugins[plugin].name)
             except Exception, msg:
                 log.exception('init_plugins: plugin %s failed to load (%s)'
                                                         % (plugin.name, msg))
+  except:
+      log.exception("init_plugins:")
 

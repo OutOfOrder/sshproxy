@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 21, 14:26:09 by david
+# Last modified: 2007 Mar 23, 11:24:00 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -193,7 +193,11 @@ def run_server(daemon=False, sock=None):
     log.info("sshproxy starting")
 
     try:
-        init_plugins()
+        try:
+            init_plugins()
+        except:
+            log.exception("Could not initialize plugins...")
+            raise
         try:
             if sock is None:
                 sock = bind_server(daemon)

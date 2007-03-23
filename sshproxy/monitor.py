@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 22, 14:29:45 by david
+# Last modified: 2007 Mar 23, 11:39:50 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -43,6 +43,7 @@ class Monitor(Registry, ipc.IPCInterface):
         self.imq.append(self.ipc)
         self.chans = []
         self.namespaces = {}
+        self.backend = {}
 
     
     def __init__(self, *args, **kwargs):
@@ -111,9 +112,20 @@ class Monitor(Registry, ipc.IPCInterface):
         self.chans.append(chan)
 
     def func_update_ns(self, _chan, name, value):
-        if name not in self.namespaces:
-            self.namespaces[name] = {}
-        self.namespaces.get(name, {}).update(value)
+        if _chan not in self.namespaces:
+            self.namespaces[_chan] = {}
+        if name not in self.namespaces[_chan]:
+            self.namespaces[_chan][name] = {}
+        self.namespaces[_chan][name].update(value)
+
+    def func_get_ns_tag(self, _chan, namespace, tag, default=None):
+        if _chan not in self.namespaces:
+            return default
+        if namespace not in self.namespaces[_chan]:
+            return default
+        if tag not in self.namespaces[_chan][namespace]:
+            return default
+        return self.namespaces[_chan][namespace][tag]
 
     def func_public_methods(self, _chan, *args, **kw): # public_methods
         methods = []
@@ -136,22 +148,25 @@ class Monitor(Registry, ipc.IPCInterface):
         return ACLDB().check(acl=args[0], **namespaces)
 
     def func_authenticate(self, _chan, *args, **kw):
-        if not Backend().authenticate(username=kw['username'],
+        backend = Backend()
+        if not backend.authenticate(username=kw['username'],
                                         auth_tokens=kw,
                                         ip_addr=kw['ip_addr']):
             return False
         else:
             if not self.namespaces.has_key(_chan):
                 self.namespaces[_chan] = {}
-            self.namespaces[_chan]['client'] = Backend().get_client_tags()
+            if not self.backend.has_key(_chan):
+                self.backend[_chan] = backend
+            self.namespaces[_chan]['client'] = backend.get_client_tags()
             return True
 
     def func_authorize(self, _chan, *args, **kw):
-        if not Backend().authorize(user_site=kw['user_site'],
+        if not self.backend[_chan].authorize(user_site=kw['user_site'],
                                    need_login=kw.get('need_login')):
             return False
         else:
-            self.namespaces[_chan]['site'] = Backend().get_site_tags()
+            self.namespaces[_chan]['site'] = self.backend[_chan].get_site_tags()
             return True
 
     def func_get_namespace(self, _chan, *args, **kw):
