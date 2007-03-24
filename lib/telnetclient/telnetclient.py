@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 23, 11:43:13 by david
+# Last modified: 2007 Mar 23, 18:55:08 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,6 +26,7 @@ from sshproxy import get_class
 from sshproxy.registry import Registry
 from sshproxy.server import Server
 from sshproxy import log
+from sshproxy.util import chanfmt
 
 Server = get_class('Server')
 
@@ -45,15 +46,15 @@ class TelnetEnabledServer(Server):
         else:
             site = self.args.pop(0)
 
-        if not self.check_acl('shell_session'):
+        if not self.check_acl('telnet_session'):
             self.chan.send(chanfmt("ERROR: You are not allowed to"
-                                    " open a shell session on %s"
+                                    " open a telnet session on %s"
                                     "\n" % site))
             return False
         self.update_ns('client', {
-                            'type': 'shell_session'
+                            'type': 'telnet_session'
                             })
-        log.info("Connecting to %s", site)
+        log.info("Connecting to %s (telnet)", site)
         conn = TelnetProxy(self.chan, self.connect_telnet(), self.monitor)
         try:
             self.exit_status = conn.loop()
@@ -65,7 +66,7 @@ class TelnetEnabledServer(Server):
                            "to your administrator.\r\n"
                            "Exception class: <%s>\r\n\r\n"
                                     % e.__class__.__name__)
-            
+            log.exception("An unknown exception occured")
             raise
         
         # if the direct connection closed, then exit cleanly
@@ -74,14 +75,21 @@ class TelnetEnabledServer(Server):
         return True
 
     def connect_telnet(self):
-        HOST = "localhost"
-        #user = raw_input("Enter your remote account: ")
-        #password = getpass.getpass()
+        tl = telnetlib
+
+        ip_address = self.get_ns_tag("site", "ip_address")
+        port = self.get_ns_tag("site", "port")
+        user = self.get_ns_tag("site", "login")
+        password = self.get_ns_tag("site", "password")
         
-        user="weblord"
-        password="weblord"
-        
-        tn = telnetlib.Telnet(HOST)
+        tn = tl.Telnet()
+
+        tn.set_option_negotiation_callback(self.parse_telnet_options)
+
+        tn.open(ip_address, int(port))
+
+        tn.sock.sendall(tl.IAC + tl.WILL + tl.NAWS)
+        tn.sock.sendall(tl.IAC + tl.WILL + tl.TTYPE)
         
         tn.read_until("login: ")
         tn.write(user + "\n")
@@ -90,7 +98,30 @@ class TelnetEnabledServer(Server):
             tn.write(password + "\n")
 
         return tn
-        
+    
+    def parse_telnet_options(self, sock, command, option):
+        tl = telnetlib
+        if command == tl.DO and option == tl.NAWS:
+            sock.sendall(tl.IAC + tl.SB +
+                        tl.NAWS +
+                        chr(self.width>>8) + chr(self.width&0xff) +
+                        chr(self.height>>8) + chr(self.height&0xff) +
+                    tl.IAC + tl.SE)
+            return
+
+        if command == tl.DO and option == tl.TTYPE:
+            sock.sendall(tl.IAC + tl.SB +
+                        tl.TTYPE +
+                        tl.theNULL + self.term +
+                    tl.IAC + tl.SE)
+            return
+
+        if command in (tl.DO, tl.DONT):
+            sock.sendall(tl.IAC + tl.WONT + option)
+        elif command in (tl.WILL, tl.WONT):
+            sock.sendall(tl.IAC + tl.DONT + option)
+
+
 
 TelnetEnabledServer.register()
 
@@ -119,6 +150,9 @@ class TelnetProxy(Registry):
                         break
                     self.chan.send(data)
                     #self.chan.flush()
+        self.tn.close()
+        self.chan.close()
+        return 0
     
 
 TelnetProxy.register()
