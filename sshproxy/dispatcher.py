@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 21, 11:25:29 by david
+# Last modified: 2007 Mar 24, 13:52:51 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -75,7 +75,10 @@ class Dispatcher(Registry, ipc.IPCInterface):
         else:
             self.cmdline = ''
         
-        return func(*args, **kw)
+        try:
+            return func(*args, **kw)
+        except DispatcherCommandError, msg:
+            return str(msg)
 
 
     def is_admin(self):
