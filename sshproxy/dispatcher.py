@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 24, 13:52:51 by david
+# Last modified: 2007 Apr 04, 15:12:51 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -323,6 +323,9 @@ class Dispatcher(Registry, ipc.IPCInterface):
         if Backend().client_exists(args[0]):
             return "Client %s does already exist." % args[0]
 
+        if 'password' in kw:
+            import sha
+            kw['password'] = sha.new(kw['password']).hexdigest()
         resp = Backend().add_client(args[0], **kw)
         return resp
 
@@ -355,6 +358,9 @@ class Dispatcher(Registry, ipc.IPCInterface):
         if not Backend().client_exists(args[0]):
             return "Client %s does not exist." % args[0]
 
+        if 'password' in kw:
+            import sha
+            kw['password'] = sha.new(kw['password']).hexdigest()
         tags = Backend().tag_client(args[0], **kw)
         resp = []
         for tag, value in tags.items():
@@ -423,6 +429,19 @@ class Dispatcher(Registry, ipc.IPCInterface):
         #    else:
         #        tokens[t[0]] = value
 
+        for token in kw.keys():
+            if token in ('password', 'pkey'):
+                value = kw[token]
+                while len(value):
+                    if value[0] == '$':
+                        parts = value.split('$')
+                        if len(parts) >= 3 and part[1] in cipher.list_engines():
+                            # this is already ciphered
+                            break
+
+                    kw[token] = cipher.cipher(value)
+                    break
+
         resp = Backend().add_site(args[0], **kw)
         return resp
 
@@ -455,10 +474,25 @@ class Dispatcher(Registry, ipc.IPCInterface):
         if not Backend().site_exists(args[0]):
             return "Site %s does not exist." % args[0]
 
+        for token in kw.keys():
+            if token in ('password', 'pkey'):
+                value = kw[token]
+                while len(value):
+                    if value[0] == '$':
+                        parts = value.split('$')
+                        if len(parts) >= 3 and part[1] in cipher.list_engines():
+                            # this is already ciphered
+                            break
+
+                    kw[token] = cipher.cipher(value)
+                    break
+
         tags = Backend().tag_site(args[0], **kw)
+
         if not hasattr(tags, 'items'):
             # this is an error message
             return tags
+
         resp = []
         for tag, value in tags.items():
             value = self.show_tag_filter('site', tag, value)

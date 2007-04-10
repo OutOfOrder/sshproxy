@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 23, 10:45:45 by david
+# Last modified: 2007 Apr 04, 14:46:19 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -33,7 +33,7 @@ class Registry(object):
         Register an object class.
         """
 
-        print '%s.register(%s)' % (cls.__name__, cls._class_id)
+        #print '%s.register(%s)' % (cls.__name__, cls._class_id)
         Registry._registry[cls._class_id] = cls
 
 

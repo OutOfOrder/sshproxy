@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 22, 13:58:18 by david
+# Last modified: 2007 Apr 10, 14:59:50 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -45,8 +45,9 @@ class PTYWrapper(object):
             cipc.terminate()
             cipc.close()
             sys.stdout.close()
-            chan.transport.atfork() # close only the socket
+            #chan.transport.atfork() # close only the socket
             # Here the child process exits
+            os.abort()
 
         # Let's wait for the client to connect
         r, w, e = select.select([self.ipc], [], [], 5)

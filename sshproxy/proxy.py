@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 22, 16:05:52 by david
+# Last modified: 2007 Apr 10, 15:39:01 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -31,7 +31,6 @@ from paramiko import OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 from registry import Registry
 import util
 import ipc
-from acl import ProxyNamespace
 
 POLLREAD = POLLIN | POLLPRI | POLLHUP | POLLERR | POLLNVAL
 #unused: POLLWRITE = POLLOUT | POLLHUP | POLLERR | POLLNVAL
@@ -290,11 +289,10 @@ class ProxyScp(Proxy):
     _class_id = 'ProxyScp'
 
     def open_connection(self):
-        proxy = ProxyNamespace()
-        self.ipc_chan.llog.info('Executing: scp %s %s' % (proxy['scp_args'], 
-                                           proxy['scp_path']))
-        self.site_chan.exec_command('scp %s %s' % (proxy['scp_args'], 
-                                                   proxy['scp_path']))
+        scp_args = self.ipc_chan.call('get_ns_tag', 'proxy', 'scp_args')
+        scp_path = self.ipc_chan.call('get_ns_tag', 'proxy', 'scp_args')
+        self.ipc_chan.llog.info('Executing: scp %s' % (scp_args, scp_path))
+        self.site_chan.exec_command('scp %s %s' % (scp_args, scp_path))
 
 ProxyScp.register()
 
@@ -499,14 +497,14 @@ class ProxyCmd(ProxySession):
     def open_connection(self):
         ProxySession.open_connection(self)
 
-        proxy = ProxyNamespace()
         server = self.server
-        self.ipc_chan.llog.info('Executing: %s' % (proxy['cmdline']))
+        cmdline = self.ipc_chan.call('get_ns_tag', 'proxy', 'cmdline')
+        self.ipc_chan.llog.info('Executing: %s' % cmdline)
         if hasattr(server, 'term'):
             self.site_chan.get_pty(server.term,
                                    server.width,
                                    server.height)
-        self.site_chan.exec_command(proxy['cmdline'])
+        self.site_chan.exec_command(cmdline)
 
 
 ProxyCmd.register()
