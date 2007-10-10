@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 23, 11:39:50 by david
+# Last modified: 2007 Apr 17, 19:06:37 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -40,7 +40,7 @@ class Monitor(Registry, ipc.IPCInterface):
         self.imq = input_message_queue
         self.ipc = ipc.IPCServer(get_config('sshproxy').get('ipc_address',
                                     ('127.0.0.1', 2244)), handler=self)
-        self.imq.append(self.ipc)
+        self.imq[self.ipc] = self
         self.chans = []
         self.namespaces = {}
         self.backend = {}
@@ -92,9 +92,8 @@ class Monitor(Registry, ipc.IPCInterface):
             pid, status = os.waitpid(-1, os.WNOHANG)
             if pid and pid in self.children:
                 ipc = self.children[pid]['ipc']
-                imqfd = self.imq.index(ipc)
-                self.imq[imqfd].close()
-                del self.imq[imqfd]
+                self.imq[ipc].close()
+                del self.imq[ipc]
                 del self.children[pid]
                 del self.fds[ipc]
                 log.info("A child process has been killed and cleaned.")
@@ -107,7 +106,7 @@ class Monitor(Registry, ipc.IPCInterface):
     def disconnect(self, chan):
         chan = self.chans.pop(self.chans.index(chan))
 
-    def handle_incomming_connection(self, fd):
+    def handle_incoming_connection(self, fd):
         chan = self.ipc.accept()
         self.chans.append(chan)
 

@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 23, 11:24:00 by david
+# Last modified: 2007 Apr 17, 19:14:51 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -46,9 +46,12 @@ class Daemon(Registry):
     ipc_address = ('127.1', 2244)
 
     def __reginit__(self, daemon, sock):
-        self.imq = []
+        self.imq = {}
         self.monitor = Monitor(input_message_queue=self.imq)
         self._run_server(daemon, sock)
+
+    def handle_incoming_connection(self, sock):
+        return sock.accept()
 
     def service_client(self, client, addr):
         server = Server(client, addr, self.host_key_file)
@@ -71,7 +74,7 @@ class Daemon(Registry):
         try:
             # set up input message queue
             imq = self.imq
-            imq.append(sock)
+            imq[sock] = self
             # set up output message queue
             omq = []
             # set up error message queue
@@ -81,7 +84,7 @@ class Daemon(Registry):
                 try:
                     # message ready ?
                     try:
-                        imr, omr, emr = select.select(imq, omq, emq, 100)
+                        imr, omr, emr = select.select(imq.keys(), omq, emq, 100)
                     except KeyboardInterrupt:
                         raise
                     except select.error:
@@ -92,35 +95,38 @@ class Daemon(Registry):
                         # may be caused by SIGCHLD
                         self.monitor.kill_zombies()
                         continue
-                    for x in imr:
-                        if x is sock:
-                            try:
-                                client, addr = sock.accept()
-                            except socket.error:
-                                continue
-                            except Exception, e:
-                                log.exception('ERROR: socket accept failed')
-                                pass
-                                raise
-                            log.debug('Got a connection!')
-                            pid = os.fork()
-                            if pid == 0:
-                                # just serve in the child
-                                sock.close()
-                                for i in self.imq:
-                                    if hasattr(i, 'sock'):
-                                        i.sock.close()
-                                self.monitor.clean_at_fork()
-                                log.info("Serving %s", addr)
-                                self.service_client(client, addr)
-                                time.sleep(0.5)
-                                sys.exit()
 
-                            client.close()
-                            #self.monitor.add_child(pid, ipc=pipc, ip_addr=addr)
-                        else:
+                    for x in imr:
+                        if imq[x] is self.monitor:
                             # consume the message
-                            self.monitor.handle_incomming_connection(x)
+                            self.monitor.handle_incoming_connection(x)
+                            continue
+
+                        try:
+                            client, addr = imq[x].handle_incoming_connection(x)
+                        except socket.error:
+                            continue
+                        except Exception, e:
+                            log.exception('ERROR: socket accept failed')
+                            pass
+                            raise
+
+                        log.debug('Got a connection!')
+                        pid = os.fork()
+                        if pid == 0:
+                            # just serve in the child
+                            x.close()
+                            for i in imq:
+                                if hasattr(imq[i], 'sock'):
+                                    imq[i].sock.close()
+                            self.monitor.clean_at_fork()
+                            log.info("Serving %s", addr)
+                            imq[x].service_client(client, addr)
+                            time.sleep(0.5)
+                            sys.exit()
+
+                        client.close()
+                        #self.monitor.add_child(pid, ipc=pipc, ip_addr=addr)
     
     
                 except KeyboardInterrupt:

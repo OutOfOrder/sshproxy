@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Apr 10, 15:39:01 by david
+# Last modified: 2007 Apr 13, 19:00:26 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -290,8 +290,8 @@ class ProxyScp(Proxy):
 
     def open_connection(self):
         scp_args = self.ipc_chan.call('get_ns_tag', 'proxy', 'scp_args')
-        scp_path = self.ipc_chan.call('get_ns_tag', 'proxy', 'scp_args')
-        self.ipc_chan.llog.info('Executing: scp %s' % (scp_args, scp_path))
+        scp_path = self.ipc_chan.call('get_ns_tag', 'proxy', 'scp_path')
+        self.ipc_chan.llog.info('Executing: scp %s %s' % (scp_args, scp_path))
         self.site_chan.exec_command('scp %s %s' % (scp_args, scp_path))
 
 ProxyScp.register()

@@ -239,12 +239,12 @@ class Wizard(object):
             MenuSep('Global options'),
             MenuInput('IP address or interface',
                       ("Enter the IP address or the interface name on wich "
-                       "the server will listen for incomming connections."),
+                       "the server will listen for incoming connections."),
                       self.cfg['listen_on'] or 'any',
                       self.set_listen_on),
             MenuInput('Port',
                       ("Enter the port on which the server will listen for "
-                       "incomming connections."),
+                       "incoming connections."),
                       self.cfg['port'],
                       self.set_port),
             MenuInput('Auto-add public key',
