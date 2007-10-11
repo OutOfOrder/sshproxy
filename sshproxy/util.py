@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 16, 18:09:31 by david
+# Last modified: 2007 Oct 11, 03:28:48 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -363,7 +363,7 @@ def get_site_pkey(site):
     pwdb = Backend()
     try:
         site = pwdb.get_site(site)
-        rlogin = site.get_tags().login
+        rlogin = site.get_tags().get('login', None)
     except SSHProxyAuthError:
         rlogin, site = None, None
 
@@ -372,7 +372,7 @@ def get_site_pkey(site):
         return None
 
     spkey = decipher(site.get_tags().get('pkey'))
-    if len(spkey):
+    if spkey and len(spkey):
         return get_public_key(spkey)
     else:
         # no key found
