@@ -4,7 +4,7 @@
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 # Copyright (C) 2007 Wallix: Michal Mazurek <michal.mazurek@wallix.com>
 #
-# Last modified: 2007 Oct 14, 01:37:14 by david
+# Last modified: 2007 Oct 14, 04:55:00 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -46,7 +46,8 @@ def exception(*args):
     if len(args):
         error('[exc] ' + (str(args[0]) % args[1:]))
     for line in traceback.format_exception(*sys.exc_info()):
-        error('[exc] ' + line)
+        for line_part in line.strip().split('\n'):
+            error('[exc] ' + line_part)
 
 
 
