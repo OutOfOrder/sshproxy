@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Nov 11, 12:20:12 by david
+# Last modified: 2007 Oct 14, 05:43:25 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -69,13 +69,17 @@ class LoggedProxyShell(ProxyShell):
 
         ProxyShell.__reginit__(self, *args, **kw)
 
-        user = Backend().get_client_tags().username
+        user = self.ipc_chan.call('get_ns_tag', namespace='client',
+                                                tag='username')
         path = os.path.join(self.logdir, user)
         if not os.path.isdir(path):
             os.makedirs(path)
 
-        site_tags = Backend().get_site_tags()
-        site = '%s@%s' % (site_tags.login, site_tags.name)
+        site_login = self.ipc_chan.call('get_ns_tag', namespace='site',
+                                                tag='login')
+        site_name = self.ipc_chan.call('get_ns_tag', namespace='site',
+                                                tag='name')
+        site = '%s@%s' % (site_login, site_name)
         logfile = os.path.join(path, site)
         self.log = open(logfile, 'a')
 
