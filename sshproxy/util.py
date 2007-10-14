@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Oct 11, 03:28:48 by david
+# Last modified: 2007 Oct 14, 03:37:52 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -201,7 +201,6 @@ def gen_dss_key(verbose=False):
 def get_dss_key_as_string(dsskey=None, password=None):
     if dsskey is None:
         dsskey = gen_dss_key()
-    #if hasattr(dsskey, 'write_private_key'):
     if hasattr(paramiko.DSSKey, 'write_private_key'):
         fd = StringIO.StringIO()
         dsskey.write_private_key(fd, password)

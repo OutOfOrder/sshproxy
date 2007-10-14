@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Apr 17, 19:14:51 by david
+# Last modified: 2007 Oct 14, 04:27:40 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -60,13 +60,8 @@ class Daemon(Registry):
     
     def _run_server(self, daemon, sock):
         # get host key
-        host_key_file = os.path.join(config.inipath, 'id_dsa')
-        if not os.path.isfile(host_key_file):
-            # generate host key
-            dsskey = util.gen_dss_key(verbose=True)
-            dsskey.write_private_key_file(host_key_file)
-    
-        self.host_key_file = host_key_file
+        self.host_key_file = os.path.join(config.inipath, 'id_dsa')
+
         # set up the child killer handler
         signal.signal(signal.SIGCHLD, self.monitor.kill_zombies)
     
@@ -220,6 +215,28 @@ def run_server(daemon=False, sock=None):
 
 
 def run_daemon(daemonize, user, pidfile): # Credits: portions of code from TMDA
+
+    if os.getuid() == 0:
+        uid = util.getuid(user)
+        gid = util.getgid(user)
+
+    # Generate host key if not present already
+    host_key_file = os.path.join(config.inipath, 'id_dsa')
+    if not os.path.isfile(host_key_file):
+        # generate host key
+        dsskey = util.gen_dss_key(verbose=True)
+        dsskey.write_private_key_file(host_key_file)
+        os.chown(host_key_file, uid, gid)
+
+    # let's secure it all
+    os.chdir('/')
+    fd = os.open('/dev/null', os.O_RDONLY)
+    os.dup2(fd, 0) # stdin
+    os.dup2(fd, 1) # stdout
+    os.dup2(fd, 2) # stderr
+    os.close(fd)
+
+    # open the listening socket before dropping privs
     sock = bind_server(daemonize)
 
     if daemonize:
@@ -231,11 +248,10 @@ def run_daemon(daemonize, user, pidfile): # Credits: portions of code from TMDA
     else:
         pidfd = None
 
-
     if os.getuid() == 0:
+        # drop privs
         os.seteuid(0)
-        uid = util.getuid(user)
-        os.setgid(util.getgid(user))
+        os.setgid(gid)
         os.setgroups(util.getgrouplist(user))
         os.setuid(uid)
 
