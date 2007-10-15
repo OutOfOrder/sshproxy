@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 31, 23:28:15 by david
+# Last modified: 2007 Oct 15, 21:27:53 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -42,6 +42,9 @@ class FileACLDB(ACLDB):
         rulefile = get_config('acl_db.file')['file']
         if not os.path.exists(rulefile):
             open(rulefile, 'w').close()
+            os.chmod(rulefile, 0600)
+            # no need to parse an empty file
+            return None
 
         fd = open(rulefile)
         nline = []

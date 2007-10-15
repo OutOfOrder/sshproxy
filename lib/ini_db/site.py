@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 20, 15:34:48 by david
+# Last modified: 2007 Oct 15, 21:29:15 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -150,6 +150,7 @@ class FileSiteDB(SiteDB):
                 return 'Site %s does not exist. Please create it first.' % name
             # touch the file
             open(sitefile, 'w').close()
+            os.chmod(sitefile, 0600)
 
         siteinfo = SiteInfo(login, name, **tokens)
         siteinfo.save()

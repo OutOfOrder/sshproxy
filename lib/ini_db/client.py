@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 20, 14:39:31 by david
+# Last modified: 2007 Oct 15, 21:28:00 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -45,6 +45,7 @@ class FileClientInfo(ClientInfo):
         clientfile = get_config('client_db.file')['file']
         if not os.path.exists(clientfile):
             open(clientfile, 'w').close()
+            os.chmod(clientfile, 0600)
             # no need to parse an empty file
             return None
 
