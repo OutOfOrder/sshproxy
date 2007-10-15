@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 23, 11:34:57 by david
+# Last modified: 2007 Oct 15, 13:16:03 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -625,7 +625,8 @@ class Server(Registry, paramiko.ServerInterface):
         hostkey = tags['proxy'].get('hostkey', None) or None
 
         if site_ref is None:
-            site_ref = (tags['site']['ip_address'], int(tags['site']['port']))
+            site_ref = (tags['site']['ip_address'],
+                        int(tags['site'].get('port', 22)))
 
         import socket
         try:
