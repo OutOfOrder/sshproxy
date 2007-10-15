@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 23, 11:24:23 by david
+# Last modified: 2007 Oct 15, 18:30:53 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -64,7 +64,7 @@ def init_plugins():
                 log.info('Initialized plugin %s' % loaded_plugins[plugin].name)
             except Exception, msg:
                 log.exception('init_plugins: plugin %s failed to load (%s)'
-                                                        % (plugin.name, msg))
+                                                        % (plugin, msg))
   except:
       log.exception("init_plugins:")
 
