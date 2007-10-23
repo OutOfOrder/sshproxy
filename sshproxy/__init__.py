@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Dec 29, 12:42:07 by david
+# Last modified: 2007 Oct 21, 02:18:07 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -38,6 +38,40 @@ import paramiko
 
 if paramiko.__version_info__ < (1, 6, 3):
     raise RuntimeError('You need paramiko >=1.6.2 for this module.')
+
+# patch paramiko logging
+import paramiko.util
+class _Logger(object):
+    import logging as l
+    levels = {
+            l.DEBUG:    'debug',
+            l.INFO:     'info',
+            l.WARNING:  'warning',
+            l.ERROR:    'error',
+            l.CRITICAL: 'critical',
+            }
+
+    def log(self, level, msg, *args):
+        try:
+            import log
+            getattr(log, self.levels[level])(msg, *args)
+        except:
+            import traceback
+            f = open('/var/log/sshproxy/sshproxy.log', 'a')
+            f.write("args: %s %s %s\n" % (level, msg, args))
+            if len(args):
+                f.write('[exc] ' + (msg % args) + '\n')
+            else:
+                f.write('[exc] ' + (msg) + '\n')
+            for line in traceback.format_exception(*sys.exc_info()):
+                for line_part in line.strip().split('\n'):
+                    f.write('[exc] ' + line_part + '\n')
+            f.close()
+            raise
+        pass
+def get_logger(*args):
+    return _Logger()
+paramiko.util.get_logger = get_logger
 
 
 from registry import get_class
