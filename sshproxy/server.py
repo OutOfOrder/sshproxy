@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Oct 15, 13:16:03 by david
+# Last modified: 2007 Oct 23, 22:26:14 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -376,6 +376,10 @@ class Server(Registry, paramiko.ServerInterface):
         if options.action and hasattr(self, 'opt_%s' % options.action):
             getattr(self, 'opt_%s' % options.action)(options, *args)
 
+    def init_subsystems(self):
+        #self.transport.set_subsystem_handler('sftp', paramiko.SFTPServer,
+        #                                               ProxySFTPServer)
+        pass
 
     def start(self):
         # start transport for the client
@@ -393,8 +397,8 @@ class Server(Registry, paramiko.ServerInterface):
     
         # start the server interface
         negotiation_ev = threading.Event()
-        #self.transport.set_subsystem_handler('sftp', paramiko.SFTPServer,
-        #                                               ProxySFTPServer)
+
+        self.init_subsystems()
 
         self.transport.start_server(negotiation_ev, self)
 
