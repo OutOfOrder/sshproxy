@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 22, 14:22:36 by david
+# Last modified: 2007 Oct 28, 15:41:46 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -107,6 +107,10 @@ class ACLDB(Registry):
     def save_rules(self):
         pass
 
+    def reload_rules(self):
+        self.rules = OrderedDict()
+        self.load_rules()
+
     def add_rule(self, acl, rule=None, index=None):
         if rule is None:
             rule = ACLRule(acl, 'False')
@@ -202,7 +206,7 @@ class ACLDB(Registry):
                             break
                         else:
                             result = False
-    
+
             if result is None:
                 result = False
                 log.info('ACL %s not found' % str(acl))
