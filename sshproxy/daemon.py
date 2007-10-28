@@ -82,7 +82,7 @@ class Daemon(Registry):
                         imr, omr, emr = select.select(imq.keys(), omq, emq, 100)
                     except KeyboardInterrupt:
                         raise
-                    except select.error:
+                    except select.error,e:
                         # may be caused by SIGCHLD
                         self.monitor.kill_zombies()
                         continue
@@ -121,13 +121,14 @@ class Daemon(Registry):
                             sys.exit()
 
                         client.close()
-                        #self.monitor.add_child(pid, ipc=pipc, ip_addr=addr)
+                        self.monitor.add_child(pid, chan=x, ip_addr=addr)
     
     
                 except KeyboardInterrupt:
                     log.info("Caught KeyboardInterrupt, exiting...")
                     # don't accept connections anymore
                     sock.close()
+                    ### FIX
                     self.imq.pop(0)
                     log.info("Signaling all child processes")
                     msg = ('General shutdown happening.\n'
