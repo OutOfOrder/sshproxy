@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Oct 28, 16:10:58 by david
+# Last modified: 2007 Oct 30, 01:21:41 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -57,7 +57,7 @@ class Monitor(Registry, ipc.IPCInterface):
         for chan in self.chans:
             if chan and chan.channel:
                 chan.channel.close()
-        self.ipc.close()
+        self.ipc.sock.close()
 
     def add_child(self, pid, chan, ip_addr):
         self.children[pid] = {'ipc': chan, 'ip_addr': ip_addr}
