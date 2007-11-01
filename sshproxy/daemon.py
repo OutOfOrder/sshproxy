@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Oct 14, 04:27:40 by david
+# Last modified: 2007 Nov 01, 02:17:32 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -229,13 +229,16 @@ def run_daemon(daemonize, user, pidfile): # Credits: portions of code from TMDA
         dsskey.write_private_key_file(host_key_file)
         os.chown(host_key_file, uid, gid)
 
-    # let's secure it all
-    os.chdir('/')
-    fd = os.open('/dev/null', os.O_RDONLY)
-    os.dup2(fd, 0) # stdin
-    os.dup2(fd, 1) # stdout
-    os.dup2(fd, 2) # stderr
-    os.close(fd)
+    # don't run as a daemon if there are uncatched exceptions
+    # not appearing in the logs
+    if daemonize:
+        # let's secure it all
+        os.chdir('/')
+        fd = os.open('/dev/null', os.O_RDONLY)
+        os.dup2(fd, 0) # stdin
+        os.dup2(fd, 1) # stdout
+        os.dup2(fd, 2) # stderr
+        os.close(fd)
 
     # open the listening socket before dropping privs
     sock = bind_server(daemonize)
