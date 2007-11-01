@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Oct 15, 21:28:00 by david
+# Last modified: 2007 Nov 01, 02:11:01 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -72,16 +72,17 @@ class FileClientInfo(ClientInfo):
         if not file:
             return
 
-        if not file.has_section(self.username):
-            file.add_section(self.username)
+        if self.username:
+            if not file.has_section(self.username):
+                file.add_section(self.username)
 
-        for tag, value in self.tokens.items():
-            if tag in ('username', 'ip_addr'):
-                continue
-            elif value and str(value):
-                file.set(self.username, tag, str(value))
-            elif file.has_option(self.username, tag):
-                file.remove_option(self.username, tag)
+            for tag, value in self.tokens.items():
+                if tag in ('username', 'ip_addr'):
+                    continue
+                elif value and str(value):
+                    file.set(self.username, tag, str(value))
+                elif file.has_option(self.username, tag):
+                    file.remove_option(self.username, tag)
 
         clientfile = get_config('client_db.file')['file']
         fd = open(clientfile+'.new', 'w')
@@ -148,7 +149,7 @@ class FileClientInfo(ClientInfo):
 class FileClientDB(ClientDB):
     def exists(self, username, **tokens):
         if not getattr(self, 'clientinfo', None):
-            self.clientinfo = ClientInfo('_')
+            return ClientInfo(None).exists(username)
         return self.clientinfo.exists(username)
 
     def list_clients(self, **kw):
@@ -162,12 +163,10 @@ class FileClientDB(ClientDB):
         return 'Client %s added' % username
 
     def del_client(self, username, **tokens):
-        if self.clientinfo.username == username:
-            return "Don't delete yourself!"
         if not self.exists(username):
             return 'Client %s does not exist'
 
-        self.clientinfo.delete(username)
+        ClientInfo(None).delete(username)
 
         return 'Client %s deleted.' % username
 

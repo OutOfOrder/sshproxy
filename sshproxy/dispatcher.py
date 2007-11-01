@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Apr 04, 15:12:51 by david
+# Last modified: 2007 Nov 01, 02:24:48 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -28,6 +28,7 @@ from ptywrap import PTYWrapper
 from console import Console
 from acl import ACLDB
 import cipher
+import log
 
 ###########################################################################
 class DispatcherCommandError(Exception):
@@ -79,6 +80,10 @@ class Dispatcher(Registry, ipc.IPCInterface):
             return func(*args, **kw)
         except DispatcherCommandError, msg:
             return str(msg)
+        except:
+            log.exception("An exception occured in " +
+                                            "Dispatcher.default_call_handler")
+            return "Something wrong happened. Please contact the administrator."
 
 
     def is_admin(self):
@@ -189,11 +194,12 @@ class Dispatcher(Registry, ipc.IPCInterface):
             if len(args) != num:
                 if num == 0:
                     num = 'no'
-                raise DispatcherCommandError("This command accepts %s arguments" % num)
+                raise DispatcherCommandError(
+                            "This command accepts %s arguments" % num)
         else:
             if len(args) < num:
-                raise DispatcherCommandError("This command accepts at least %d arguments"
-                                                                                 % num)
+                raise DispatcherCommandError(
+                            "This command accepts at least %d arguments" % num)
 
 ##########################################################################
 
@@ -338,10 +344,16 @@ class Dispatcher(Registry, ipc.IPCInterface):
         """
         self.check_args(1, args, strict=True)
 
-        if not Backend().client_exists(args[0]):
+
+        if self.d_ipc.call('get_ns_tag', 'client', 'username') == args[0]:
+            return "Don't delete yourself!"
+
+        b = Backend()
+
+        if not b.client_exists(args[0]):
             return "Client %s does not exist." % args[0]
 
-        resp = Backend().del_client(args[0], **kw)
+        resp = b.del_client(args[0], **kw)
         return resp
 
     acl_tag_client = "acl(admin)"
@@ -405,29 +417,6 @@ class Dispatcher(Registry, ipc.IPCInterface):
 
         if Backend().site_exists(args[0]):
             return "Site %s does already exist." % args[0]
-
-        #tokens = {}
-        #for arg in args[1:]:
-        #    t = arg.split('=', 1)
-        #    if len(t) > 1:
-        #        value = t[1].replace("\\n", "\n")
-        #        if value and value[0] == value[-1] == '"':
-        #            value = value[1:-1]
-        #    else:
-        #        return 'Parse error around <%s>' % arg
-
-        #    if t[0] in ('password', 'pkey'):
-        #        while len(value):
-        #            if value[0] == '$':
-        #                parts = value.split('$')
-        #                if len(parts) >= 3 and part[1] in cipher.list_engines():
-        #                    # this is already ciphered
-        #                    break
-
-        #            tokens[t[0]] = cipher.cipher(value)
-        #            break
-        #    else:
-        #        tokens[t[0]] = value
 
         for token in kw.keys():
             if token in ('password', 'pkey'):
