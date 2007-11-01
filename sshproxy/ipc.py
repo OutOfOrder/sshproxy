@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 21, 12:07:58 by david
+# Last modified: 2007 Nov 01, 01:47:02 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -422,10 +422,15 @@ class IPCInterface(object):
 
     def call(self, _name, _chan, *args, **kw):
         func = getattr(self, self.call_prefix + _name, None)
-        if func:
-            return func(_chan, *args, **kw)
-        elif getattr(self, 'default_call_handler', None):
-            return self.default_call_handler(_name, _chan, *args, **kw)
+        try:
+            if func:
+                return func(_chan, *args, **kw)
+            elif getattr(self, 'default_call_handler', None):
+                return self.default_call_handler(_name, _chan, *args, **kw)
+        except:
+            log.exception("An exception occured in IPCInterface.call():")
+            return ("Something wrong happened. " +
+                                    "Please contact the administrator.")
 
         return "%s does not exist" % _name
 
