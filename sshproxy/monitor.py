@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 02, 01:33:43 by david
+# Last modified: 2007 Nov 02, 01:35:16 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -173,7 +173,11 @@ class Monitor(Registry, ipc.IPCInterface):
         ns.update({'proxy':ProxyNamespace()})
         return ns
     
-
+    def func_reload_acl_rules(self, *args):
+        ACLDB().reload_rules()
+        
+        return True
+            
 
 
 
@@ -201,6 +205,13 @@ class Monitor(Registry, ipc.IPCInterface):
         """
         return '%d %d' % (len(self.children.keys()), len(self.chans))
 
+    def rq_reload_acl_rules(self, id, *args):
+        """
+        Reloads system ACLs database to cache
+        """
+        ACLDB().reload_rules()
+        
+        return "ACL Rules reloaded."
 
     def rq_watch(self, id, *args):
         """
