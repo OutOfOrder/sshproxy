@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Oct 30, 01:21:41 by david
+# Last modified: 2007 Nov 02, 01:33:43 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -45,7 +45,6 @@ class Monitor(Registry, ipc.IPCInterface):
         self.namespaces = {}
         self.backend = {}
 
-    
     def __init__(self, *args, **kwargs):
         pass
 
@@ -61,8 +60,7 @@ class Monitor(Registry, ipc.IPCInterface):
 
     def add_child(self, pid, chan, ip_addr):
         self.children[pid] = {'ipc': chan, 'ip_addr': ip_addr}
-        self.fds[ipc] = pid
-    #    self.imq.append(ipc)
+        self.fds[chan] = pid
 
     def default_call_handler(self, _name, _chan, *args, **kw):
         func = getattr(self, 'rq_' + _name, None)
@@ -91,12 +89,14 @@ class Monitor(Registry, ipc.IPCInterface):
     def kill_zombies(self, signum=None, frame=None):
         try:
             pid, status = os.waitpid(-1, os.WNOHANG)
-            if pid and pid in self.children:
+            if pid and pid in self.children and pid != os.getpid():
                 ipc = self.children[pid]['ipc']
-                self.imq[ipc].close()
-                del self.imq[ipc]
-                del self.children[pid]
-                del self.fds[ipc]
+                try:
+                    del self.children[pid]
+                    del self.fds[ipc]
+                except KeyError:
+                    log.exception("Monitor.kill_zombies():")
+                    pass
                 log.info("A child process has been killed and cleaned.")
         except OSError:
             pass
@@ -140,7 +140,6 @@ class Monitor(Registry, ipc.IPCInterface):
         return methods
 
     def func_check_acl(self, _chan, *args, **kw):
-        print "monitor.py:Monitor.func_check_acl(_chan=%s, *args=%s, **kw=%s):: ATTENTION!!!!!!" % (repr(_chan), repr(args), repr(kw))
         if not len(args):
             return False
 
