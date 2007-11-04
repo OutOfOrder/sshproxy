@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 01, 02:14:53 by david
+# Last modified: 2007 Nov 04, 22:01:13 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -92,6 +92,13 @@ class Backend(Registry):
 
     def add_client(self, username, **tokens):
         return ClientDB().add_client(username, **tokens)
+
+    def add_client_pkey(self, username, pkey, number):
+        if username:
+            client = ClientDB()
+        else:
+            client = self.clientdb
+        return client.add_pkey(username, pkey, number)
 
     def del_client(self, username, **tokens):
         return ClientDB().del_client(username, **tokens)

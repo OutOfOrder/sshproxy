@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Oct 23, 22:26:14 by david
+# Last modified: 2007 Nov 04, 22:09:06 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -209,10 +209,17 @@ class Server(Registry, paramiko.ServerInterface):
                                     password=password,
                                     pkey=pkey,
                                     ip_addr=self.client_addr[0]):
+            self._unauth_pkey = pkey
             return False
 
         self.username = username
         self.monitor.call('update_ns', 'client', {'username': username})
+
+        if hasattr(self, '_unauth_pkey') and self._unauth_pkey:
+            if self.monitor.call('add_client_pkey', self._unauth_pkey):
+                self.message_client("WARNING: Your public key"
+                                        " has been added to the keyring\n")
+
         return True
 
     def message_client(self, msg):

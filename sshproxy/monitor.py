@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 02, 01:35:16 by david
+# Last modified: 2007 Nov 04, 22:10:31 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,6 +25,7 @@ import marshal
 
 from registry import Registry
 from config import get_config
+from util import istrue
 import log 
 import ipc
 from acl import ACLDB, ProxyNamespace
@@ -65,6 +66,10 @@ class Monitor(Registry, ipc.IPCInterface):
     def default_call_handler(self, _name, _chan, *args, **kw):
         func = getattr(self, 'rq_' + _name, None)
         if not func:
+            try:
+                raise AttributeError('monitor.rq_%s does not exist' % _name)
+            except AttributeError:
+                log.exception('in monitor.default_call_handler')
             return 'monitor.%s does not exist' % _name
         return func(_chan, *args, **kw)
 
@@ -178,6 +183,14 @@ class Monitor(Registry, ipc.IPCInterface):
         
         return True
             
+    def func_add_client_pkey(self, _chan, pkey):
+        auto_add_key = get_config('sshproxy')['auto_add_key']
+
+        if istrue(auto_add_key):
+            return self.backend[_chan].add_client_pkey(None, pkey, auto_add_key)
+
+        return False
+
 
 
 
