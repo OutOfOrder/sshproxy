@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 08, 10:34:46 by david
+# Last modified: 2007 Nov 08, 18:14:14 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -40,7 +40,7 @@ class I18n(Registry):
             if (self.__class__.__name__ != self._class_id and
                     not self.seen.has_key(h)):
                 import log
-                log.debug("i18n: unknown hash %s for <%s>" % (h, message, ))
+                log.debug("i18n: unknown hash %s: %s" % (h, repr(message)))
                 self.seen[h] = None
             return message
 

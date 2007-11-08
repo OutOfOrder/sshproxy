@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 04, 22:10:31 by david
+# Last modified: 2007 Nov 08, 17:51:29 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -67,10 +67,10 @@ class Monitor(Registry, ipc.IPCInterface):
         func = getattr(self, 'rq_' + _name, None)
         if not func:
             try:
-                raise AttributeError('monitor.rq_%s does not exist' % _name)
+                raise AttributeError(_(u'monitor.rq_%s does not exist') % _name)
             except AttributeError:
                 log.exception('in monitor.default_call_handler')
-            return 'monitor.%s does not exist' % _name
+            return _(u'monitor.%s does not exist') % _name
         return func(_chan, *args, **kw)
 
     def children_count(self):
@@ -140,7 +140,7 @@ class Monitor(Registry, ipc.IPCInterface):
             doc = getattr(getattr(self, method), '__doc__', None)
             if not doc:
                 continue
-            methods.append((method[3:], doc))
+            methods.append((method[3:], _(doc)))
 
         return methods
 
@@ -199,8 +199,8 @@ class Monitor(Registry, ipc.IPCInterface):
     #######################################################################
 
     #def rq_shutdown(self, id, *args):
-    #    """Shutdown all active connections"""
-    #    msg = ("The administrator has requested a shutdown.\n"
+    #    u"""Shutdown all active connections"""
+    #    msg = _(u"The administrator has requested a shutdown.\n"
     #            "Your session will be closed.")
     #    for pid, child in self.children.items():
     #        if pid == id:
@@ -213,21 +213,21 @@ class Monitor(Registry, ipc.IPCInterface):
     #        self.kill_child(pid)
 
     def rq_nb_con(self, id, *args):
-        """
+        u"""
         Get number of currently active client connections.
         """
         return '%d %d' % (len(self.children.keys()), len(self.chans))
 
     def rq_reload_acl_rules(self, id, *args):
-        """
+        u"""
         Reloads system ACLs database to cache
         """
         ACLDB().reload_rules()
         
-        return "ACL Rules reloaded."
+        return _(u"ACL Rules reloaded.")
 
     def rq_watch(self, id, *args):
-        """
+        u"""
         Display connected users.
         """
         r = []
@@ -251,28 +251,28 @@ class Monitor(Registry, ipc.IPCInterface):
     #    return '\n'.join(s)
 
     #def rq_message(self, id, *args):
-    #    """
+    #    u"""
     #    message user@site <message contents>
 
     #    Send a message to user@site.
     #    """
     #    if len(args) < 3:
-    #        return 'Need a message'
+    #        return _(u'Need a message')
     #    for pid, child in self.children.items():
     #        cid = '%s@%s' % (child['username'], child['ip_addr'][0])
 
     #        if args[1] == '*' or args[1] == cid:
-    #            msg = ("\007On administrative request, "
+    #            msg = _(u"\007On administrative request, "
     #                   "your session will be closed.")
     #            if len(args) > 2:
     #                msg = ' '.join(args[2:])
     #            self.send_message(pid, 'announce', msg)
     #            #return '%s found and signaled' % cid
     #        #return "%s couldn't be signaled" % cid
-    #    return '%s not found' % (args[1])
+    #    return _(u'%s not found') % (args[1])
 
     def rq_kill(self, id, *args):
-        """
+        u"""
         kill user@site
 
         Kill all connections to user@site.
@@ -292,16 +292,16 @@ class Monitor(Registry, ipc.IPCInterface):
             else:
                 sid = None
             if args[1] in ('*', cid, sid):
-                msg = ("\007On administrative request, "
+                msg = _(u"\007On administrative request, "
                        "your session will be closed.")
                 if len(args) > 2:
                     msg = ' '.join(args[2:])
                 self.send_message(pid, 'kill', msg)
                 count += 1
         if count:
-            return '%d killed connections' % count
+            return _(u'%d killed connections') % count
         else:
-            return '%s not found' % (args[1])
+            return _(u'%s not found') % (args[1])
 
 
 Monitor.register()

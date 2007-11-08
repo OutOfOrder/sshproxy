@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 08, 10:34:40 by david
+# Last modified: 2007 Nov 08, 18:29:14 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -28,9 +28,25 @@ class LangPack_fr(I18n):
 
     encoding = 'iso-8859-15'
     messages = {
-            1557792624: u"execute des commandes d'administration",
-            -2139151278: u"liste les sites autorisés",
-            }
+        1557792624: u"execute des commandes d'administration",
+        -2139151278: u"liste les sites autorisés",
+        1318597108: u"ERREUR: %s n'existe pas dans votre environnement\n",
+        433505454: u"ERREUR: Vous n'êtes pas autorisé à ouvrir une session shell sur %s\n",
+        -1260436857: u"""
+        kill user@site
+        
+        Ferme toutes les connections vers user@site.
+        """,
+        774749702: u"""
+        Affiche le nombre de connexions actives.
+        """,
+        -2011098661: u"""
+        Recharge les règles ACL.
+        """,
+        -1575399941: u"""
+        Affiche la liste des utilisateurs connectés.
+        """,
+        }
 
 
 LangPack_fr.register()

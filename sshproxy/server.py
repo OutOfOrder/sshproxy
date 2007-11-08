@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 04, 22:09:06 by david
+# Last modified: 2007 Nov 08, 18:23:23 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -267,31 +267,31 @@ class Server(Registry, paramiko.ServerInterface):
     def add_cmdline_options(self, parser):
         if self.check_acl('admin'):
             parser.add_option("", "--admin", dest="action",
-                    help="run administrative commands",
+                    help=_(u"run administrative commands"),
                     action="store_const",
                     const='admin',
                     )
         if self.check_acl('console_session'):
             parser.add_option("", "--console", dest="action",
-                    help="open administration console",
+                    help=_(u"open administration console"),
                     action="store_const",
                     const='console',
                     )
         if self.check_acl('opt_list_sites'):
             parser.add_option("-l", "--list-sites", dest="action",
-                    help="list allowed sites",
+                    help=_(u"list allowed sites"),
                     action="store_const",
                     const='list_sites',
                     )
         if self.check_acl('opt_get_pkey'):
             parser.add_option("", "--get-pkey", dest="action",
-                    help="display public key for user@host.",
+                    help=_(u"display public key for user@host."),
                     action="store_const",
                     const="get_pkey",
                     )
 
     def parse_cmdline(self, args):
-        usage = """
+        usage = u"""
         pssh [options]
         pssh [user@site [cmd]]
         """
@@ -303,8 +303,8 @@ class Server(Registry, paramiko.ServerInterface):
 
     def opt_admin(self, options, *args):
         if not len(args):
-            self.chan.send(chanfmt('Missing argument, try --admin help '
-                                   'to get a list of commands.\n'))
+            self.chan.send(chanfmt(_(u'Missing argument, try --admin help '
+                                   'to get a list of commands.\n')))
             return
 
         resp = self.monitor.get('%s' % ' '.join(args))
@@ -366,16 +366,16 @@ class Server(Registry, paramiko.ServerInterface):
         for site in args:
             spkey = util.get_site_pkey(site)
             if spkey is None:
-                result.append("%s: No such entry" % site)
+                result.append(_(u"%s: No such entry") % site)
                 continue
         
             if len(spkey):
                 result.append('%s: %s' % (site, ' '.join(spkey)))
             else:
-                result.append("%s: No pkey found" % site)
+                result.append(_(u"%s: No pkey found") % site)
 
         if not result:
-            result.append('Please give at least a site.')
+            result.append(_(u'Please give at least a site.'))
         self.chan.send(chanfmt('\n'.join(result)+'\n'))
 
 
@@ -440,7 +440,7 @@ class Server(Registry, paramiko.ServerInterface):
                 chan.send(chanfmt(str(msg)+'\n'))
             except Exception, msg:
                 log.exception("An error occured: %s" % msg)
-                chan.send(chanfmt("An error occured: %s\n" % msg))
+                chan.send(chanfmt(_(u"An error occured: %s\n") % msg))
         finally:
             if self.chan.active:
                 self.chan.send_exit_status(self.exit_status)
@@ -456,8 +456,8 @@ class Server(Registry, paramiko.ServerInterface):
 
     def do_console(self):
         if not self.check_acl('console_session'):
-            self.chan.send(chanfmt("ERROR: You are not allowed to"
-                                    " open a console session.\n"))
+            self.chan.send(chanfmt(_(u"ERROR: You are not allowed to"
+                                    " open a console session.\n")))
             return False
         self.monitor.call('update_ns', 'client', {'type': 'console'})
         if hasattr(self, 'term'):
@@ -477,8 +477,8 @@ class Server(Registry, paramiko.ServerInterface):
         site, path = argv[0].split(':', 1)
 
         if not self.authorize(site, need_login=True):
-            self.chan.send(chanfmt("ERROR: %s does not exist in your scope\n" %
-                                                                    site))
+            self.chan.send(chanfmt(_(u"ERROR: %s does not exist "
+                                      "in your scope\n") % site))
             return False
 
         if '-t' in args:
@@ -497,9 +497,9 @@ class Server(Registry, paramiko.ServerInterface):
         # check ACL for the given direction, then if failed, check general ACL
         if not ((self.check_acl('scp_' + scpdir)) or
                 self.check_acl('scp_transfer')):
-            self.chan.send(chanfmt("ERROR: You are not allowed to"
+            self.chan.send(chanfmt(_(u"ERROR: You are not allowed to"
                                     " do scp file transfert in this"
-                                    " directory or direction on %s\n" % site))
+                                    " directory or direction on %s\n") % site))
             return False
 
         self.update_ns('client', {
@@ -519,15 +519,15 @@ class Server(Registry, paramiko.ServerInterface):
     def do_remote_execution(self):
         site = self.args.pop(0)
         if not self.authorize(site, need_login=True):
-            self.chan.send(chanfmt("ERROR: %s does not exist in "
-                                            "your scope\n" % site))
+            self.chan.send(chanfmt(_(u"ERROR: %s does not exist in "
+                                            "your scope\n") % site))
             return False
 
         self.update_ns('proxy', {'cmdline': (' '.join(self.args)).strip()})
         if not self.check_acl('remote_exec'):
-            self.chan.send(chanfmt("ERROR: You are not allowed to"
+            self.chan.send(chanfmt(_(u"ERROR: You are not allowed to"
                                     " exec that command on %s"
-                                    "\n" % site))
+                                    "\n") % site))
             return False
         self.update_ns('client', {
                         'type': 'remote_exec',
@@ -536,9 +536,9 @@ class Server(Registry, paramiko.ServerInterface):
         try:
             self.exit_status = conn.loop()
         except AuthenticationException, msg:
-            self.chan.send("\r\n ERROR: %s." % msg +
-                      "\r\n Please report this error "
-                      "to your administrator.\r\n\r\n")
+            self.chan.send(_(u"\r\n ERROR: %s.") % msg +
+                      _(u"\r\n Please report this error "
+                      "to your administrator.\r\n\r\n"))
             return False
         conn = None
         log.info("Exiting %s", site)
@@ -549,14 +549,14 @@ class Server(Registry, paramiko.ServerInterface):
         log.devdebug(str(self.__class__))
         site = self.args.pop(0)
         if not self.authorize(site, need_login=True):
-            self.chan.send(chanfmt("ERROR: %s does not exist in "
-                                        "your scope\n" % site))
+            self.chan.send(chanfmt(_(u"ERROR: %s does not exist in "
+                                        "your scope\n") % site))
             return False
 
         if not self.check_acl('shell_session'):
-            self.chan.send(chanfmt("ERROR: You are not allowed to"
+            self.chan.send(chanfmt(_(u"ERROR: You are not allowed to"
                                     " open a shell session on %s"
-                                    "\n" % site))
+                                    "\n") % site))
             return False
         self.update_ns('client', {
                             'type': 'shell_session'
@@ -566,18 +566,18 @@ class Server(Registry, paramiko.ServerInterface):
         try:
             self.exit_status = conn.loop()
         except AuthenticationException, msg:
-            self.chan.send("\r\n ERROR: %s." % msg +
-                           "\r\n Please report this error "
-                           "to your administrator.\r\n\r\n")
+            self.chan.send(_(u"\r\n ERROR: %s.") % msg +
+                           _(u"\r\n Please report this error "
+                           "to your administrator.\r\n\r\n"))
             return False
 
         except KeyboardInterrupt:
             return True
         except Exception, e:
-            self.chan.send("\r\n ERROR: It seems you found a bug."
+            self.chan.send(_(u"\r\n ERROR: It seems you found a bug."
                            "\r\n Please report this error "
                            "to your administrator.\r\n"
-                           "Exception class: <%s>\r\n\r\n"
+                           "Exception class: <%s>\r\n\r\n")
                                     % e.__class__.__name__)
             
             raise
