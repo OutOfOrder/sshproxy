@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Oct 21, 02:18:07 by david
+# Last modified: 2007 Nov 07, 12:55:15 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,6 +30,7 @@ __license__ = "GNU General Public License (GPL) v2"
 __url__ = "http://penguin.fr/sshproxy/"
 
 import sys
+import i18n
 
 if sys.version_info < (2, 4):
     raise RuntimeError('You need python >=2.4 for this module.')
