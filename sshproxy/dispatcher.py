@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 09, 10:48:16 by david
+# Last modified: 2007 Nov 09, 11:08:15 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -453,8 +453,8 @@ class Dispatcher(Registry, ipc.IPCInterface):
                 while len(value):
                     if value[0] == '$':
                         parts = value.split('$')
-                        if len(parts) >= 3
-                                        and parts[1] in cipher.list_engines():
+                        if (len(parts) >= 3
+                                        and parts[1] in cipher.list_engines()):
                             # this is already ciphered
                             break
 
@@ -499,8 +499,8 @@ class Dispatcher(Registry, ipc.IPCInterface):
                 while len(value):
                     if value[0] == '$':
                         parts = value.split('$')
-                        if len(parts) >= 3
-                                        and parts[1] in cipher.list_engines():
+                        if (len(parts) >= 3
+                                        and parts[1] in cipher.list_engines()):
                             # this is already ciphered
                             break
 
@@ -565,8 +565,8 @@ class Dispatcher(Registry, ipc.IPCInterface):
         if len(value):
             if value[0] == '$':
                 parts = value.split('$')
-                if len(parts) >= 3
-                                and parts[1] in cipher.list_engines():
+                if (len(parts) >= 3
+                                and parts[1] in cipher.list_engines()):
                     # this is already ciphered
                     return value
 

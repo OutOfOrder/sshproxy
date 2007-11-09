@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 09, 10:47:14 by david
+# Last modified: 2007 Nov 09, 15:27:05 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -93,12 +93,13 @@ class Console(Registry, cmd.Cmd):
                 pass1 = getpass(prompt1)
             except EOFError:
                 print
-                pass
+            if prompt2 == -1:
+                pass2 = pass1
+                continue
             try:
                 pass2 = getpass(prompt2)
             except EOFError:
                 print
-                pass
         return item, pass1
 
     def do_set_client_password(self, line):
@@ -125,6 +126,72 @@ class Console(Registry, cmd.Cmd):
 
         response = self.ipc.call("set_site_password", "%s password=%s" %
                                                 (site, repr(password)))
+        print response
+
+    def do_set_site_privkey(self, line):
+        prompt1 = "Enter the private key (end with CTRL-D): "
+        prompt2 = -1 #"Confirm the private key (end with CTRL-D): "
+
+        import getpass
+        _ri = getpass._raw_input
+
+        def _raw_input(prompt=""):
+            import sys, termios
+            import log
+
+            prompt = str(prompt)
+            # A raw_input() replacement that doesn't save the string in the
+            # GNU readline history.
+            ifd = sys.stdin.fileno()
+            ofd = sys.stdout.fileno()
+
+            old = termios.tcgetattr(ifd)     # a copy to save
+            new = old[:]
+    
+            new[3] = new[3] & ~termios.ICANON # 3 == 'lflags'
+            try:
+                try:
+                    termios.tcsetattr(ifd, termios.TCSANOW, new)
+                    if prompt:
+                        sys.stdout.write(prompt)
+                        sys.stdout.flush()
+                    lines = []
+                    while True:
+                        c = sys.stdin.read(1)
+                        log.devdebug("CHAR=%s"%ord(c))
+                        if not c or c in ('\000', '\004'): # CTRL-D
+                            break
+                        lines.append(c)
+                        if c not in ' \t\r\n':
+                            c = '*'
+                        sys.stdout.write(c)
+                    log.devdebug("END")
+                    return ''.join(lines)
+
+                finally:
+                    termios.tcsetattr(ifd, termios.TCSADRAIN, old)
+            except KeyboardInterrupt:
+                raise
+            except:
+                log.exception("_raw_input")
+                raise
+
+        getpass._raw_input = _raw_input
+
+        try:
+            try:
+                site, privkey = self._set_password(line, prompt1, prompt2)
+            finally:
+                getpass._raw_input = _ri
+        except TypeError:
+            return
+        except KeyboardInterrupt:
+            print "Aborted."
+            return
+
+
+        response = self.ipc.call("set_site_privkey", "%s privkey=%s" %
+                                                (site, repr(privkey)))
         print response
 
     def emptyline(self):
