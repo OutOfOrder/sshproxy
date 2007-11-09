@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 09, 15:27:05 by david
+# Last modified: 2007 Nov 09, 17:40:07 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -158,14 +158,12 @@ class Console(Registry, cmd.Cmd):
                     lines = []
                     while True:
                         c = sys.stdin.read(1)
-                        log.devdebug("CHAR=%s"%ord(c))
                         if not c or c in ('\000', '\004'): # CTRL-D
                             break
                         lines.append(c)
                         if c not in ' \t\r\n':
                             c = '*'
                         sys.stdout.write(c)
-                    log.devdebug("END")
                     return ''.join(lines)
 
                 finally:
