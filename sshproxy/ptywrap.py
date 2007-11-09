@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 09, 17:38:48 by david
+# Last modified: 2007 Nov 09, 18:32:19 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -73,7 +73,6 @@ class PTYWrapper(object):
                 try:
                     data = pty._read(master_fd)
                 except OSError:
-                    log.exception('Exception in PTYWrapper.loop():')
                     break
                 if data == '':
                     break
