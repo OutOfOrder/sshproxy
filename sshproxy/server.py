@@ -3,11 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-<<<<<<< i18n
-# Last modified: 2007 Nov 08, 18:23:23 by david
-=======
-# Last modified: 2007 Nov 09, 10:46:08 by david
->>>>>>> dev
+# Last modified: 2007 Nov 09, 18:21:45 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -368,15 +364,15 @@ class Server(Registry, paramiko.ServerInterface):
     def opt_get_pkey(self, options, *args):
         result = []
         for site in args:
-            spkey = util.get_site_pkey(site)
+            spkey = util.get_site_privkey(site)
             if spkey is None:
-                result.append(_(u"%s: No such entry") % site)
+                result.append(_(u"%s: No privkey tag found") % site)
                 continue
         
             if len(spkey):
                 result.append('%s: %s' % (site, ' '.join(spkey)))
             else:
-                result.append(_(u"%s: No pkey found") % site)
+                result.append(_(u"%s: No privkey found") % site)
 
         if not result:
             result.append(_(u'Please give at least a site.'))

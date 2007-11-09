@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 08, 17:51:29 by david
+# Last modified: 2007 Nov 09, 18:02:25 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -67,10 +67,10 @@ class Monitor(Registry, ipc.IPCInterface):
         func = getattr(self, 'rq_' + _name, None)
         if not func:
             try:
-                raise AttributeError(_(u'monitor.rq_%s does not exist') % _name)
+                raise AttributeError('Monitor.rq_%s does not exist' % _name)
             except AttributeError:
-                log.exception('in monitor.default_call_handler')
-            return _(u'monitor.%s does not exist') % _name
+                log.exception('in Monitor.default_call_handler')
+            return _(u'%s does not exist') % _name
         return func(_chan, *args, **kw)
 
     def children_count(self):

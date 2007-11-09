@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Oct 14, 03:37:52 by david
+# Last modified: 2007 Nov 09, 18:20:35 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -184,7 +184,7 @@ def progress(arg=None):
 def gen_dss_key(verbose=False):
     if verbose:
         pfunc = progress
-        print "Generating DSS private key:",
+        print _(u"Generating DSS private key:"),
         progress()
     else:
         pfunc = None
@@ -192,7 +192,7 @@ def gen_dss_key(verbose=False):
     dsskey = paramiko.DSSKey.generate(progress_func=pfunc)
 
     if verbose:
-        print "Done."
+        print _(u"Done.")
 
     return dsskey
 
@@ -354,7 +354,7 @@ def _get_dss_key_from_string(dsskeystr=None, password=None):
     return self
 
 
-def get_site_pkey(site):
+def get_site_privkey(site):
     from sshproxy.backend import Backend
     from sshproxy.cipher import decipher
 
@@ -370,7 +370,7 @@ def get_site_pkey(site):
         # site or rlogin do not exist
         return None
 
-    spkey = decipher(site.get_tags().get('pkey'))
+    spkey = decipher(site.get_tags().get('privkey'))
     if spkey and len(spkey):
         return get_public_key(spkey)
     else:

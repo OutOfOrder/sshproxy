@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 08, 18:29:14 by david
+# Last modified: 2007 Nov 09, 18:26:02 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -45,6 +45,13 @@ class LangPack_fr(I18n):
         """,
         -1575399941: u"""
         Affiche la liste des utilisateurs connectés.
+        """,
+        1992087534: u"""
+        tag_site [user@]site [tag=value ...]
+        
+        Ajoute ou modifie un tag de site.
+        Si aucun tag n'est fourni, affiche tous les tags du site.
+        Si un tag n'a pas de valeur, il est supprimé.
         """,
         }
 

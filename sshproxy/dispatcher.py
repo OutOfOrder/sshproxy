@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 09, 11:08:15 by david
+# Last modified: 2007 Nov 09, 18:14:49 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -60,7 +60,13 @@ class Dispatcher(Registry, ipc.IPCInterface):
                 return self.d_ipc.call(_name, *args, **kw)
             else:
                 # TODO: raise and catch in ipc
-                return 'dispatcher.%s does not exist' % _name
+                try:
+                    raise AttributeError(_(u'Dispatcher.cmd_%s does not exist'
+                                                                    % _name))
+                except AttributeError:
+                    log.exception('in Dispatcher.default_call_handler')
+                return _(u'%s does not exist') % _name
+
         if len(args):
             self.cmdline = args[0]
             arguments = shlex.split(args[0])
@@ -83,14 +89,15 @@ class Dispatcher(Registry, ipc.IPCInterface):
         except:
             log.exception("An exception occured in " +
                                             "Dispatcher.default_call_handler")
-            return "Something wrong happened. Please contact the administrator."
+            return _(u"Something wrong happened. "
+                        "Please contact the administrator.")
 
 
     def is_admin(self):
         return ACLDB().check('admin', **self.namespace)
 
     def public_methods(self):
-        """
+        u"""
         Return a list of allowed commands.
         """
         if self.is_admin():
@@ -105,7 +112,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
             doc = getattr(getattr(self, method), '__doc__', None)
             if not doc:
                 continue
-            methods.append((method[4:], doc))
+            methods.append((method[4:], _(doc)))
 
         return methods
 
@@ -113,7 +120,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
         return self.public_methods()
 
     def check_acl(self, *args):
-        """
+        u"""
         Check the command's associated ACL rule, if defined.
 
         argv[0] is the command name, and argv[1:] contains the command's
@@ -136,7 +143,8 @@ class Dispatcher(Registry, ipc.IPCInterface):
         try:
             args = shlex.split(cmdline)
         except:
-            return 'parse error'
+            log.exception("Parse error in Dispatcher.dispatch()")
+            return _(u'parse error')
 
         if not len(args):
             return ''
@@ -147,7 +155,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
         if args[0] == 'help':
             pm = self.public_methods()
             pm.sort()
-            return '\n'.join([ '%s:\t%s' % (cmd, help) for cmd, help in pm])
+            return '\n'.join([ u'%s:\t%s' % (cmd, help) for cmd, help in pm])
 
         command = 'cmd_' + args[0]
 
@@ -156,10 +164,10 @@ class Dispatcher(Registry, ipc.IPCInterface):
                 return self.d_ipc.call(*args)
 
             else:
-                return 'Unknown command %s' % args[0]
+                return _(u'Unknown command %s') % args[0]
 
         if not self.check_acl(*args):
-            return 'You have not enough rights to do this'
+            return _(u'You have not enough rights to do this')
 
         func = getattr(self, command)
 
@@ -195,7 +203,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
 
 
     def check_args(self, num, args, strict=False):
-        """
+        u"""
         Check number of arguments.
         """
         if strict:
@@ -203,16 +211,16 @@ class Dispatcher(Registry, ipc.IPCInterface):
                 if num == 0:
                     num = 'no'
                 raise DispatcherCommandError(
-                            "This command accepts %s arguments" % num)
+                        _(u"This command accepts %s arguments") % num)
         else:
             if len(args) < num:
                 raise DispatcherCommandError(
-                            "This command accepts at least %d arguments" % num)
+                        _(u"This command accepts at least %d arguments") % num)
 
 ##########################################################################
 
     def cmd_list_aclrules(self, *args, **kw):
-        """
+        u"""
         list_aclrules [acl_name]
 
         List ACL rules and display their id.
@@ -237,7 +245,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
 
     acl_set_aclrule = 'acl(admin)'
     def cmd_set_aclrule(self, *args, **kw):
-        """
+        u"""
         set_aclrule acl_name[:id] acl expression
 
         Add or update an ACL rule. If id is given, it's an update,
@@ -264,13 +272,13 @@ class Dispatcher(Registry, ipc.IPCInterface):
         try:
             id = int(id)
         except ValueError:
-            return "Need numeric id, got %s" % id
+            return _(u"Need numeric id, got %s") % id
 
         if args[1][0] == ':':
             try:
                 newid = int(args[1][1:])
             except ValueError:
-                return "Need numeric id, got %s" % newid
+                return _(u"Need numeric id, got %s") % newid
             action = 'reorder'
         else:
             rule = ' '.join(args[1:])
@@ -281,14 +289,13 @@ class Dispatcher(Registry, ipc.IPCInterface):
         elif action == 'update':
             Backend().set_aclrule(name, rule.replace('\\n', '\n'), id)
         elif action == 'reorder':
-            return "Reordering rules is not yet available"
-        #    Backend().get_aclrule(name, id)
+            return _(u"Reordering rules is not yet available")
 
         Backend().acldb.save_rules()
 
     acl_del_aclrule = "acl(admin)"
     def cmd_del_aclrule(self, *args, **kw):
-        """
+        u"""
         del_aclrule acl_name[:id] [acl_name[:id] ...]
 
         Delete ACL rules. If id is omitted, delete all rules
@@ -303,7 +310,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
                     arg, id = arg.split(':')
                     id = int(id)
                 except ValueError:
-                    return "Rule id must be numeric"
+                    return _(u"Rule id must be numeric")
 
             Backend().del_aclrule(arg, id)
 
@@ -314,7 +321,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
 ##########################################################################
 
     def cmd_list_clients(self, *args, **kw):
-        """
+        u"""
         list_clients
 
         List clients.
@@ -322,12 +329,12 @@ class Dispatcher(Registry, ipc.IPCInterface):
         self.check_args(0, args, strict=False)
 
         resp = Backend().list_clients(**kw)
-        resp.append('\nTotal: %d' % len(resp))
+        resp.append(_(u'\nTotal: %d') % len(resp))
         return '\n'.join(resp)
 
     acl_add_client = "acl(admin)"
     def cmd_add_client(self, *args, **kw):
-        """
+        u"""
         add_client username [tag=value ...]
 
         Add a new client to the client database.
@@ -335,7 +342,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
         self.check_args(1, args)
 
         if Backend().client_exists(args[0]):
-            return "Client %s does already exist." % args[0]
+            return _(u"Client %s does already exist.") % args[0]
 
         if 'password' in kw:
             import sha
@@ -345,7 +352,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
 
     acl_del_client = "acl(admin)"
     def cmd_del_client(self, *args, **kw):
-        """
+        u"""
         del_client username
 
         Delete a client from the client database.
@@ -354,19 +361,19 @@ class Dispatcher(Registry, ipc.IPCInterface):
 
 
         if self.d_ipc.call('get_ns_tag', 'client', 'username') == args[0]:
-            return "Don't delete yourself!"
+            return _(u"Don't delete yourself!")
 
         b = Backend()
 
         if not b.client_exists(args[0]):
-            return "Client %s does not exist." % args[0]
+            return _(u"Client %s does not exist.") % args[0]
 
         resp = b.del_client(args[0], **kw)
         return resp
 
     acl_tag_client = "acl(admin)"
     def cmd_tag_client(self, *args, **kw):
-        """
+        u"""
         tag_client username [tag=value ...]
 
         Add or update a client's tags.
@@ -376,7 +383,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
         self.check_args(1, args)
 
         if not Backend().client_exists(args[0]):
-            return "Client %s does not exist." % args[0]
+            return _(u"Client %s does not exist.") % args[0]
 
         if 'password' in kw:
             import sha
@@ -390,7 +397,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
 
     acl_set_client_password = "acl(admin)"
     def cmd_set_client_password(self, *args, **kw):
-        """
+        u"""
         set_client_password username
 
         Set or change a client password.
@@ -398,21 +405,21 @@ class Dispatcher(Registry, ipc.IPCInterface):
         self.check_args(1, args, strict=True)
 
         if not Backend().client_exists(args[0]):
-            return "Client %s does not exist." % args[0]
+            return _(u"Client %s does not exist.") % args[0]
 
         if 'password' not in kw:
-            return "Missing password in argument list"
+            return _(u"Missing password in argument list")
 
         import sha
         kw['password'] = sha.new(kw['password']).hexdigest()
         tags = Backend().tag_client(args[0], **kw)
-        return "Password updated"
+        return _(u"Password updated")
 
 
 ##########################################################################
 
     def cmd_list_sites(self, *args, **kw):
-        """
+        u"""
         list_sites
 
         List all sites.
@@ -421,7 +428,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
 
         sites = []
         for site in Backend().list_site_users(**kw):
-            sites.append([site.login or 'ORPHAN', site.name,
+            sites.append([site.login or _(u'ORPHAN'), site.name,
                                         site.get_tags().get('priority', '0')])
 
         resp = []
@@ -432,12 +439,12 @@ class Dispatcher(Registry, ipc.IPCInterface):
                 sid = '%s@%s' % (uid, name)
                 resp.append('%s %s %s' % (sid, ' '*(name_width + 1 - len(sid)),
                                                             '[%s]' % priority))
-        resp.append('\nTotal: %d' % len(resp))
+        resp.append(_(u'\nTotal: %d') % len(resp))
         return '\n'.join(resp)
 
     acl_add_site = "acl(admin)"
     def cmd_add_site(self, *args, **kw):
-        """
+        u"""
         add_site [user@]site [tag=value ...]
 
         Add a new site to the site database.
@@ -445,7 +452,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
         self.check_args(1, args)
 
         if Backend().site_exists(args[0]):
-            return "Site %s does already exist." % args[0]
+            return _(u"Site %s does already exist.") % args[0]
 
         for token in kw.keys():
             if token in ('password', 'pkey'):
@@ -466,7 +473,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
 
     acl_del_site = "acl(admin)"
     def cmd_del_site(self, *args, **kw):
-        """
+        u"""
         del_site [user@]site
 
         Delete a site from the site database.
@@ -474,14 +481,14 @@ class Dispatcher(Registry, ipc.IPCInterface):
         self.check_args(1, args, strict=True)
 
         if not Backend().site_exists(args[0]):
-            return "Site %s does not exist." % args[0]
+            return _(u"Site %s does not exist.") % args[0]
 
         resp = Backend().del_site(args[0], **kw)
         return resp
 
     acl_tag_site = "acl(admin)"
     def cmd_tag_site(self, *args, **kw):
-        """
+        u"""
         tag_site [user@]site [tag=value ...]
 
         Add or update a site's tags.
@@ -491,7 +498,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
         self.check_args(1, args)
 
         if not Backend().site_exists(args[0]):
-            return "Site %s does not exist." % args[0]
+            return _(u"Site %s does not exist.") % args[0]
 
         for token in kw.keys():
             if token in ('password', 'pkey'):
@@ -521,7 +528,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
 
     acl_set_site_password = "acl(admin)"
     def cmd_set_site_password(self, *args, **kw):
-        """
+        u"""
         set_site_password user@site
 
         Set or change a site password.
@@ -529,21 +536,21 @@ class Dispatcher(Registry, ipc.IPCInterface):
         self.check_args(1, args, strict=True)
 
         if len(args[0].replace('@', '')) != len(args[0]) - 1:
-            return "%s is not a valid user@site" % args[0]
+            return _(u"%s is not a valid user@site") % args[0]
 
         if not Backend().site_exists(args[0]):
-            return "Site %s does not exist." % args[0]
+            return _(u"Site %s does not exist.") % args[0]
 
         if 'password' not in kw:
-            return "Missing password in argument list"
+            return _(u"Missing password in argument list")
 
         kw['password'] = self.cipher_token(kw['password'])
         tags = Backend().tag_site(args[0], **kw)
-        return "Password updated"
+        return _(u"Password updated")
 
     acl_set_site_privkey = "acl(admin)"
     def cmd_set_site_privkey(self, *args, **kw):
-        """
+        u"""
         set_site_privkey [user@]site
 
         Set or change a site private key.
@@ -551,14 +558,14 @@ class Dispatcher(Registry, ipc.IPCInterface):
         self.check_args(1, args, strict=True)
 
         if not Backend().site_exists(args[0]):
-            return "Site %s does not exist." % args[0]
+            return _(u"Site %s does not exist.") % args[0]
 
         if 'privkey' not in kw:
-            return "Missing privkey in argument list"
+            return _(u"Missing privkey in argument list")
 
         kw['privkey'] = self.cipher_token(kw['privkey'])
         tags = Backend().tag_site(args[0], **kw)
-        return "Private key updated"
+        return _(u"Private key updated")
 
 
     def cipher_token(self, value):
