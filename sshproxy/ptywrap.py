@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Apr 10, 14:59:50 by david
+# Last modified: 2007 Nov 09, 17:38:48 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -60,23 +60,23 @@ class PTYWrapper(object):
     def loop(self):
         chan = self.chan
         master_fd = self.master_fd
-        while master_fd and chan.active:
-            # FIXME: What exception do we catch here ?
-            # """try prevents rfds to return -1 and an error""" ????
+        fds = [master_fd, chan]
+        while master_fd or chan.active:
             try:
                 rfds, wfds, xfds = select.select(
-                        [master_fd, chan], [], [], 5)
+                        fds, [], [], 5)
             except:
+                log.exception('Exception in PTYWrapper.loop():')
                 break
             
             if master_fd in rfds:
                 try:
                     data = pty._read(master_fd)
                 except OSError:
+                    log.exception('Exception in PTYWrapper.loop():')
                     break
                 if data == '':
                     break
-                #print 'from console:', repr(data)
                 chan.send(data)
             if chan in rfds:
                 data = chan.recv(10240)
@@ -84,5 +84,7 @@ class PTYWrapper(object):
                     break
                 pty._writen(master_fd, data)
                 if chan.closed or chan.eof_received:
-                    break 
+                    del fds[fds.index(chan)]
+                    pty._writen(master_fd, '\004') # CTRL-D
+                    continue
 

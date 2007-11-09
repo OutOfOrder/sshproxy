@@ -3,7 +3,11 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
+<<<<<<< i18n
 # Last modified: 2007 Nov 08, 18:23:23 by david
+=======
+# Last modified: 2007 Nov 09, 10:46:08 by david
+>>>>>>> dev
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -307,7 +311,7 @@ class Server(Registry, paramiko.ServerInterface):
                                    'to get a list of commands.\n')))
             return
 
-        resp = self.monitor.get('%s' % ' '.join(args))
+        resp = self.dispatcher.console('%s' % ' '.join(args)) or ''
         self.chan.send(chanfmt(resp+'\n'))
 
 
