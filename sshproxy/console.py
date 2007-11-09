@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 22, 13:52:35 by david
+# Last modified: 2007 Nov 09, 10:47:14 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -77,6 +77,55 @@ class Console(Registry, cmd.Cmd):
         response = self.ipc.call(cmd, args)
         if response is not None:
             print response
+
+    def _set_password(self, line, prompt1=None, prompt2=None):
+        prompt1 = prompt1 or "Enter the password: "
+        prompt2 = prompt2 or "Confirm the password: "
+        item = line.strip()
+        if not item:
+            print "This command accept at least 1 argument"
+            return
+
+        from getpass import getpass
+        pass1, pass2 = "1", "2"
+        while not pass1.strip() or pass1 != pass2:
+            try:
+                pass1 = getpass(prompt1)
+            except EOFError:
+                print
+                pass
+            try:
+                pass2 = getpass(prompt2)
+            except EOFError:
+                print
+                pass
+        return item, pass1
+
+    def do_set_client_password(self, line):
+        try:
+            client, password = self._set_password(line)
+        except TypeError:
+            return
+        except KeyboardInterrupt:
+            print "Aborted."
+            return
+
+        response = self.ipc.call("set_client_password", "%s password=%s" %
+                                                (client, repr(password)))
+        print response
+
+    def do_set_site_password(self, line):
+        try:
+            site, password = self._set_password(line)
+        except TypeError:
+            return
+        except KeyboardInterrupt:
+            print "Aborted."
+            return
+
+        response = self.ipc.call("set_site_password", "%s password=%s" %
+                                                (site, repr(password)))
+        print response
 
     def emptyline(self):
         return

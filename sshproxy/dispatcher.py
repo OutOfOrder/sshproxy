@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 01, 02:24:48 by david
+# Last modified: 2007 Nov 09, 10:48:16 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -144,6 +144,11 @@ class Dispatcher(Registry, ipc.IPCInterface):
         if args[0] == 'public_methods':
             return self.public_methods()
 
+        if args[0] == 'help':
+            pm = self.public_methods()
+            pm.sort()
+            return '\n'.join([ '%s:\t%s' % (cmd, help) for cmd, help in pm])
+
         command = 'cmd_' + args[0]
 
         if not hasattr(self, command):
@@ -163,13 +168,16 @@ class Dispatcher(Registry, ipc.IPCInterface):
         except DispatcherCommandError, msg:
             return msg
 
-    def init_console(self):
+    def init_console(self, cmd=None):
         from server import Server
 
         address = 'sshproxy-control-%d' % os.getpid()
 
         def PtyConsole(*args, **kwargs):
-            Console(*args, **kwargs).cmdloop()
+            if cmd:
+                Console(*args, **kwargs).onecmd(cmd)
+            else:
+                Console(*args, **kwargs).cmdloop()
 
         self._console = PTYWrapper(Server().chan, PtyConsole, address=address,
                                                               handler=self)
@@ -179,9 +187,9 @@ class Dispatcher(Registry, ipc.IPCInterface):
         return self
 
 
-    def console(self):
+    def console(self, cmd=None):
         from server import Server
-        self.init_console()
+        self.init_console(cmd)
 
         self._console.loop()
 
@@ -380,6 +388,27 @@ class Dispatcher(Registry, ipc.IPCInterface):
             resp.append('%s = "%s"' % (tag, value.replace('"', '\\"')))
         return '\n'.join(resp)
 
+    acl_set_client_password = "acl(admin)"
+    def cmd_set_client_password(self, *args, **kw):
+        """
+        set_client_password username
+
+        Set or change a client password.
+        """
+        self.check_args(1, args, strict=True)
+
+        if not Backend().client_exists(args[0]):
+            return "Client %s does not exist." % args[0]
+
+        if 'password' not in kw:
+            return "Missing password in argument list"
+
+        import sha
+        kw['password'] = sha.new(kw['password']).hexdigest()
+        tags = Backend().tag_client(args[0], **kw)
+        return "Password updated"
+
+
 ##########################################################################
 
     def cmd_list_sites(self, *args, **kw):
@@ -424,7 +453,8 @@ class Dispatcher(Registry, ipc.IPCInterface):
                 while len(value):
                     if value[0] == '$':
                         parts = value.split('$')
-                        if len(parts) >= 3 and part[1] in cipher.list_engines():
+                        if len(parts) >= 3
+                                        and parts[1] in cipher.list_engines():
                             # this is already ciphered
                             break
 
@@ -469,7 +499,8 @@ class Dispatcher(Registry, ipc.IPCInterface):
                 while len(value):
                     if value[0] == '$':
                         parts = value.split('$')
-                        if len(parts) >= 3 and part[1] in cipher.list_engines():
+                        if len(parts) >= 3
+                                        and parts[1] in cipher.list_engines():
                             # this is already ciphered
                             break
 
@@ -487,6 +518,61 @@ class Dispatcher(Registry, ipc.IPCInterface):
             value = self.show_tag_filter('site', tag, value)
             resp.append('%s = "%s"' % (tag, value))
         return '\n'.join(resp)
+
+    acl_set_site_password = "acl(admin)"
+    def cmd_set_site_password(self, *args, **kw):
+        """
+        set_site_password user@site
+
+        Set or change a site password.
+        """
+        self.check_args(1, args, strict=True)
+
+        if len(args[0].replace('@', '')) != len(args[0]) - 1:
+            return "%s is not a valid user@site" % args[0]
+
+        if not Backend().site_exists(args[0]):
+            return "Site %s does not exist." % args[0]
+
+        if 'password' not in kw:
+            return "Missing password in argument list"
+
+        kw['password'] = self.cipher_token(kw['password'])
+        tags = Backend().tag_site(args[0], **kw)
+        return "Password updated"
+
+    acl_set_site_privkey = "acl(admin)"
+    def cmd_set_site_privkey(self, *args, **kw):
+        """
+        set_site_privkey [user@]site
+
+        Set or change a site private key.
+        """
+        self.check_args(1, args, strict=True)
+
+        if not Backend().site_exists(args[0]):
+            return "Site %s does not exist." % args[0]
+
+        if 'privkey' not in kw:
+            return "Missing privkey in argument list"
+
+        kw['privkey'] = self.cipher_token(kw['privkey'])
+        tags = Backend().tag_site(args[0], **kw)
+        return "Private key updated"
+
+
+    def cipher_token(self, value):
+        if len(value):
+            if value[0] == '$':
+                parts = value.split('$')
+                if len(parts) >= 3
+                                and parts[1] in cipher.list_engines():
+                    # this is already ciphered
+                    return value
+
+            return cipher.cipher(value)
+
+        return value
 
     def show_tag_filter(self, object, tag, value):
         value = value or ''
