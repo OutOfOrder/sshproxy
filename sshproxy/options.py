@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Jul 06, 23:11:09 by david
+# Last modified: 2007 Nov 10, 16:10:33 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -41,7 +41,7 @@ class OptionParser(optparse.OptionParser):
         Print an extended help message, listing all options and any
         help text provided with them, to 'file' (default stdout).
         """
-        self.chan.send(chanfmt(self.format_help()))
+        self.chan.send(chanfmt(_(self.format_help())))
 
     def print_usage(self, file=None):
         """print_usage(file : file = stdout)

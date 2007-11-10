@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 09, 17:40:07 by david
+# Last modified: 2007 Nov 10, 22:29:54 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -59,9 +59,9 @@ class Console(Registry, cmd.Cmd):
         self.populate()
         if arg:
             if arg not in self.methods.keys():
-                print 'Unknown command %s' % arg
+                print _(u'Unknown command %s') % arg
             else:
-                print self.methods.get(arg) or 'No help available'
+                print _(self.methods.get(arg)) or _u('No help available')
             return
         
         commands = self.methods.keys()
