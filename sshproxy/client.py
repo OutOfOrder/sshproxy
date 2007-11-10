@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 04, 22:11:54 by david
+# Last modified: 2007 Nov 09, 21:09:59 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -94,9 +94,9 @@ class ClientInfo(Registry):
                     return True
         return False
 
-    def add_pkey(self, pkey, nbkey):
-        ring = self.get_token('pkey', '')
-        if pkey in ring:
+    def add_pubkey(self, pubkey, nbkey):
+        ring = self.get_token('pubkey', self.get_token('pkey', ''))
+        if pubkey in ring:
             return False
 
         ring = [ k.strip() for k in ring.split('\n') if len(k.strip()) ]
@@ -111,9 +111,9 @@ class ClientInfo(Registry):
             pass
 
         ip_addr = self.get_token('ip_addr', 'unknown')
-        ring = '\n'.join(ring + [ '%s %s@%s' % (pkey, self.username, ip_addr) ])
+        ring = '\n'.join(ring + [ '%s %s@%s' % (pubkey, self.username, ip_addr) ])
 
-        self.set_tokens(pkey=ring)
+        self.set_tokens(pubkey=ring)
         self.save()
         return True
 
@@ -162,7 +162,7 @@ class ClientDB(Registry):
         else:
             return False
 
-    def add_pkey(self, username, pkey, number):
+    def add_pubkey(self, username, pubkey, number):
         if username:
             clientinfo = ClientInfo(username)
         else:
@@ -171,7 +171,7 @@ class ClientDB(Registry):
             except:
                 raise
 
-        return clientinfo.add_pkey(pkey, number)
+        return clientinfo.add_pubkey(pubkey, number)
 
 
     def get_user_info(self, username=None, **kw):
