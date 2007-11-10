@@ -1,9 +1,9 @@
 #!/usr/bin/python
-# -*- coding: ISO-8859-15 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 09, 18:26:02 by david
+# Last modified: 2007 Nov 10, 14:50:59 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,12 +26,13 @@ I18n = get_class("I18n")
 
 class LangPack_fr(I18n):
 
-    encoding = 'iso-8859-15'
+    encoding = 'utf8'
     messages = {
-        1557792624: u"execute des commandes d'administration",
+        1557792624: u"exécute des commandes d'administration",
         -2139151278: u"liste les sites autorisés",
         1318597108: u"ERREUR: %s n'existe pas dans votre environnement\n",
-        433505454: u"ERREUR: Vous n'êtes pas autorisé à ouvrir une session shell sur %s\n",
+        433505454: u"ERREUR: Vous n'êtes pas autorisé à ouvrir une "
+                    "session shell sur %s\n",
         -1260436857: u"""
         kill user@site
         

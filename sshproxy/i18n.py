@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 08, 18:14:14 by david
+# Last modified: 2007 Nov 10, 22:39:09 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -42,9 +42,9 @@ class I18n(Registry):
                 import log
                 log.debug("i18n: unknown hash %s: %s" % (h, repr(message)))
                 self.seen[h] = None
-            return message
+            return message.encode(self.encoding)
 
-        return self.messages[h].encode(self.encoding)
+        return self.messages[h]
 
 
 I18n.register()
