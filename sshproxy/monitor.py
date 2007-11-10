@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: ISO-8859-15 -*-
 #
-# Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
+# Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 09, 18:02:25 by david
+# Last modified: 2007 Nov 10, 01:54:44 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -183,11 +183,12 @@ class Monitor(Registry, ipc.IPCInterface):
         
         return True
             
-    def func_add_client_pkey(self, _chan, pkey):
+    def func_add_client_pubkey(self, _chan, pubkey):
         auto_add_key = get_config('sshproxy')['auto_add_key']
 
         if istrue(auto_add_key):
-            return self.backend[_chan].add_client_pkey(None, pkey, auto_add_key)
+            return self.backend[_chan].add_client_pubkey(None,
+                                                         pubkey, auto_add_key)
 
         return False
 

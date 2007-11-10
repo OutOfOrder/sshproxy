@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 17, 10:56:25 by david
+# Last modified: 2007 Nov 09, 21:11:40 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -90,7 +90,7 @@ class MySQLClientInfo(ClientInfo, MySQLDB):
                 self.sql_del(query)
 
     def auth_token_order(self):
-        return ('pkey', 'password')
+        return ('pubkey', 'password')
 
 
     def authenticate(self, **tokens):
@@ -104,25 +104,25 @@ class MySQLClientInfo(ClientInfo, MySQLDB):
                     if self.sql_get(query):
                         resp = True
                         break
-                elif token == 'pkey':
-                    pkeys = self.get_token(token, '').split('\n')
-                    pkeys = [ pk.split()[0] for pk in pkeys if len(pk) ]
-                    for pk in pkeys:
+                elif token == 'pubkey':
+                    pubkeys = self.get_token(token, '').split('\n')
+                    pubkeys = [ pk.split()[0] for pk in pubkeys if len(pk) ]
+                    for pk in pubkeys:
                         if pk == tokens[token]:
                             resp = True
                             break
-                    ClientDB()._unauth_pkey = tokens[token]
+                    ClientDB()._unauth_pubkey = tokens[token]
 
                 elif self.get_token(token) == tokens[token]:
                     resp = True
                     break
-        pkey = getattr(ClientDB(), '_unauth_pkey', None)
-        if resp and pkey and istrue(get_config('sshproxy')['auto_add_key']):
-            tokens['pkey'] = pkey
-            if self.add_pkey(**tokens):
+        pubkey = getattr(ClientDB(), '_unauth_pubkey', None)
+        if resp and pubkey and istrue(get_config('sshproxy')['auto_add_key']):
+            tokens['pubkey'] = pubkey
+            if self.add_pubkey(**tokens):
                 Server().message_client("WARNING: Your public key"
                                         " has been added to the keyring\n")
-            del ClientDB()._unauth_pkey
+            del ClientDB()._unauth_pubkey
         return resp
 
 

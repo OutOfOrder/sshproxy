@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 01, 02:11:01 by david
+# Last modified: 2007 Nov 10, 01:44:38 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -100,9 +100,10 @@ class FileClientInfo(ClientInfo):
         self.save(file)
 
     def auth_token_order(self):
-        return ('pkey', 'password')
+        return ('pubkey', 'pkey', 'password')
 
     def authenticate(self, **tokens):
+        from sshproxy import log
         resp = False
         for token in self.auth_token_order():
             if token in tokens.keys() and tokens[token] is not None:
@@ -111,25 +112,26 @@ class FileClientInfo(ClientInfo):
                                            == self.get_token(token)):
                         resp = True
                         break
-                elif token == 'pkey':
-                    pkeys = self.get_token(token, '').split('\n')
-                    pkeys = [ pk.split()[0] for pk in pkeys if len(pk) ]
-                    for pk in pkeys:
+                elif token in ('pubkey', 'pkey'):
+                    pubkeys = self.get_token('pubkey',
+                              self.get_token('pkey', '')).split('\n')
+                    pubkeys = [ pk.split()[0] for pk in pubkeys if len(pk) ]
+                    for pk in pubkeys:
                         if pk == tokens[token]:
                             resp = True
                             break
-                    ClientDB()._unauth_pkey = tokens[token]
+                    ClientDB()._unauth_pubkey = tokens[token]
 
                 elif self.get_token(token) == tokens[token]:
                     resp = True
                     break
-        pkey = getattr(ClientDB(), '_unauth_pkey', None)
-        if resp and pkey and istrue(get_config('sshproxy')['auto_add_key']):
-            tokens['pkey'] = pkey
-            if self.add_pkey(**tokens):
-                Server().message_client("WARNING: Your public key"
-                                        " has been added to the keyring\n")
-            del ClientDB()._unauth_pkey
+        #pubkey = getattr(ClientDB(), '_unauth_pubkey', None)
+        #if resp and pubkey and istrue(get_config('sshproxy')['auto_add_key']):
+        #    tokens['pubkey'] = pubkey
+        #    if self.add_pubkey(**tokens):
+        #        Server().message_client("WARNING: Your public key"
+        #                                " has been added to the keyring\n")
+        #    del ClientDB()._unauth_pubkey
         return resp
 
     def exists(self, username):

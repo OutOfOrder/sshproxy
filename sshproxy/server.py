@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 09, 18:21:45 by david
+# Last modified: 2007 Nov 10, 01:53:47 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -172,7 +172,7 @@ class Server(Registry, paramiko.ServerInterface):
 
 
     def check_auth_publickey(self, username, key):
-        if self.valid_auth(username=username, pkey=key.get_base64()):
+        if self.valid_auth(username=username, pubkey=key.get_base64()):
             return paramiko.AUTH_SUCCESSFUL
         return paramiko.AUTH_FAILED
 
@@ -203,20 +203,20 @@ class Server(Registry, paramiko.ServerInterface):
 
 
     ### SSHPROXY SERVER INTERFACE
-    def valid_auth(self, username, password=None, pkey=None):
+    def valid_auth(self, username, password=None, pubkey=None):
         if not self.monitor.call('authenticate',
                                     username=username,
                                     password=password,
-                                    pkey=pkey,
+                                    pubkey=pubkey,
                                     ip_addr=self.client_addr[0]):
-            self._unauth_pkey = pkey
+            self._unauth_pubkey = pubkey
             return False
 
         self.username = username
         self.monitor.call('update_ns', 'client', {'username': username})
 
-        if hasattr(self, '_unauth_pkey') and self._unauth_pkey:
-            if self.monitor.call('add_client_pkey', self._unauth_pkey):
+        if hasattr(self, '_unauth_pubkey') and self._unauth_pubkey:
+            if self.monitor.call('add_client_pubkey', self._unauth_pubkey):
                 self.message_client("WARNING: Your public key"
                                         " has been added to the keyring\n")
 
@@ -283,11 +283,11 @@ class Server(Registry, paramiko.ServerInterface):
                     action="store_const",
                     const='list_sites',
                     )
-        if self.check_acl('opt_get_pkey'):
-            parser.add_option("", "--get-pkey", dest="action",
+        if self.check_acl('opt_get_pubkey'):
+            parser.add_option("", "--get-pubkey", dest="action",
                     help=_(u"display public key for user@host."),
                     action="store_const",
-                    const="get_pkey",
+                    const="get_pubkey",
                     )
 
     def parse_cmdline(self, args):
@@ -361,16 +361,16 @@ class Server(Registry, paramiko.ServerInterface):
 
 
 
-    def opt_get_pkey(self, options, *args):
+    def opt_get_pubkey(self, options, *args):
         result = []
         for site in args:
-            spkey = util.get_site_privkey(site)
-            if spkey is None:
+            spubkey = util.get_site_pubkey(site)
+            if spubkey is None:
                 result.append(_(u"%s: No privkey tag found") % site)
                 continue
         
-            if len(spkey):
-                result.append('%s: %s' % (site, ' '.join(spkey)))
+            if len(spubkey):
+                result.append('%s: %s' % (site, ' '.join(spubkey)))
             else:
                 result.append(_(u"%s: No privkey found") % site)
 
@@ -662,14 +662,14 @@ class Server(Registry, paramiko.ServerInterface):
             log.info('Server host key verified (%s) for %s' % (key.get_name(), 
                                                                     name))
 
-        pkey = cipher.decipher(tags['site'].get('pkey', ''))
+        pubkey = cipher.decipher(tags['site'].get('pkey', ''))
         password = cipher.decipher(tags['site'].get('password', ''))
 
         authentified = False
-        if pkey:
-            pkey = util.get_dss_key_from_string(pkey)
+        if pubkey:
+            pubkey = util.get_dss_key_from_string(pubkey)
             try:
-                transport.auth_publickey(tags['site']['login'], pkey)
+                transport.auth_publickey(tags['site']['login'], pubkey)
                 authentified = True
             except AuthenticationException:
                 log.warning('PKey for %s was not accepted' % name)

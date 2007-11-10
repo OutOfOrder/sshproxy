@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 09, 18:14:49 by david
+# Last modified: 2007 Nov 10, 01:55:23 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -455,7 +455,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
             return _(u"Site %s does already exist.") % args[0]
 
         for token in kw.keys():
-            if token in ('password', 'pkey'):
+            if token in ('password', 'pubkey'):
                 value = kw[token]
                 while len(value):
                     if value[0] == '$':
@@ -501,7 +501,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
             return _(u"Site %s does not exist.") % args[0]
 
         for token in kw.keys():
-            if token in ('password', 'pkey'):
+            if token in ('password', 'pubkey'):
                 value = kw[token]
                 while len(value):
                     if value[0] == '$':
