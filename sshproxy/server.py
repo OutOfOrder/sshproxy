@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 10, 01:53:47 by david
+# Last modified: 2007 Nov 10, 22:40:22 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -283,7 +283,7 @@ class Server(Registry, paramiko.ServerInterface):
                     action="store_const",
                     const='list_sites',
                     )
-        if self.check_acl('opt_get_pubkey'):
+        if self.check_acl('opt_get_pubkey') or self.check_acl('opt_get_pkey'):
             parser.add_option("", "--get-pubkey", dest="action",
                     help=_(u"display public key for user@host."),
                     action="store_const",
