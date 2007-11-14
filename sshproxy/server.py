@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 10, 22:40:22 by david
+# Last modified: 2007 Nov 14, 21:25:37 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -201,6 +201,17 @@ class Server(Registry, paramiko.ServerInterface):
         self.set_term(term, width, height)
         return True
 
+    def window_change_handler(self):
+        return False
+
+    def setup_window_change_handler(self, window_change_handler):
+        self.window_change_handler = window_change_handler
+
+    def check_channel_window_change_request(self, channel, width, height,
+                                                pixelwidth, pixelheight):
+        log.devdebug('window_change: %s %s' % (width, height))
+        self.set_term(self.term, width, height)
+        return self.window_change_handler()
 
     ### SSHPROXY SERVER INTERFACE
     def valid_auth(self, username, password=None, pubkey=None):

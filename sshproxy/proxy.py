@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Apr 13, 19:00:26 by david
+# Last modified: 2007 Nov 14, 21:26:41 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -70,7 +70,7 @@ class Proxy(Registry):
         #self.poll_register(ipc_chan, POLLREAD, self.handle_message)
 
         self.open_connection()
-        #self.client_chan.transport.set_hexdump(True)
+        self.client_chan.transport.set_hexdump(True)
 
     def __del__(self):
         # derive this method for extra cleanup
@@ -524,7 +524,12 @@ class ProxyShell(ProxySession):
             self.site_chan.get_pty(server.term,
                                    server.width,
                                    server.height)
+            self.server.setup_window_change_handler(self.window_change)
         self.site_chan.invoke_shell()
 
+    def window_change(self):
+        server = self.server
+        self.site_chan.resize_pty(server.width,
+                                  server.height)
 
 ProxyShell.register()
