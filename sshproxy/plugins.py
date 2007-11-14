@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Oct 15, 18:30:53 by david
+# Last modified: 2007 Nov 14, 20:54:22 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -44,9 +44,13 @@ enabled_plugins = conf['plugin_list'].split()
 loaded_plugins = {}
 
 for name in os.listdir(plugindir):
-    if os.path.isdir(os.path.join(plugindir, name)):
+    if os.path.exists(os.path.join(plugindir, name, '__init__.py')):
         if not name in disabled and not name[0] == '.':
-            module = __import__(name, globals(), locals(), [])
+            try:
+                module = __import__(name, globals(), locals(), [])
+            except ImportError:
+                log.warn("Could not load plugin %s" % name)
+                continue
             plugin = Plugin(name, module, name in enabled_plugins)
             plugin_list.append(plugin)
             loaded_plugins[name] = plugin
