@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 10, 01:55:41 by david
+# Last modified: 2007 Dec 05, 22:27:04 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -160,6 +160,10 @@ def getgrouplist(username): # Credits: TMDA
 def getuid(username): # Credits: TMDA
     """Return username's numerical user ID."""
     return pwd.getpwnam(username)[2]
+
+def getusername(uid):
+    """Return user's username."""
+    return pwd.getpwuid(uid)[0]
 
 def gethomedir(username): # Credits: TMDA
     """Return the home directory of username."""

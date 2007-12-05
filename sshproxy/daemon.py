@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 05, 22:07:35 by david
+# Last modified: 2007 Dec 05, 22:27:41 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -216,6 +216,9 @@ def run_server(daemon=False, sock=None):
 
 
 def run_daemon(daemonize, user, pidfile): # Credits: portions of code from TMDA
+
+    if not user:
+        user = util.getusername(os.getuid())
 
     uid = util.getuid(user)
     gid = util.getgid(user)
