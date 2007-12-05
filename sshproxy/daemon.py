@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 01, 02:17:32 by david
+# Last modified: 2007 Dec 05, 22:07:35 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -217,9 +217,8 @@ def run_server(daemon=False, sock=None):
 
 def run_daemon(daemonize, user, pidfile): # Credits: portions of code from TMDA
 
-    if os.getuid() == 0:
-        uid = util.getuid(user)
-        gid = util.getgid(user)
+    uid = util.getuid(user)
+    gid = util.getgid(user)
 
     # Generate host key if not present already
     host_key_file = os.path.join(config.inipath, 'id_dsa')
