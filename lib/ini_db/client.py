@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 10, 01:44:38 by david
+# Last modified: 2007 Nov 28, 21:34:20 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,7 +23,6 @@ import os, os.path, sha
 from ConfigParser import NoSectionError, SafeConfigParser as ConfigParser
 
 from sshproxy.config import ConfigSection, path, get_config
-from sshproxy.server import Server
 from sshproxy.client import ClientDB, ClientInfo
 from sshproxy.util import istrue
 
@@ -125,13 +124,6 @@ class FileClientInfo(ClientInfo):
                 elif self.get_token(token) == tokens[token]:
                     resp = True
                     break
-        #pubkey = getattr(ClientDB(), '_unauth_pubkey', None)
-        #if resp and pubkey and istrue(get_config('sshproxy')['auto_add_key']):
-        #    tokens['pubkey'] = pubkey
-        #    if self.add_pubkey(**tokens):
-        #        Server().message_client("WARNING: Your public key"
-        #                                " has been added to the keyring\n")
-        #    del ClientDB()._unauth_pubkey
         return resp
 
     def exists(self, username):
