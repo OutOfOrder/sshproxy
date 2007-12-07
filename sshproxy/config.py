@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 05, 10:53:08 by david
+# Last modified: 2007 Dec 05, 22:42:07 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,7 +26,7 @@ from StringIO import StringIO
 
 from sshproxy import __version__, __version_info__
 
-minimum_version = (0, 5)
+minimum_version = (0, 6)
 
 class ConfigSection(object):
     section_defaults = {}
