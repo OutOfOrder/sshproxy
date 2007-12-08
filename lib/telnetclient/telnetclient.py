@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Mar 23, 18:55:08 by david
+# Last modified: 2007 Nov 08, 19:29:51 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -35,8 +35,8 @@ class TelnetEnabledServer(Server):
     def do_shell_session(self):
         site = self.args[0]
         if not self.authorize(site, need_login=True):
-            self.chan.send(chanfmt("ERROR: %s does not exist in "
-                                        "your scope\n" % site))
+            self.chan.send(chanfmt(_(u"ERROR: %s does not exist in "
+                                        "your scope\n") % site))
             return False
 
         kind = self.get_ns_tag('site', 'kind', '')
@@ -151,7 +151,8 @@ class TelnetProxy(Registry):
                     self.chan.send(data)
                     #self.chan.flush()
         self.tn.close()
-        self.chan.close()
+#        if not self.chan.closed and self.chan.transport.is_active():
+#            self.chan.close()
         return 0
     
 
