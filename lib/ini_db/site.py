@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Oct 15, 21:29:15 by david
+# Last modified: 2007 Dec 08, 20:11:07 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -27,7 +27,7 @@ from sshproxy.site import SiteDB, SiteInfo
 from file import NoSectionError, FileConfigParser as ConfigParser
 
 class FileSiteConfigSection(ConfigSection):
-    section_id = 'site_db.file'
+    section_id = 'site_db.ini'
     section_defaults = {
         'db_path': '@site.db',
         }
@@ -38,7 +38,7 @@ class FileSiteConfigSection(ConfigSection):
 FileSiteConfigSection.register()
 
 def get_config_file(name):
-    sitepath = get_config('site_db.file')['db_path']
+    sitepath = get_config('site_db.ini')['db_path']
     if not os.path.exists(sitepath):
         os.makedirs(sitepath)
         # no need to search for the site file
@@ -88,7 +88,7 @@ class FileSiteInfo(SiteInfo):
             for tag, value in self.s_tokens.items():
                 file.set('DEFAULT', tag, str(value or ''))
 
-        sitepath = get_config('site_db.file')['db_path']
+        sitepath = get_config('site_db.ini')['db_path']
         sitefile = os.path.join(sitepath, self.name)
         fd = open(sitefile+'.new', 'w')
         file.write(fd)
@@ -99,7 +99,7 @@ class FileSiteInfo(SiteInfo):
 
 class FileSiteDB(SiteDB):
     def list_site_users(self, **tokens):
-        sitepath = get_config('site_db.file')['db_path']
+        sitepath = get_config('site_db.ini')['db_path']
         if not os.path.exists(sitepath):
             os.makedirs(sitepath)
             # no need to search for the site files
@@ -132,7 +132,7 @@ class FileSiteDB(SiteDB):
         return False
 
     def add_site(self, sitename, **tokens):
-        sitepath = get_config('site_db.file')['db_path']
+        sitepath = get_config('site_db.ini')['db_path']
         if not os.path.exists(sitepath):
             os.makedirs(sitepath)
         
@@ -158,7 +158,7 @@ class FileSiteDB(SiteDB):
 
 
     def del_site(self, sitename, **tokens):
-        sitepath = get_config('site_db.file')['db_path']
+        sitepath = get_config('site_db.ini')['db_path']
 
         login, name = self.split_user_site(sitename)
 

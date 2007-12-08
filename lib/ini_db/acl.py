@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Oct 15, 21:27:53 by david
+# Last modified: 2007 Dec 08, 20:11:32 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -27,7 +27,7 @@ from sshproxy import log
 
 
 class FileACLConfigSection(ConfigSection):
-    section_id = 'acl_db.file'
+    section_id = 'acl_db.ini'
     section_defaults = {
         'file': '@acl.db',
         }
@@ -39,7 +39,7 @@ FileACLConfigSection.register()
 
 class FileACLDB(ACLDB):
     def load_rules(self):
-        rulefile = get_config('acl_db.file')['file']
+        rulefile = get_config('acl_db.ini')['file']
         if not os.path.exists(rulefile):
             open(rulefile, 'w').close()
             os.chmod(rulefile, 0600)
@@ -87,7 +87,7 @@ class FileACLDB(ACLDB):
         fd.close()
 
     def save_rules(self):
-        rulefile = get_config('acl_db.file')['file']
+        rulefile = get_config('acl_db.ini')['file']
         if not os.path.exists(rulefile):
             open(rulefile, 'w').close()
 

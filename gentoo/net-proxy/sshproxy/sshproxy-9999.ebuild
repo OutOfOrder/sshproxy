@@ -23,7 +23,7 @@ DEPEND="!client-only? (
 			>=dev-python/paramiko-1.6.2
 			mysql? ( >=dev-python/mysql-python-1.2.0 )
 		)
-		!sshproxy"
+		!net-proxy/sshproxy"
 RDEPEND="${DEPEND}
 		net-misc/openssh"
 
@@ -152,7 +152,7 @@ EOF
 				echo "port = ${DB_PORT}"
 			} >> "${ROOT}/etc/sshproxy/sshproxy.ini"
 
-			sed -i -e 's/^\(\(acl\|client\|site\)_db = \)file_db/\1mysql_db/g' \
+			sed -i -e 's/^\(\(acl\|client\|site\)_db = \)ini_db/\1mysql_db/g' \
 				"${ROOT}/etc/sshproxy/sshproxy.ini"
 			grep -q "^plugin_list .* mysql_db" \
 				"${ROOT}/etc/sshproxy/sshproxy.ini" || \

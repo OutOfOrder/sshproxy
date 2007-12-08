@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 28, 21:34:20 by david
+# Last modified: 2007 Dec 08, 20:10:26 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -28,7 +28,7 @@ from sshproxy.util import istrue
 
 
 class FileClientConfigSection(ConfigSection):
-    section_id = 'client_db.file'
+    section_id = 'client_db.ini'
     section_defaults = {
         'file': '@client.db',
         }
@@ -41,7 +41,7 @@ FileClientConfigSection.register()
 
 class FileClientInfo(ClientInfo):
     def get_config_file(self):
-        clientfile = get_config('client_db.file')['file']
+        clientfile = get_config('client_db.ini')['file']
         if not os.path.exists(clientfile):
             open(clientfile, 'w').close()
             os.chmod(clientfile, 0600)
@@ -83,7 +83,7 @@ class FileClientInfo(ClientInfo):
                 elif file.has_option(self.username, tag):
                     file.remove_option(self.username, tag)
 
-        clientfile = get_config('client_db.file')['file']
+        clientfile = get_config('client_db.ini')['file']
         fd = open(clientfile+'.new', 'w')
         file.write(fd)
         fd.close()

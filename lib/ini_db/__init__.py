@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 17, 01:27:11 by david
+# Last modified: 2007 Dec 08, 20:01:24 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -31,14 +31,14 @@ __backend__ = True
 def __init_plugin__():
     from sshproxy.config import get_config
     cfg = get_config('sshproxy')
-    if cfg['acl_db'] == 'file_db':
+    if cfg['acl_db'] == 'ini_db':
         from acl import FileACLDB
         FileACLDB.register()
-    if cfg['client_db'] == 'file_db':
+    if cfg['client_db'] == 'ini_db':
         from client import FileClientDB, FileClientInfo
         FileClientDB.register()
         FileClientInfo.register()
-    if cfg['site_db'] == 'file_db':
+    if cfg['site_db'] == 'ini_db':
         from site import FileSiteInfo, FileSiteDB
         FileSiteInfo.register()
         FileSiteDB.register()
@@ -50,31 +50,31 @@ def __setup__():
     cfg = get_config('sshproxy')
     items = []
 
-    if cfg['acl_db'] == 'file_db':
+    if cfg['acl_db'] == 'ini_db':
         import acl
         def update(value):
-            get_config('acl_db.file')['file'] = value
+            get_config('acl_db.ini')['file'] = value
         items.append(menu.MenuInput('ACL database file',
                     "",
-                    get_config('acl_db.file').get('file', raw=True),
+                    get_config('acl_db.ini').get('file', raw=True),
                     cb=update))
 
-    if cfg['client_db'] == 'file_db':
+    if cfg['client_db'] == 'ini_db':
         import client
         def update(value):
-            get_config('client_db.file')['file'] = value
+            get_config('client_db.ini')['file'] = value
         items.append(menu.MenuInput('Client database file',
                     "",
-                    get_config('client_db.file').get('file', raw=True),
+                    get_config('client_db.ini').get('file', raw=True),
                     cb=update))
 
-    if cfg['site_db'] == 'file_db':
+    if cfg['site_db'] == 'ini_db':
         import site
         def update(value):
-            get_config('site_db.file')['db_path'] = value
+            get_config('site_db.ini')['db_path'] = value
         items.append(menu.MenuInput('Site database directory',
                     "",
-                    get_config('site_db.file').get('db_path', raw=True),
+                    get_config('site_db.ini').get('db_path', raw=True),
                     cb=update))
 
     return menu.MenuSub("FileDB", "", *items)
