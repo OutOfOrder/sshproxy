@@ -1,21 +1,22 @@
 #!/sbin/runscript
 
 depend() {
-	need net
-	use logger mysql
+    need net
+    use logger mysql
 }
 
 start() {
-	ebegin "Starting SSH Proxy daemon"
-	start-stop-daemon --start --exec /usr/bin/sshproxyd -- \
-		--daemon --user ${SSHPROXYD_USER:-sshproxy} \
+    ebegin "Starting SSH Proxy daemon"
+    start-stop-daemon --start --background \
+        --exec /usr/bin/sshproxyd -- \
+        --daemon --user ${SSHPROXYD_USER:-sshproxy} \
         --config-dir ${SSHPROXYD_CONFDIR:-/etc/sshproxy} \
         --pid /var/run/sshproxyd.pid
-	eend $?
+    eend $?
 }
 
 stop() {
-	ebegin "Stopping SSH Proxy daemon"
-	start-stop-daemon --quiet --stop --pidfile /var/run/sshproxyd.pid
-	eend $?
+    ebegin "Stopping SSH Proxy daemon"
+    start-stop-daemon --quiet --stop --pidfile /var/run/sshproxyd.pid
+    eend $?
 }
