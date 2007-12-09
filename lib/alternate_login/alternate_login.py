@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 08, 22:04:22 by david
+# Last modified: 2007 Dec 09, 11:22:04 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -35,7 +35,7 @@ class AlternateLoginServer(Server):
         return value
 
     def check_auth_password(self, username, password):
-        if '?' in username:
+        if self.alternate_login_sep in username:
             username, site = username.split(self.alternate_login_sep, 1)
             site = site.replace(self.alternate_login_at, '@')
             if not len(self.args) or self.args[0] != site:
@@ -43,7 +43,7 @@ class AlternateLoginServer(Server):
         return Server.check_auth_password(self, username, password)
 
     def check_auth_publickey(self, username, key):
-        if '?' in username:
+        if self.alternate_login_sep in username:
             username, site = username.split(self.alternate_login_sep, 1)
             site = site.replace(self.alternate_login_at, '@')
             if not len(self.args) or self.args[0] != site:
