@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 14, 21:26:41 by david
+# Last modified: 2007 Dec 09, 21:19:00 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -70,7 +70,7 @@ class Proxy(Registry):
         #self.poll_register(ipc_chan, POLLREAD, self.handle_message)
 
         self.open_connection()
-        self.client_chan.transport.set_hexdump(True)
+        #self.client_chan.transport.set_hexdump(True)
 
     def __del__(self):
         # derive this method for extra cleanup
@@ -336,8 +336,8 @@ class ProxySession(Proxy):
     ########## Reverse Port Forwarding ###################################
     def setup_remote_port_forwarding(self):
         if self.server.check_remote_port_forwarding():
-            if not hasattr(self.site_chan,
-                                        'request_tcpip_forward'):
+            if not hasattr(self.site_chan.transport,
+                                        'request_port_forward'):
                 self.client_chan.send("Remote port forwarding unavailable\r\n")
                 return
 #            self.site_chan.transport.set_remote_forwarding_handler(
@@ -346,16 +346,15 @@ class ProxySession(Proxy):
             port = self.server.tcpip_forward_port
             self.setup_watcher()
             try:
-                ret = self.site_chan.request_tcpip_forward((ip, int(port)),
+                ret = self.site_chan.transport.request_port_forward(
+                                    ip, int(port),
                                     self.check_remote_forward_channel_request)
-#                ret = self.site_chan.transport.global_request('tcpip-forward',
-#                                                        (ip, int(port)), True)
                 if not ret:
                     raise Exception('Denied')
             except Exception, m:
                 self.ipc_chan.llog.debug('An exception occured while opening a pfwd chan: %s' %
                                                                             m)
-                self.client_chan.send('Port Forwarding to %s:%s forbidden\n' %
+                self.client_chan.send('Port Forwarding to %s:%s forbidden\r\n' %
                                                                 (ip, port))
                 return
 
@@ -365,13 +364,14 @@ class ProxySession(Proxy):
                 self.min_chan += 1
 
     def check_remote_forward_channel_request(self, channel, origin, destination):
-        self.ipc_chan.llog.debug("Channel rfw #%d from %s:%s to %s:%s" % (channel.get_id(),
+        self.ipc_chan.llog.debug("Channel rfw #%d from %s:%s to %s:%s" %
+                                            (channel.get_id(),
                                             origin[0], origin[1],
                                             destination[0], destination[1]))
         try:
             fwd_client = self.client_chan.transport.open_channel(
                                                         'forwarded-tcpip',
-                                                        origin, destination)
+                                                        destination, origin)
         except Exception, m:
             self.ipc_chan.llog.exception("Exception while connecting remote forwarding: %s"
                                                                         % m)

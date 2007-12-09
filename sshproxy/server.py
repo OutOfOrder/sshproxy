@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 09, 01:47:38 by david
+# Last modified: 2007 Dec 09, 21:41:09 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -144,25 +144,22 @@ class Server(Registry, paramiko.ServerInterface):
 
     def check_global_request(self, kind, m):
         log.devdebug("check_global_request %s", kind)
-        if kind in [ 'tcpip-forward' ]:
-            self.tcpip_forward_ip = m.get_string()
-            self.tcpip_forward_port = m.get_int()
-            log.debug('tcpip-forward %s:%s' % (self.tcpip_forward_ip,
-                                                    self.tcpip_forward_port))
-            # TODO: check ACL
-            return (self.tcpip_forward_port,)
-        log.debug('Ohoh! What is this "%s" channel type ?', kind)
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
+
+
+    def check_port_forward_request(self, address, port):
+        log.devdebug("check_port_forward_request %s %s", address, port)
+        self.tcpip_forward_ip = address
+        self.tcpip_forward_port = port
+        log.debug('tcpip-forward %s:%s' % (self.tcpip_forward_ip,
+                                                    self.tcpip_forward_port))
+        return str(self.tcpip_forward_port)
 
 
     def check_channel_request(self, kind, chanid):
         log.devdebug("check_channel_request %s %s", kind, chanid)
         if kind == 'session':
             return paramiko.OPEN_SUCCEEDED
-        if kind == 'direct-tcpip':
-            # TODO: check ACL
-            return paramiko.OPEN_SUCCEEDED
-        log.debug('Ohoh! What is this "%s" channel type ?', kind)
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
     def check_auth_password(self, username, password):
@@ -647,7 +644,7 @@ class Server(Registry, paramiko.ServerInterface):
         hostkey = tags['proxy'].get('hostkey', None) or None
 
         if site_ref is None:
-            if not tags['site']['ip_address']:
+            if not tags['site'].get('ip_address'):
                 raise ValueError('Missing site address in database')
             site_ref = (tags['site']['ip_address'],
                         int(tags['site'].get('port', 22)))
