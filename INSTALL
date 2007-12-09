@@ -12,7 +12,7 @@ sshproxy
 Prerequisites
 =============
 
-Here is the list of prerequisite software to run sshproxy. The versions are
+Here is the list of prerequisite software to run **sshproxy**. The versions are
 the ones I develop with. It may work with earlier versions, but I can't
 guaranty anything.
 
@@ -23,7 +23,7 @@ guaranty anything.
 
   - `pycrypto <http://www.amk.ca/python/code/crypto.html>`_ 2.0 (indirect
     dependency from paramiko)
-  - `paramiko <http://www.lag.net/paramiko/>`_ 1.6
+  - `paramiko <http://www.lag.net/paramiko/>`_ 1.6 (1.7.1+ prefered)
   - `MySQLdb <http://sourceforge.net/projects/mysql-python/>`_ 1.2.0
 
 
@@ -44,265 +44,162 @@ Run the following command::
 
     # python setup.py install
 
-Note: if you are gentoophile, you can use the provided gentoo package by
-copying the directory `sshproxy-{version}/gentoo/net-proxy/sshproxy` to your
-portage overlay. Check the gentoo handbook to know how to do this.
+Note: packages may be provided by your distribution. Please check it first as
+it will probably be easier that way.
 
+Setup for the mysql backend
+===========================
 
-Setup the database
-==================
+If you don't intend to use MySQL as a backend, you can skip this section.
 
-Before the first run, you have to initialize the password database (this is
-called a backend in sshproxy dialect)::
+Before the first run, you have to initialize the MySQL database::
 
-    $ sshproxyd --wizard
-
-Answer all the questions, they should be self explanatory.
-
-If you want security, chose the mysql backend. If you want ease of use, chose
-the file backend.
-
-ATTENTION: The file backend provides no access control yet. This means a
-server hosting sshproxy with the file backend is open for anyone. Use it only
-if you are sure you are the only one accessing this server.
-
-If you choose the mysql backend, see the section `Mysql backend: Add sites and
-users`_. For the file backend, go to `File backend: Add sites and users`_.
-
-
-Add sites and users
-===================
-
-Mysql backend: Add sites and users 
-----------------------------------
-
-We're now getting to the hardest part of sshproxy. First you need to
-understand how the ACL system works.
-
-For a local user (called login) to be able to connect to a remote site, it
-needs to fulfill a set of requisites. This is all linear, so it is relatively
-easy to follow.
-
-First, the local user must be member of a profile. There are for the moment
-two kinds of profiles: admins and users. The profile created in the wizard is
-the admin profile. If you want to create simple users, you will also need to
-create a new profile.
-
-Let's start the backend console::
-
-    $ sshproxyd --backend
-
-You are given a prompt, and you can type help to gt the list of available
-commands.
-
-To list the available profiles, type::
-
-    pwdb> list_profiles
-    Administrators (admin)
+First create a database for **sshproxy**::
     
+    $ mysqladmin create database sshproxy
 
-To create a profile, type::
+Then create a user for the **sshproxy** database (be sure to change the
+password)::
 
-    pwdb> add_profile users
+    $ mysql
+    mysql> GRANT USAGE ON * . * TO 'sshproxy'@'localhost' IDENTIFIED BY 'CHANGE_ME' WITH MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 ;
+    mysql> GRANT ALL ON `sshproxy` . * TO 'sshproxy'@'localhost';
 
-Then you can create a new local user::
+Now let's create tables in the database::
 
-    pwdb> add_login david
-    Setting password for user david
-    Enter new password:
-    Confirm password:
-    Password set for user david
-    pwdb>
+    $ mysql sshproxy < misc/mysql_db.sql
 
-Let's associate this user to the 'users' profile::
+You should now be good to go on the next section.
 
-    pwdb> link_login_to_profile david users
-    pwdb>
+Configuration
+=============
 
-We now have a user that can connect to the proxy ! But he can't do much than
-that.
+It is better to run **sshproxy** as it's own user. **sshproxy** can do it
+when you launch it as root, with the --user option.
 
-We need to add sites and logins to these sites. The command to add a site is
-as follows::
+First create the sshproxy group and user::
 
-    pwdb> add_site mailhost 192.168.1.5 22 localnet
-    pwdb>
+    # groupadd sshproxy
+    # useradd -g sshproxy -m -d /var/lib/sshproxy sshproxy
 
-Now let's populate this site with a rlogin (for remote login, to differenciate
-from login, which is a local user)::
+If you don't have a root access, you can still run sshproxy as your user,
+just omit the --user (-u) option and adapt the --config-dir (-c) in the
+next commands.
 
-    pwdb> add_rlogin sudoer mailhost 0
-    Setting password for user sudoer@mailhost
-    Enter new password:
-    Confirm password:
-    Password set for user sudoer@mailhost
-    pwdb>
+To configure **sshproxy** before a first run, you need to use the script *sshproxy-setup*::
 
-We now have our first site, but the user david is not yet allowed to connect
-to sudoer@mailhost. In fact, until this site is not linked to anything, noone
-will be able to connect to it.
+    # sshproxy-setup -u sshproxy -c /etc/sshproxy
 
-Here comes the notion of domains. A domain is a group of remote sites which
-is linked to one or more profiles.
+This will display a menu allowing you to tweek the configuration options::
 
-Let's create our first domain::
-
-    pwdb> add_domain hosting
-    pwdb>
-
-Now we need to connect both the 'mailhost' site and the 'users' profile to
-the 'hosting' domain::
-
-    pwdb> link_site_to_domain mailhost hosting
-    pwdb> link_profile_to_domain users hosting
-    pwdb>
-
-Now we're done! The user 'david' is able to connect through the proxy to the
-remote site 'mailhost' as user 'sudoer'.
-
-What we've done is to allow any local user member of the profile 'users' to
-connect to any remote site which is a member of the domain 'hosting'.
-
-You can add any domains or profiles you want, a local user can be member of
-any number of profiles, a profile can be linked to any number of domains, and
-a site can be linked to any number of domains too. With that scheme, you can
-have the granularity you want.
-
-To end the session, type exit or Ctrl-D at the prompt.
-
-You can skip the next section, and go directly to `Run the server`_
-
-
-File backend: Add sites and users
----------------------------------
-
-ATTENTION: The file backend provides no access control yet. This means a
-server hosting sshproxy with the file backend is open for anyone. Use it only
-if you are sure you are the only one accessing this server.
-
-To add sites and users to the file backend is easy, although there is no
-console to help you create them.
-
-Simply create a directory called pwdb in ~/.sshproxy/::
-
-    $ mkdir ~/.sshproxy/pwdb
-
-Then add a file which name is the symbolic name of the remote site. Do this
-for all remote sites you want to access through the proxy::
-
-    $ cat <<EOF > ~/.sshproxy/pwdb/mailhost
-    [DEFAULT]
-    ip_address = 192.168.1.5
-    port = 22
-    location = Hosting company
     
-    [sudoer]
-    password = mysudoerpassword
-    priority = 0
+    Configure sshproxy
+    ==================
+    
+    Global options
+    1. IP address or interface [any]
+    2. Port [2242]
+    3. Auto-add public key [no]
+    4. Public key id string [sshproxy@penguin.fr]
+    5. Cipher engine [blowfish]
+    6. Blowfish secret passphrase [**********]
+    
+    Choose backends
+    7. ACL database backend type [ini_db]
+    8. Client database backend type [ini_db]
+    9. Site backend type [ini_db]
+    
+    Configure backends
+    10. File Backend
+    
+    Plugin options
+    11. Select plugins
+    
+    
+    0. Quit
+    
+    Please make a choice:
 
-    EOF
+Default values should be OK for a first try, using the **ini_db** backend for
+both three databases.
 
-You can add any user you want on the model of the user 'sudoer'. If you want
-to specify a default user, set its priority to a higher number.
+:Note: If you want to use the **mysql_db** backend, make sure you already
+created the sshproxy database.
 
-Ensure the file backend is selected in ~/.sshproxy/sshproxy.ini, and the
-db_path option in the [file] section is set to '@pwdb' (@ replaces the config
-directory).
+When you quit the menu, **sshproxy-setup** will create the necessary
+configuration directories and files in */etc/sshproxy* (or *$HOME/.sshproxy*
+if you didn't give the --config-dir (-c) option).
 
+The main configuration file is sshproxy.ini. Here is a sample sshproxi.ini::
 
-Run the server
-==============
+    [sshproxy]
+    bindip =
+    port = 2242
+    plugin_dir = /usr/lib/sshproxy
+    logger_conf = /usr/share/sshproxy/logger.conf
+    log_dir = @log
+    pkey_id = sshproxy@penguin.fr
+    auto_add_key = no
+    client_db = ini_db
+    acl_db = ini_db
+    site_db = ini_db
+    plugin_list = ini_db
+    cipher_type = blowfish
 
-Now it's time to try to connect to sudoer@mailhost. But first we need to start
-the proxy.
+    [blowfish]
+    secret = This should be a valid passphrase
 
-Issue the following command::
+    [client_db.ini]
+    file = @client.db
 
-    $ sshproxyd
+    [acl_db.ini]
+    file = @acl.db
 
-This runs the sshproxy server which listens on the port 2242 (or the port
-you configured with the wizard).
+    [site_db.ini]
+    db_path = @site.db
 
+In this file, there are several sections. The first one, **[sshproxy]** is
+the main section, while all the other sections are provided by plugins or
+different optional features of the program.
 
-Run the client
-==============
-
-Issue the following command::
-
-    $ ssh -tp 2242 david@localhost mailhost
-
-If you did chose the (unrecommended) file backend, you can give any username
-instead of 'david' since there is no access control on incomming connections.
-
-You're now connected. Try some commands, then hit Control-X.
-You're now in the console. You can type **help** to get 
-some explanations about console commands.
-Type **back** or **switch 0** to come back to the SSH session.
-
-
-The package sshproxy comes with two wrapper clients to replace ssh and scp,
-called resp. pssh and pscp. You can find them in the ./bin/ directory, or in
-/usr/bin.
-
-You may have to modify them before being able to use them with your specific
-setup. An alternative is to set a few environment variables::
-
-    $ export SSHPROXY_PORT=2242 SSHPROXY_HOST=localhost SSHPROXY_USER=david
-
-You can set the previous command in your .bashrc to set the environment on
-login.
-
-Then, the above ssh command is now simplified as::
-
-    $ pssh mailhost
-
-Similarily, for scp, instead of typing::
-
-    $ scp -oPort=2242 file david@localhost:mailhost:/path
-
-You can simply type::
-
-    $ pscp file mailhost:/path
-
-And this works for download too::
-
-    $ pscp mailhost:/path/file .
-
-
-Configuration files
-===================
-
-If you ever need to change configuration, the files are placed by default
-in ~/.sshproxy::
-
- ~/.sshproxy
- ~/.sshproxy/id_dsa             # the private key of the proxy
- ~/.sshproxy/id_dsa.pub         # the public key of the proxy
- ~/.sshproxy/sshproxy.ini       # the main configuration file
- ~/.sshproxy/log/               # this is the debug log directory
- ~/.sshproxy/pwdb/              # for the file backend
-
-Of course, '~' here represents the home directory of the user running the
-daemon.
+:Note: the **@** sign for a path is replaced by the absolute path to the
+configuration directory, ie. */home/sshproxy/.sshproxy/* or */etc/sshproxy/*
+on Gentoo default installation.
 
 
-Troubleshooting
-===============
+The next step is to create an admin client user that will be able to create
+clients and sites, and edit ACL rules::
 
-The sshproxy daemon is not verbose on the console, but it logs thru syslog
-(protocol udp on localhost, facility daemon), so you may check for errors in
-your /var/log/syslog or /var/log/message by the following command::
+    # sshproxy-setup -u sshproxy -c /etc/sshproxy --add-admin admin
+    Enter password:
+    Enter password (verify):
+    Admin admin added.
+    #
 
- tail -f /var/log/{syslog,messages} | grep sshproxy
- 
-The log system will hopefully be enhanced in the future.
-Of course you need to configure your syslog to accept udp from localhost.
-There is an example syslog-ng.conf file in ./share/ (installed in 
-/usr/share/sshproxy)
+Now, we're ready to start the proxy daemon **sshproxyd**.
 
-If you need to report a bug, please ensure to send me the content of the
-previous tail command, as well as the two log files in ~/.sshproxy/log/ (of
-course, trim passwords in these log files before sending).
+
+Running the proxy
+=================
+
+Start sshproxy by executing the following command::
+
+    # sshproxyd -u sshproxy -c /etc/sshproxy
+
+
+You can make it start as a daemon with the --daemon option::
+
+    # sshproxyd -u sshproxy -c /etc/sshproxy --daemon
+    #
+
+
+Administering the proxy
+=======================
+
+Now you may want to read the `documentation`_ for more information on how to
+setup clients and sites. 
+
+.. _`documentation`: http://penguin.fr/sshproxy/wiki/SshProxy/DocV0.5#administering-the-proxy
 
 
 Mailing lists
@@ -310,11 +207,11 @@ Mailing lists
 
 If you have any question, you can send it to the `users mailing list`_.
     
-.. _`users mailing list`: sshproxy@penguin.fr
+.. _`users mailing list`: mailto:sshproxy@penguin.fr
 
 If you have patches, send them to the `development mailing list`_.
 
-.. _`development mailing list`: sshproxy-dev@penguin.fr
+.. _`development mailing list`: mailto:sshproxy-dev@penguin.fr
 
 
 
