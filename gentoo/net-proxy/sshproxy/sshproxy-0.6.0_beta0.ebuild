@@ -2,13 +2,11 @@
 # Distributed under the terms of the GNU General Public License v2
 # $Header: $
 
-inherit distutils git
+inherit distutils
 
 DESCRIPTION="sshproxy is an ssh gateway to apply ACLs on ssh connections"
 HOMEPAGE="http://penguin.fr/sshproxy/"
 SRC_URI="http://penguin.fr/sshproxy/download/${P}.tar.gz"
-unset SRC_URI
-EGIT_REPO_URI="http://penguin.fr/git/sshproxy.git"
 
 LICENSE="GPL-2"
 SLOT="0"
