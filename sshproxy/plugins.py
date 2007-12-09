@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 14, 20:54:22 by david
+# Last modified: 2007 Dec 09, 16:04:46 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -60,7 +60,6 @@ plugin_list.sort(lambda x, y: cmp(x.plugin_name.lower(), y.plugin_name.lower()))
 
 def init_plugins():
   try:
-    log.devdebug("plugin_list: %s" % plugin_list)
     for plugin in enabled_plugins:
         if plugin in loaded_plugins.keys():
             try:
