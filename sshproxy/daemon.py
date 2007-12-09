@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 05, 22:27:41 by david
+# Last modified: 2007 Dec 09, 01:48:31 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -42,8 +42,6 @@ class Daemon(Registry):
     _singleton = True
 
     clients = {}
-
-    ipc_address = ('127.1', 2244)
 
     def __reginit__(self, daemon, sock):
         self.imq = {}
