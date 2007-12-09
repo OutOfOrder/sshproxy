@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 10, 14:50:59 by david
+# Last modified: 2007 Dec 08, 20:29:13 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -58,3 +58,9 @@ class LangPack_fr(I18n):
 
 
 LangPack_fr.register()
+
+if __name__ == '__main__':
+    langpack = LangPack_fr()
+    for message in langpack.messages.values():
+        print langpack._(message)
+
