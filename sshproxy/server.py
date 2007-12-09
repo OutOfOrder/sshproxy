@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 14, 21:25:37 by david
+# Last modified: 2007 Dec 09, 01:47:38 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -647,6 +647,8 @@ class Server(Registry, paramiko.ServerInterface):
         hostkey = tags['proxy'].get('hostkey', None) or None
 
         if site_ref is None:
+            if not tags['site']['ip_address']:
+                raise ValueError('Missing site address in database')
             site_ref = (tags['site']['ip_address'],
                         int(tags['site'].get('port', 22)))
 
