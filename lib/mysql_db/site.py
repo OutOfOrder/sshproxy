@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 17, 10:57:05 by david
+# Last modified: 2007 Dec 09, 04:02:36 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -53,7 +53,10 @@ class MySQLSiteInfo(SiteInfo, MySQLDB):
         for tag, value in self.sql_list(query):
             tags[tag] = value
 
-        self.s_tokens.add_tags(tags)
+        self.s_tokens.update(tags)
+
+        tags = {'name': name, 'ip_address': ip_address, 'port': port}
+        self.s_tokens.update(tags)
 
         # TODO: handle the default case, see also in file backend
         query = """select id, login, password, pkey, priority from login
@@ -68,7 +71,7 @@ class MySQLSiteInfo(SiteInfo, MySQLDB):
 
             tags = {'login': login, 'password': password,
                     'priority': priority, 'pkey': pkey}
-            self.l_tokens.add_tags(tags)
+            self.l_tokens.update(tags)
 
             query = """select tag, value from acltags where object = 'login'
                                                     and id = %d""" % self._lid
@@ -76,10 +79,7 @@ class MySQLSiteInfo(SiteInfo, MySQLDB):
             for tag, value in self.sql_list(query):
                 tags[tag] = value
 
-            self.l_tokens.add_tags(tags)
-
-        tags = {'name': name, 'ip_address': ip_address, 'port': port}
-        self.s_tokens.add_tags(tags)
+            self.l_tokens.update(tags)
 
         self.loaded = True
 
@@ -123,8 +123,7 @@ class MySQLSiteInfo(SiteInfo, MySQLDB):
                        'priority': tok.get('priority', ''),
                        })
             for tag, value in self.l_tokens.items():
-                if tag in ('login', 'password', 'pkey', 'priority',
-                                                'ip_address', 'port'):
+                if tag in ('name', 'login', 'password', 'pkey', 'priority'):
                     continue
                 elif value and len(str(value)):
                     self.sql_set('acltags', **{'object': 'login', 'id': lid,
@@ -218,8 +217,6 @@ class MySQLSiteDB(SiteDB, MySQLDB):
             # if site does not exist and a login was given, exit with an error
             return 'Please create site %s first' % site
         
-        elif not SiteInfo(login, site).get_tags()['ip_address']:
-            return 'Please add an ip_address tag to site %s first' % site
         else:
             if self.exists(sitename, **tokens):
                 return 'Site %s does already exist' % sitename
