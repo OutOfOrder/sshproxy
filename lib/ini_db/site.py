@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 08, 20:11:07 by david
+# Last modified: 2007 Dec 09, 01:52:53 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -59,8 +59,6 @@ class FileSiteInfo(SiteInfo):
             return
 
         site_section = file.defaults()
-        if not len(site_section):
-            return
 
         self.s_tokens.update(site_section)
 
