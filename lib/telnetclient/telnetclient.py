@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 08, 19:29:51 by david
+# Last modified: 2007 Dec 15, 21:26:49 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -80,8 +80,7 @@ class TelnetEnabledServer(Server):
         ip_address = self.get_ns_tag("site", "ip_address")
         port = self.get_ns_tag("site", "port")
         user = self.get_ns_tag("site", "login")
-        password = self.get_ns_tag("site", "password")
-        
+
         tn = tl.Telnet()
 
         tn.set_option_negotiation_callback(self.parse_telnet_options)
@@ -93,9 +92,10 @@ class TelnetEnabledServer(Server):
         
         tn.read_until("login: ")
         tn.write(user + "\n")
-        if password:
-            tn.read_until("Password: ")
-            tn.write(password + "\n")
+
+        password = self.monitor.call("get_site_password", clear=True)
+        tn.read_until("Password: ")
+        tn.write(password + "\n")
 
         return tn
     

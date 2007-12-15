@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 10, 01:54:44 by david
+# Last modified: 2007 Dec 15, 21:25:45 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,6 +30,7 @@ import log
 import ipc
 from acl import ACLDB, ProxyNamespace
 from backend import Backend
+import cipher
 
 class Monitor(Registry, ipc.IPCInterface):
     _class_id = "Monitor"
@@ -131,6 +132,9 @@ class Monitor(Registry, ipc.IPCInterface):
         if tag not in self.namespaces[_chan][namespace]:
             return default
         return self.namespaces[_chan][namespace][tag]
+
+    def func_get_site_password(self, _chan, clear=False):
+        return cipher.decipher(self.namespaces[_chan]["site"]["password"])
 
     def func_public_methods(self, _chan, *args, **kw): # public_methods
         methods = []
