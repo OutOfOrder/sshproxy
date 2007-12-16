@@ -2,7 +2,7 @@
 .\" Process this file with
 .\" groff -man -Tascii sshproxy.ini.5
 .\"
-.TH SSHPROXY.INI 5 "OCTOBER 2006" Linux "User Manuals"
+.TH SSHPROXY.INI 5 "DECEMBER 2007" Linux "User Manuals"
 
 .SH NAME
 sshproxy.ini \- sshproxy configuration file
@@ -102,9 +102,9 @@ The secret passphrase for the blowfish cipher engine. It \fBMUST\fR be at least
 10 characters long.
 .RE
 
-.SH "SECTIONS [client_db.file] [acl_db.file] [site_db.file]"
+.SH "SECTIONS [client_db.ini] [acl_db.ini] [site_db.ini]"
 
-These sections configure the three databases of the \fIfile_db\fR backend.
+These sections configure the three databases of the \fIini_db\fR backend.
 
 .B file \fR(applies to client_db, acl_db)
 .RS
@@ -151,7 +151,7 @@ it.
 .SH EXAMPLES
 
 Here is a complete configuration file which tells \fIsshproxyd\fR(8) to use the
-\fIfile_db\fR plugin for the ACL database, and the \fImysql_db\fR plugin for
+\fIini_db\fR plugin for the ACL database, and the \fImysql_db\fR plugin for
 client and site databases:
 
 .RS
@@ -167,15 +167,15 @@ log_dir = @log
 pkey_id = sshproxy@penguin.fr
 auto_add_key = no
 client_db = mysql_db
-acl_db = file_db
+acl_db = ini_db
 site_db = mysql_db
-plugin_list = file_db mysql_db
+plugin_list = ini_db mysql_db
 cipher_type = blowfish
 
 [blowfish]
 secret = This should be a valid passphrase
 
-[acl_db.file]
+[acl_db.ini]
 file = @acl.db
 
 [client_db.mysql]
@@ -213,9 +213,9 @@ David Guerizec <david@guerizec.net>
 .BR pssh (1),
 .BR pscp (1),
 
-The sshproxy home page: <\fIhttp://penguin.fr/sshproxy/\fR>
+The sshproxy home page: <\fIhttp://sshproxy-project.org/\fR>
 
 The sshproxy online documentation:
 .RS
-<\fIhttp://penguin.fr/sshproxy/wiki/SshProxy/DocV0.5\fR>
+<\fIhttp://sshproxy-project.org/documentation/\fR>
 
