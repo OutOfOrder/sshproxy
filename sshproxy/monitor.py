@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 15, 21:25:45 by david
+# Last modified: 2007 Dec 19, 01:25:25 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -41,7 +41,7 @@ class Monitor(Registry, ipc.IPCInterface):
         self.fds = {}
         self.imq = input_message_queue
         self.ipc = ipc.IPCServer(get_config('sshproxy').get('ipc_address',
-                                    ('127.0.0.1', 2244)), handler=self)
+                                    'sshproxy-control'), handler=self)
         self.imq[self.ipc] = self
         self.chans = []
         self.namespaces = {}

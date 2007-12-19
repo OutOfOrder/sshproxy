@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 09, 21:41:09 by david
+# Last modified: 2007 Dec 19, 01:24:41 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -51,7 +51,7 @@ class Server(Registry, paramiko.ServerInterface):
         self.client = client
         self.client_addr = addr
         ipc_address = get_config('sshproxy').get('ipc_address',
-                                                ('127.0.0.1', 2244))
+                                                'sshproxy-control')
         handler = IPCClientInterface(self)
         self.monitor = ipc.IPCClient(ipc_address, handler=handler)
         self.host_key = paramiko.DSSKey(filename=host_key_file)
