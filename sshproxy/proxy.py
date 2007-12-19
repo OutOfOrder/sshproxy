@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 09, 21:19:00 by david
+# Last modified: 2007 Dec 18, 19:48:32 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -34,14 +34,6 @@ import ipc
 
 POLLREAD = POLLIN | POLLPRI | POLLHUP | POLLERR | POLLNVAL
 #unused: POLLWRITE = POLLOUT | POLLHUP | POLLERR | POLLNVAL
-
-class IPCClientInterface(ipc.IPCClient):
-    def __init__(self, proxy):
-        self.proxy = proxy
-
-    def __call__(self):
-        # simulate an instanciation
-        return self
 
 
 class Proxy(Registry):
