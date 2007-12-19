@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 19, 01:24:41 by david
+# Last modified: 2007 Dec 19, 22:45:05 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -53,7 +53,11 @@ class Server(Registry, paramiko.ServerInterface):
         ipc_address = get_config('sshproxy').get('ipc_address',
                                                 'sshproxy-control')
         handler = IPCClientInterface(self)
-        self.monitor = ipc.IPCClient(ipc_address, handler=handler)
+        try:
+            self.monitor = ipc.IPCClient(ipc_address, handler=handler)
+        except:
+            log.exception("Couldn't create IPC channel to monitor")
+            raise
         self.host_key = paramiko.DSSKey(filename=host_key_file)
         #self.ip_addr, self.port = client.getsockname()
         self.event = threading.Event()

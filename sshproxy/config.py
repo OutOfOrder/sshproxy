@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 19, 01:24:55 by david
+# Last modified: 2007 Dec 19, 22:09:32 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -256,6 +256,7 @@ class SSHproxyConfigSection(ConfigSection):
         'site_db': 'ini_db', # ini_db or mysql_db
         'pkey_id': 'sshproxy@penguin.fr', # public key id for generated keys
         'ipc_address': 'sshproxy-control', # IPC address
+        'hostkey_file': '@id_dsa', # hostkey file for SSH server
         }
     types = {
         'port': int,
@@ -263,6 +264,7 @@ class SSHproxyConfigSection(ConfigSection):
         'log_dir': path,
         'plugin_dir': path,
         'logger_conf': path,
+        'hostkey_file': path,
         }
 
 SSHproxyConfigSection.register()

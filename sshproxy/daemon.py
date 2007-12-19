@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 09, 01:48:31 by david
+# Last modified: 2007 Dec 19, 23:27:50 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -26,7 +26,7 @@ import sys, os, os.path, socket, signal, select, time
 from registry import Registry
 from plugins import init_plugins
 import util
-import config
+from config import get_config
 from server import Server
 import ipc, log
 from monitor import Monitor
@@ -58,7 +58,8 @@ class Daemon(Registry):
     
     def _run_server(self, daemon, sock):
         # get host key
-        self.host_key_file = os.path.join(config.inipath, 'id_dsa')
+        self.host_key_file = os.path.join(
+                                get_config('sshproxy').get('hostkey_file'))
 
         # set up the child killer handler
         signal.signal(signal.SIGCHLD, self.monitor.kill_zombies)
@@ -168,7 +169,7 @@ Daemon.register()
                 
 
 def bind_server(daemon):
-    conf = config.get_config('sshproxy')
+    conf = get_config('sshproxy')
     # preserve compatibility with 0.4.* (bindip)
     ip = conf['listen_on'] or conf.get('bindip', '')
     port = conf['port']
@@ -222,7 +223,7 @@ def run_daemon(daemonize, user, pidfile): # Credits: portions of code from TMDA
     gid = util.getgid(user)
 
     # Generate host key if not present already
-    host_key_file = os.path.join(config.inipath, 'id_dsa')
+    host_key_file = os.path.join(get_config('sshproxy').get('hostkey_file'))
     if not os.path.isfile(host_key_file):
         # generate host key
         dsskey = util.gen_dss_key(verbose=True)

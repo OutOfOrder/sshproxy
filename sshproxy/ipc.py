@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 19, 00:40:33 by david
+# Last modified: 2007 Dec 19, 23:33:35 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -471,6 +471,10 @@ class IPCServer(IPCBase):
     def __reginit__(self, address, handler=None):
         IPCBase.__reginit__(self, address, handler)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        address = self.sock_addr
+        if address[0] == '/' and os.path.exists(address):
+            log.warning("Removing stale socket %s" % address)
+            os.unlink(address)
         self.sock.bind(self.sock_addr)
         self.sock.listen(10)
 
