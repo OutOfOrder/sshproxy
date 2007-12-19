@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 05, 22:42:07 by david
+# Last modified: 2007 Dec 19, 01:18:53 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -255,6 +255,7 @@ class SSHproxyConfigSection(ConfigSection):
         'acl_db': 'ini_db', # ini_db or mysql_db
         'site_db': 'ini_db', # ini_db or mysql_db
         'pkey_id': 'sshproxy@penguin.fr', # public key id for generated keys
+        'ipc_address': '127.0.0.1:2244', # IPC address
         }
     types = {
         'port': int,

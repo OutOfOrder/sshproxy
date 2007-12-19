@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 01, 01:47:02 by david
+# Last modified: 2007 Dec 19, 00:40:33 by david
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -30,6 +30,7 @@ import time, select, socket
 from struct import pack, unpack
 
 import paramiko
+from registry import Registry
 import log
 
 MSG_LOG = 1
@@ -314,7 +315,10 @@ class IPCChannel(threading.Thread):
 
         self.interface.disconnect(self)
         if self.channel:
-            self.channel.close()
+            try:
+                self.channel.close()
+            except OSError:
+                pass
         self.channel = None
         self.event.set()
 
@@ -345,6 +349,22 @@ def parse_address(address):
             raise TypeError, "%s is not a valid address" % address
         stype = socket.AF_INET
     elif isinstance(address, str):
+        while ':' in address:
+            host, port = address.split(':', 1)
+            try:
+                port = int(port)
+                if not 0 < port < 65536:
+                    break
+                # check if it is an IP address
+                ip = host.split('.')
+                ip = [ int(part) for part in ip ]
+                ip = [ part for part in ip if 0 <= part < 256 ]
+                if len(ip) != 4:
+                    break
+            except:
+                break
+            return ((host, port), socket.AF_INET)
+
         stype = socket.AF_UNIX
         if address[0] == '/':
             if not os.path.exists(address):
@@ -372,8 +392,8 @@ class LevelLogger(object):
                 self.ipc.log(self.level, s)
         return log
 
-class IPCBase(object):
-    def __init__(self, address, handler=None):
+class IPCBase(Registry):
+    def __reginit__(self, address, handler=None):
         address, stype = parse_address(address)
         self.sock = socket.socket(stype, socket.SOCK_STREAM)
         self.sock_addr = address
@@ -447,15 +467,20 @@ class IPCInterface(object):
         pass
 
 class IPCServer(IPCBase):
-    def __init__(self, address, handler=None):
-        IPCBase.__init__(self, address, handler)
+    _class_id = "IPCServer"
+    def __reginit__(self, address, handler=None):
+        IPCBase.__reginit__(self, address, handler)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind(self.sock_addr)
         self.sock.listen(10)
 
-    def accept(self):
+    def _sock_accept(self):
         sock, address = self.sock.accept()
         log.info("IPC: Accepting new client %s", address)
+        return sock, address
+
+    def accept(self):
+        sock, address = self._sock_accept()
         chan = IPCChannel(sock, interface=self.handler)
         chan.kind = 'server'
         chan.setName('S'+str(address))
@@ -463,10 +488,12 @@ class IPCServer(IPCBase):
         chan.start()
         return chan
 
+IPCServer.register()
 
 class IPCClient(IPCBase):
-    def __init__(self, address, handler=None):
-        IPCBase.__init__(self, address, handler)
+    _class_id = "IPCClient"
+    def __reginit__(self, address, handler=None):
+        IPCBase.__reginit__(self, address, handler)
         self.sock = self.connect()
         self.chan = IPCChannel(self.sock, interface=self.handler,
                                             reconnect=self.connect)
@@ -475,11 +502,17 @@ class IPCClient(IPCBase):
         self.threads.append(self.chan)
         self.chan.start()
 
+    def _sock_connect(self, sock, sock_addr):
+        sock.connect(sock_addr)
+        log.info("IPC: Connecting to server %s", sock_addr)
+        return sock
+
     def connect(self):
         sock = socket.socket(self.sock_type, socket.SOCK_STREAM)
-        sock.connect(self.sock_addr)
+        sock = self._sock_connect(sock, self.sock_addr)
         return sock
         
+IPCClient.register()
 
 
 
