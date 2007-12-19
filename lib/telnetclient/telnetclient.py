@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 15, 21:26:49 by david
+# Last modified: 2007 Dec 19, 18:20:03 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -90,11 +90,38 @@ class TelnetEnabledServer(Server):
         tn.sock.sendall(tl.IAC + tl.WILL + tl.NAWS)
         tn.sock.sendall(tl.IAC + tl.WILL + tl.TTYPE)
         
-        tn.read_until("login: ")
+        timeout = 2
+        time = 0
+        total_timeout = 30
+        while True:
+            prompt = tn.expect(["(?i)SW:? ?",
+                                "(?i)Login:? ?",
+                                "(?i)Username:? ?"], timeout)
+
+            if prompt[0] == -1 and prompt[2] == "":
+                tn.write("\n")
+                time += timeout
+                if time >= total_timeout:
+                    raise ValueError("ERROR: Couldn't connect. Timeout reached")
+                timeout = 10
+                continue
+
+            if prompt[0] < 1:
+                tn.write("\031")
+                timeout = 10
+                time += timeout
+                continue
+
+            break
+
         tn.write(user + "\n")
 
         password = self.monitor.call("get_site_password", clear=True)
-        tn.read_until("Password: ")
+
+        prompt = tn.expect(["(?i)Password:? ?"], 10)
+        if prompt[0] == -1 and prompt[2] == "":
+            raise ValueError("ERROR: Couldn't connect. Timeout reached")
+
         tn.write(password + "\n")
 
         return tn
