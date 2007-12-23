@@ -1,14 +1,12 @@
-# Copyright 1999-2006 Gentoo Foundation
+# Copyright 1999-2007 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 # $Header: $
 
-inherit distutils git
+inherit distutils
 
 DESCRIPTION="sshproxy is an ssh gateway to apply ACLs on ssh connections"
 HOMEPAGE="http://sshproxy-project.org/"
 SRC_URI="http://sshproxy-project.org/download/${P}.tar.gz"
-unset SRC_URI
-EGIT_REPO_URI="http://penguin.fr/git/sshproxy.git"
 
 LICENSE="GPL-2"
 SLOT="0"
@@ -22,8 +20,7 @@ IUSE="client-only mysql minimal"
 DEPEND="!client-only? (
 			>=dev-python/paramiko-1.6.2
 			mysql? ( >=dev-python/mysql-python-1.2.0 )
-		)
-		!net-proxy/sshproxy"
+		)"
 RDEPEND="${DEPEND}
 		net-misc/openssh"
 
@@ -72,6 +69,15 @@ src_install () {
 		newinitd "${FILESDIR}/sshproxyd.initd" sshproxyd
 		newconfd "${FILESDIR}/sshproxyd.confd" sshproxyd
 
+		# install manpages
+		doman doc/pscp.1
+		doman doc/pssh.1
+		if ! use client-only; then
+			doman doc/sshproxy.ini.5
+			doman doc/sshproxy-setup.8
+			doman doc/sshproxyd.8
+		fi
+
 		if use mysql; then
 			insinto /usr/share/sshproxy/mysql_db
 			doins misc/mysql_db.sql
@@ -85,14 +91,13 @@ src_install () {
 }
 
 pkg_postinst () {
-	if use client-only; then
-		echo
-		einfo "Don't forget to set the following environment variables"
-		einfo "   SSHPROXY_HOST (default to localhost)"
-		einfo "   SSHPROXY_PORT (default to 2242)"
-		einfo "   SSHPROXY_USER (default to \$USER)"
-		einfo "for each sshproxy user."
-	else
+	echo
+	einfo "Don't forget to set the following environment variables"
+	einfo "   SSHPROXY_HOST (default to localhost)"
+	einfo "   SSHPROXY_PORT (default to 2242)"
+	einfo "   SSHPROXY_USER (default to \$USER)"
+	einfo "for each sshproxy user."
+	if ! use client-only; then
 		pkg_setup #for creating the user when installed from binary package
 
 		distutils_pkg_postinst
