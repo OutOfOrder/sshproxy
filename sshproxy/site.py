@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: ISO-8859-15 -*-
 #
-# Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
+# Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 09, 04:06:16 by david
+# Last modified: 2007 Dec 23, 19:34:24 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -103,6 +103,8 @@ class SiteDB(Registry):
 
     def authorize(self, user_site, client, need_login=False):
         if not isinstance(user_site, SiteInfo):
+            if not self.exists(user_site):
+                return False
             user, site = self.split_user_site(user_site)
             siteinfo = SiteInfo(user, site)
         else:
