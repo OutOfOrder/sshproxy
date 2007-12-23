@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: ISO-8859-15 -*-
 #
-# Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
+# Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 # Copyright (C) 2007 Wallix: Michal Mazurek <michal.mazurek@wallix.com>
 #
 # Last modified: 2007 Oct 14, 04:55:00 by david

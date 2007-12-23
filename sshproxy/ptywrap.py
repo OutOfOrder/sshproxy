@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: ISO-8859-15 -*-
 #
-# Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
+# Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
 # Last modified: 2007 Nov 09, 18:32:19 by david
 #
