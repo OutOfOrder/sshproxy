@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 19, 22:45:05 by david
+# Last modified: 2007 Dec 21, 19:55:15 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -558,7 +558,6 @@ class Server(Registry, paramiko.ServerInterface):
 
 
     def do_shell_session(self):
-        log.devdebug(str(self.__class__))
         site = self.args.pop(0)
         if not self.authorize(site, need_login=True):
             self.chan.send(chanfmt(_(u"ERROR: %s does not exist in "

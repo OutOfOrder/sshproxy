@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2006 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 19, 18:20:03 by david
+# Last modified: 2007 Dec 23, 19:22:18 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -28,6 +28,17 @@ from sshproxy.server import Server
 from sshproxy import log
 from sshproxy.util import chanfmt
 
+# set suboptions
+#telnetlib.SEND = chr(1)
+#
+#tnd = {}
+#for v in dir(telnetlib):
+#    try:
+#        tnd[getattr(telnetlib, v)] = v
+#    except TypeError:
+#        pass
+
+
 Server = get_class('Server')
 
 class TelnetEnabledServer(Server):
@@ -40,7 +51,6 @@ class TelnetEnabledServer(Server):
             return False
 
         kind = self.get_ns_tag('site', 'kind', '')
-        log.devdebug('KIND = %s' % kind)
         if not kind == 'telnet':
             return Server.do_shell_session(self)
         else:
@@ -81,7 +91,7 @@ class TelnetEnabledServer(Server):
         port = self.get_ns_tag("site", "port")
         user = self.get_ns_tag("site", "login")
 
-        tn = tl.Telnet()
+        self.tn = tn = tl.Telnet()
 
         tn.set_option_negotiation_callback(self.parse_telnet_options)
 
@@ -89,7 +99,7 @@ class TelnetEnabledServer(Server):
 
         tn.sock.sendall(tl.IAC + tl.WILL + tl.NAWS)
         tn.sock.sendall(tl.IAC + tl.WILL + tl.TTYPE)
-        
+
         timeout = 2
         time = 0
         total_timeout = 30
@@ -98,8 +108,8 @@ class TelnetEnabledServer(Server):
                                 "(?i)Login:? ?",
                                 "(?i)Username:? ?"], timeout)
 
-            if prompt[0] == -1 and prompt[2] == "":
-                tn.write("\n")
+            if prompt[0] == -1 and prompt[2].strip() == "":
+                tn.write("\r\n")
                 time += timeout
                 if time >= total_timeout:
                     raise ValueError("ERROR: Couldn't connect. Timeout reached")
@@ -114,7 +124,7 @@ class TelnetEnabledServer(Server):
 
             break
 
-        tn.write(user + "\n")
+        tn.write(user + "\r\n")
 
         password = self.monitor.call("get_site_password", clear=True)
 
@@ -122,12 +132,16 @@ class TelnetEnabledServer(Server):
         if prompt[0] == -1 and prompt[2] == "":
             raise ValueError("ERROR: Couldn't connect. Timeout reached")
 
-        tn.write(password + "\n")
+        tn.write(password + "\r\n")
 
         return tn
     
     def parse_telnet_options(self, sock, command, option):
         tl = telnetlib
+        #log.devdebug("OPTION received: %s %s" % (tnd[command], tnd[option]))
+        #sbq = self.tn.read_sb_data()
+        #if len(sbq):
+        #    log.devdebug("SB: %s" % ' '.join([ tnd[o] for o in sbq ]))
         if command == tl.DO and option == tl.NAWS:
             sock.sendall(tl.IAC + tl.SB +
                         tl.NAWS +
@@ -166,7 +180,7 @@ class TelnetProxy(Registry):
             r, w, e = select.select([self.chan, self.tn], [], [], 0.1)
             if len(r):
                 if self.chan in r:
-                    data = self.chan.recv(1)
+                    data = self.chan.recv(1).replace('\r', '\r\n')
                     if data == '':
                         break
                     self.tn.write(data)
