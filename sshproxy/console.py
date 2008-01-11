@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Nov 10, 22:29:54 by david
+# Last modified: 2008 Jan 11, 17:15:23 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -135,7 +135,7 @@ class Console(Registry, cmd.Cmd):
         import getpass
         _ri = getpass._raw_input
 
-        def _raw_input(prompt=""):
+        def _raw_input(prompt="", stream=None):
             import sys, termios
             import log
 
