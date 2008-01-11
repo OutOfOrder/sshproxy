@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 09, 01:33:10 by david
+# Last modified: 2008 Jan 11, 16:54:49 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -272,7 +272,7 @@ def recipher(cipher_type, password_fd, dry_run=False):
                     site.save()
                 nb_passwords += 1
 
-        pkey = site.get_token('pkey')
+        pkey = site.get_token('privkey', site.get_token('pkey'))
         if pkey:
             # decipher with old secret
             oldpkey = decipher(pkey)
@@ -297,7 +297,7 @@ def recipher(cipher_type, password_fd, dry_run=False):
             # if the pkey changed, update it if not in dry-run mode
             if pkey != newpkey:
                 if not dry_run:
-                    site.set_tokens(pkey=newpkey)
+                    site.set_tokens(privkey=newpkey, pkey=None)
                     site.save()
                 nb_pkeys += 1
 
