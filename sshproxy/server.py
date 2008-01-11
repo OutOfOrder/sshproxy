@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-# -*- coding: ISO-8859-15 -*-
+# -*- coding: UTF-8 -*-
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 21, 19:55:15 by david
+# Last modified: 2008 Jan 11, 15:17:35 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -675,14 +675,15 @@ class Server(Registry, paramiko.ServerInterface):
             log.info('Server host key verified (%s) for %s' % (key.get_name(), 
                                                                     name))
 
-        pubkey = cipher.decipher(tags['site'].get('pkey', ''))
+        privkey = cipher.decipher(tags['site'].get('privkey', 
+                                 tags['site'].get('pkey', '')))
         password = cipher.decipher(tags['site'].get('password', ''))
 
         authentified = False
-        if pubkey:
-            pubkey = util.get_dss_key_from_string(pubkey)
+        if privkey:
+            privkey = util.get_dss_key_from_string(privkey)
             try:
-                transport.auth_publickey(tags['site']['login'], pubkey)
+                transport.auth_publickey(tags['site']['login'], privkey)
                 authentified = True
             except AuthenticationException:
                 log.warning('PKey for %s was not accepted' % name)
@@ -709,5 +710,4 @@ class Server(Registry, paramiko.ServerInterface):
 
 
 Server.register()
-
 
