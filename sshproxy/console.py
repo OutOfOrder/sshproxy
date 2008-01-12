@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-# -*- coding: ISO-8859-15 -*-
+# -*- coding: UTF-8 -*-
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2008 Jan 11, 17:15:23 by david
+# Last modified: 2008 Jan 12, 14:58:36 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,17 +23,19 @@
 import cmd, os, socket
 
 from sshproxy.registry import Registry
+from sshproxy.util import utf8
 
 def rwinput(prompt):
     while 1:
         try:
-            return raw_input(prompt)
+            return utf8(raw_input(prompt))
         except KeyboardInterrupt:
             print
             continue
         break
 
 # patch cmd.raw_input to be able to do CTRL-C without exiting
+# and convert everything to utf8
 cmd.raw_input = rwinput
 
 
@@ -100,7 +102,7 @@ class Console(Registry, cmd.Cmd):
                 pass2 = getpass(prompt2)
             except EOFError:
                 print
-        return item, pass1
+        return item, utf8(pass1)
 
     def do_set_client_password(self, line):
         try:
@@ -112,7 +114,7 @@ class Console(Registry, cmd.Cmd):
             return
 
         response = self.ipc.call("set_client_password", "%s password=%s" %
-                                                (client, repr(password)))
+                                                (client, password))
         print response
 
     def do_set_site_password(self, line):
@@ -125,7 +127,7 @@ class Console(Registry, cmd.Cmd):
             return
 
         response = self.ipc.call("set_site_password", "%s password=%s" %
-                                                (site, repr(password)))
+                                                (site, password))
         print response
 
     def do_set_site_privkey(self, line):

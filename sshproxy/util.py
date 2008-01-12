@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 05, 22:27:04 by david
+# Last modified: 2008 Jan 12, 14:55:11 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -396,5 +396,20 @@ def get_public_key(pubkey):
     pubkey_id = cfg.get('pkey_id', 'sshproxy@penguin.fr')
 
     return (pubkey.get_name(), pubkey.get_base64(), pubkey_id)
+
+
+def utf8(s):
+    return convert(s, 'utf8')
+
+def convert(s, encoding):
+    encodings = ('utf8', 'iso8859')
+    for enc in encodings:
+        try:
+            return s.decode(enc).encode(encoding)
+        except UnicodeDecodeError, msg:
+            pass
+        except UnicodeEncodeError, msg:
+            pass
+    raise UnicodeEncodeError("Unknown encoding")
 
 

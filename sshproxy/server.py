@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2008 Jan 11, 15:17:35 by david
+# Last modified: 2008 Jan 12, 14:56:30 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -28,7 +28,7 @@ from registry import Registry
 import cipher, util, log, proxy
 import ipc
 from options import OptionParser
-from util import chanfmt, SSHProxyError
+from util import chanfmt, convert, SSHProxyError
 from config import get_config
 from dispatcher import Dispatcher
 
@@ -678,6 +678,8 @@ class Server(Registry, paramiko.ServerInterface):
         privkey = cipher.decipher(tags['site'].get('privkey', 
                                  tags['site'].get('pkey', '')))
         password = cipher.decipher(tags['site'].get('password', ''))
+        password_encoding = tags['site'].get('password_encoding', 'utf8')
+        password = convert(password, password_encoding)
 
         authentified = False
         if privkey:
