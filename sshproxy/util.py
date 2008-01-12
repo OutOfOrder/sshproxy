@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2008 Jan 12, 14:55:11 by david
+# Last modified: 2008 Jan 12, 19:06:37 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -140,7 +140,6 @@ class CommandLine(object):
             args = self.args
         return ' '.join(args)
 
-SUSPEND, SWITCH, CLOSE = range(-4, -1)
 
 
 def getgid(username): # Credits: TMDA
@@ -358,44 +357,20 @@ def _get_dss_key_from_string(dsskeystr=None, password=None):
     return self
 
 
-def get_site_privkey(site):
-    from sshproxy.backend import Backend
-    from sshproxy.cipher import decipher
-
-
-    pwdb = Backend()
-    try:
-        site = pwdb.get_site(site)
-        rlogin = site.get_tags().get('login', None)
-    except SSHProxyAuthError:
-        rlogin, site = None, None
-
-    if not rlogin or not site:
-        # site or rlogin do not exist
-        return None
-
-    spkey = decipher(site.get_tags().get('privkey'))
-    if spkey and len(spkey):
-        return get_public_key(spkey)
-    else:
-        # no key found
-        return ()
-
-
-def get_public_key(pubkey):
+def get_public_key(pkey):
     # accept a string or a PKey object
     from sshproxy.config import get_config
 
-    if isinstance(pubkey, str):
-        if len(pubkey):
-            pubkey = get_dss_key_from_string(pubkey)
+    if isinstance(pkey, str):
+        if len(pkey):
+            pkey = get_dss_key_from_string(pkey)
         else:
             return None
 
     cfg = get_config('sshproxy')
-    pubkey_id = cfg.get('pkey_id', 'sshproxy@penguin.fr')
+    pkey_id = cfg.get('pkey_id', 'sshproxy@sshproxy-project.org')
 
-    return (pubkey.get_name(), pubkey.get_base64(), pubkey_id)
+    return (pkey.get_name(), pkey.get_base64(), pkey_id)
 
 
 def utf8(s):
