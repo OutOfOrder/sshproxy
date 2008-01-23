@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2008 Jan 12, 14:56:30 by david
+# Last modified: 2008 Jan 22, 14:19:03 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -233,6 +233,10 @@ class Server(Registry, paramiko.ServerInterface):
                                         " has been added to the keyring\n")
 
         return True
+
+    #we can put here some logging for connection failures
+    def report_failure(self, reason, *args, **kwargs):
+        log.error("Failure: %s %s" % (reason, args[0]))
 
     def message_client(self, msg):
         self.queue_message(msg)
@@ -524,6 +528,7 @@ class Server(Registry, paramiko.ServerInterface):
             self.chan.send("\r\n ERROR: %s." % msg +
                       "\r\n Please report this error "
                       "to your administrator.\r\n\r\n")
+            self.report_failure("site_authentication_error", msg)
             return False
         return True
 
@@ -551,6 +556,7 @@ class Server(Registry, paramiko.ServerInterface):
             self.chan.send(_(u"\r\n ERROR: %s.") % msg +
                       _(u"\r\n Please report this error "
                       "to your administrator.\r\n\r\n"))
+            self.report_failure("site_authentication_error", msg)
             return False
         conn = None
         log.info("Exiting %s", site)
@@ -580,6 +586,7 @@ class Server(Registry, paramiko.ServerInterface):
             self.chan.send(_(u"\r\n ERROR: %s.") % msg +
                            _(u"\r\n Please report this error "
                            "to your administrator.\r\n\r\n"))
+            self.report_failure("site_authentication_error", msg)
             return False
 
         except KeyboardInterrupt:
@@ -590,7 +597,7 @@ class Server(Registry, paramiko.ServerInterface):
                            "to your administrator.\r\n"
                            "Exception class: <%s>\r\n\r\n")
                                     % e.__class__.__name__)
-            
+            self.report_failure("bug", str(e))
             raise
         
         # if the direct connection closed, then exit cleanly
@@ -706,9 +713,6 @@ class Server(Registry, paramiko.ServerInterface):
         chan.settimeout(1.0)
 
         return chan
-
-
-
 
 
 Server.register()
