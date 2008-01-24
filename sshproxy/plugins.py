@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 09, 16:04:46 by david
+# Last modified: 2008 Jan 24, 23:15:15 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,6 +24,7 @@ import os, sys
 
 import log
 import config
+import util
 from plugin import Plugin
 
 #plugindir = os.path.join(os.path.dirname(sys.modules[__name__].__file__), 'lib')
@@ -41,7 +42,7 @@ else:
     disabled = []
 
 enabled_plugins = conf['plugin_list'].split()
-loaded_plugins = {}
+available_plugins = {}
 
 for name in os.listdir(plugindir):
     if os.path.exists(os.path.join(plugindir, name, '__init__.py')):
@@ -53,18 +54,21 @@ for name in os.listdir(plugindir):
                 continue
             plugin = Plugin(name, module, name in enabled_plugins)
             plugin_list.append(plugin)
-            loaded_plugins[name] = plugin
+            available_plugins[name] = plugin
             log.info("Loaded plugin %s" % name)
 
 plugin_list.sort(lambda x, y: cmp(x.plugin_name.lower(), y.plugin_name.lower()))
 
+loaded_plugins = util.OrderedDict()
+
 def init_plugins():
   try:
     for plugin in enabled_plugins:
-        if plugin in loaded_plugins.keys():
+        if plugin in available_plugins.keys():
             try:
-                loaded_plugins[plugin].init()
-                log.info('Initialized plugin %s' % loaded_plugins[plugin].name)
+                available_plugins[plugin].init()
+                log.info('Initialized plugin %s' % available_plugins[plugin].name)
+                loaded_plugins[plugin] = available_plugins[plugin]
             except Exception, msg:
                 log.exception('init_plugins: plugin %s failed to load (%s)'
                                                         % (plugin, msg))
