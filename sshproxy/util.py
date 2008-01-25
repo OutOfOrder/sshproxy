@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2008 Jan 12, 19:06:37 by david
+# Last modified: 2008 Jan 25, 00:46:11 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -102,6 +102,8 @@ class SSHProxyPluginError(SSHProxyError):
         Exception.__init__(self, "Plugin error: "+msg)
 
 def istrue(s):
+    if not s:
+        return False
     istrue = False
     if s.lower().strip() in ('yes', 'true', 'on', '1'):
         istrue = True
