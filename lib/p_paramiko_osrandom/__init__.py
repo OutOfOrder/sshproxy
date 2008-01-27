@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2008 Jan 14, 22:14:38 by david
+# Last modified: 2008 Jan 27, 21:21:53 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -30,10 +30,7 @@ def __patch_it__():
     import paramiko.common
     from sshproxy import log
 
-    if 'Crypto.Util.randpool.' not in repr(paramiko.common.randpool):
-        log.info("Patch to paramiko random generator unneeded")
-        log.info("You can safely remove the p_paramiko_osrandom plugin")
-        log.info(repr(dir(paramiko.common.randpool)))
+    if paramiko.__version_info__ >= (1, 7, 2):
         return
 
     import p_paramiko_osrandom
