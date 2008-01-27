@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2008 Jan 25, 01:08:28 by david
+# Last modified: 2008 Jan 28, 00:41:52 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,7 +23,7 @@
 import os, os.path, time, struct
 import datetime
 
-from sshproxy import get_class
+from sshproxy import get_class, __version__
 from sshproxy.config import get_config, ConfigSection, path
 from sshproxy.util import istrue
 from sshproxy.proxy import ProxyShell
@@ -53,9 +53,12 @@ class TTYrplLogger(object):
     EVT_ID_TIME = 0xF2
     EVT_ID_USER = 0xF3
 
+
     def __init__(self, filename):
         self.filename = filename
         self.log = open(self.filename, 'a')
+        self.log_it(self.EVT_MAGIC,   "RPL2_50")
+        self.log_it(self.EVT_ID_PROG, "sshproxy v%s" % __version__)
         self.log_it(self.EVT_ID_TIME, time.ctime())
 
     def open(self, filename):
@@ -69,6 +72,9 @@ class TTYrplLogger(object):
 
     def lclose(self):
         self.log_it(self.EVT_LCLOSE)
+
+    def log_user(self, user):
+        self.log_it(self.EVT_ID_USER, user)
 
     def log_it(self, event, data=None):
         if not data:
@@ -164,6 +170,7 @@ class TTYrplProxyShell(ProxyShell):
         date = datetime.datetime.now().isoformat()
         logfile = os.path.join(path, date)
         self.log = TTYrplLogger(logfile)
+        self.log.log_user("%s->%s" % (user, site))
 
     def client_recv_data(self, source, name):
         data = ProxyShell.recv_data(self, source, name)
