@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 23, 19:40:44 by david
+# Last modified: 2008 Jan 27, 23:02:16 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,8 +22,8 @@
 
 __author__ = "David Guerizec"
 __author_email__ = "david@guerizec.net"
-__date__ = "2007-12-09"
-__version_info__ = (0, 6, 0, "beta1")
+__date__ = "2008-01-27"
+__version_info__ = (0, 6, 0, "beta2")
 __version__ = '-'.join(['.'.join([ str(v) for v in __version_info__[:3]])]
                         + list(__version_info__[3:]))
 __license__ = "GNU General Public License (GPL) v2"
