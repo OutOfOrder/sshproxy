@@ -99,7 +99,6 @@ pkg_postinst () {
 	einfo "   SSHPROXY_USER (default to \$USER)"
 	einfo "for each sshproxy user."
 	if ! use client-only; then
-		pkg_setup #for creating the user when installed from binary package
 
 		distutils_pkg_postinst
 
