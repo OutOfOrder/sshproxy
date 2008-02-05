@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2008 Jan 11, 17:09:14 by david
+# Last modified: 2008 Feb 05, 18:36:50 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -563,7 +563,7 @@ class Dispatcher(Registry, ipc.IPCInterface):
         if 'privkey' not in kw:
             return _(u"Missing privkey in argument list")
 
-        kw['privkey'] = self.cipher_token(kw['privkey']).replace('\\n', '\n')
+        kw['privkey'] = self.cipher_token(kw['privkey'].replace('\\n', '\n'))
         tags = Backend().tag_site(args[0], **kw)
         return _(u"Private key updated")
 

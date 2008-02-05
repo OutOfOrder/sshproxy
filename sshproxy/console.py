@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2008 Jan 12, 14:58:36 by david
+# Last modified: 2008 Feb 06, 00:52:57 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -189,9 +189,10 @@ class Console(Registry, cmd.Cmd):
             print "Aborted."
             return
 
+        privkey = '"%s"' % privkey.replace('\n', r'\\n')
 
         response = self.ipc.call("set_site_privkey", "%s privkey=%s" %
-                                                (site, repr(privkey)))
+                                                (site, privkey))
         print response
 
     def emptyline(self):
