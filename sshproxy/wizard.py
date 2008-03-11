@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2006 Sep 17, 02:28:18 by david
+# Last modified: 2008 Mar 11, 20:54:30 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -289,7 +289,12 @@ def setup(user):
 
     if not os.path.isdir(configdir):
         print 'Creating config dir %s' % configdir
-        os.makedirs(os.path.join(configdir, 'log'))
+        try:
+            os.makedirs(os.path.join(configdir, 'log'))
+        except OSError, msg:
+            print "Error: Could not create directory."
+            print msg
+            sys.exit(1)
 
     config.get_config = config.Config(config.inifile)
     cfg = config.get_config('sshproxy')
