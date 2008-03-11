@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 19, 23:27:50 by david
+# Last modified: 2008 Mar 11, 20:46:43 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -245,11 +245,12 @@ def run_daemon(daemonize, user, pidfile): # Credits: portions of code from TMDA
     sock = bind_server(daemonize)
 
     if daemonize:
-        try:
-            pidfd = open(pidfile, 'w')
-        except IOError:
-            print "Warning: could not open %s for writing" % pidfile
-            pidfd = None
+        pidfd = None
+        if os.getuid() == 0:
+            try:
+                pidfd = open(pidfile, 'w')
+            except IOError:
+                print "Warning: could not open %s for writing" % pidfile
     else:
         pidfd = None
 
