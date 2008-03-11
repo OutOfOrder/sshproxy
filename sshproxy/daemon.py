@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2008 Mar 11, 20:46:43 by david
+# Last modified: 2008 Mar 11, 23:05:22 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -127,8 +127,6 @@ class Daemon(Registry):
                     log.info("Caught KeyboardInterrupt, exiting...")
                     # don't accept connections anymore
                     sock.close()
-                    ### FIX
-                    self.imq.pop(0)
                     log.info("Signaling all child processes")
                     msg = ('General shutdown happening.\n'
                            'Please reconnect later.')
