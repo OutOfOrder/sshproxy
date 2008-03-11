@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2005-2007 David Guerizec <david@guerizec.net>
 #
-# Last modified: 2007 Dec 09, 01:52:53 by david
+# Last modified: 2008 Mar 11, 22:32:12 by david
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -73,23 +73,30 @@ class FileSiteInfo(SiteInfo):
 
 
     def save(self):
-        file = get_config_file(self.name)
-        if not file:
+        cfile = get_config_file(self.name)
+        if not cfile:
             return
 
         if self.login:
-            if not file.has_section(self.login):
-                file.add_section(self.login)
+            if not cfile.has_section(self.login):
+                cfile.add_section(self.login)
             for tag, value in self.l_tokens.items():
-                file.set(self.login, tag, str(value or ''))
+                print "%s='%s'" % (tag, value)
+                if len(value):
+                    cfile.set(self.login, tag, str(value or ''))
+                else:
+                    cfile.remove_option(self.login, tag)
         else:
             for tag, value in self.s_tokens.items():
-                file.set('DEFAULT', tag, str(value or ''))
+                if len(value):
+                    cfile.set('DEFAULT', tag, str(value or ''))
+                elif cfile._mydefaults.has_key(tag):
+                    del cfile._mydefaults[tag]
 
         sitepath = get_config('site_db.ini')['db_path']
         sitefile = os.path.join(sitepath, self.name)
         fd = open(sitefile+'.new', 'w')
-        file.write(fd)
+        cfile.write(fd)
         fd.close()
         os.rename(sitefile+'.new', sitefile)
         
